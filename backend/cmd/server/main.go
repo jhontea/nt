@@ -44,7 +44,8 @@ func main() {
 	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
 	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
-	engMgr := engine.NewManager(tokoClient, db, notifier)
+	wsHub := engine.NewWSHub()
+	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
 	api.POST("/sessions", sessionH.Create)
@@ -54,6 +55,8 @@ func main() {
 	api.POST("/sessions/:id/start", sessionH.Start)
 	api.POST("/sessions/:id/stop", sessionH.Stop)
 	api.GET("/sessions/:id/pnl", sessionH.GetPnL)
+
+	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
 	e.Logger.Fatal(e.Start(":" + cfg.Port))
 }

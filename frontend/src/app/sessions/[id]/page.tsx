@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useSessionWS } from '@/lib/useWS'
 import { useEffect } from 'react'
 
 export default function SessionDetailPage() {
@@ -23,6 +24,12 @@ export default function SessionDetailPage() {
     queryKey: ['pnl', id],
     queryFn: () => api.sessions.getPnL(Number(id)),
     enabled: isAuthenticated,
+  })
+
+  useSessionWS(Number(id), (data) => {
+    if (data.type === 'signal') {
+      qc.invalidateQueries({ queryKey: ['pnl', id] })
+    }
   })
 
   async function handleStart() {

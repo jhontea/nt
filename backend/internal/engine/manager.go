@@ -25,6 +25,7 @@ type Manager struct {
 	paper    *PaperEngine
 	live     *LiveEngine
 	notifier *service.Notifier
+	Hub      *WSHub
 }
 
 type RunningSession struct {
@@ -32,7 +33,7 @@ type RunningSession struct {
 	Cancel  context.CancelFunc
 }
 
-func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier) *Manager {
+func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub) *Manager {
 	return &Manager{
 		sessions: make(map[int64]*RunningSession),
 		client:   client,
@@ -42,6 +43,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		paper:    NewPaperEngine(db, client),
 		live:     NewLiveEngine(client, db),
 		notifier: notifier,
+		Hub:      hub,
 	}
 }
 
@@ -105,6 +107,9 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		m.saveSignals(session.ID, signals)
 		for _, sig := range signals {
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			m.Hub.Broadcast(session.ID, WSSignal{
+				Type: "signal", SessionID: session.ID, Signal: sig,
+			})
 		}
 	case "paper":
 		for _, sig := range signals {
@@ -112,6 +117,9 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				log.Printf("paper execute error: %v", err)
 			}
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			m.Hub.Broadcast(session.ID, WSSignal{
+				Type: "signal", SessionID: session.ID, Signal: sig,
+			})
 		}
 	case "live":
 		for _, sig := range signals {
@@ -119,6 +127,9 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				log.Printf("live execute error: %v", err)
 			}
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			m.Hub.Broadcast(session.ID, WSSignal{
+				Type: "signal", SessionID: session.ID, Signal: sig,
+			})
 		}
 	}
 }
