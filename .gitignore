@@ -1,0 +1,11 @@
+.env
+.env.local
+data/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+node_modules/
+.next/
+frontend/out/
