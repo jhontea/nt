@@ -64,7 +64,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		strconv.Itoa(order.Status), order.ExecutedQty, order.ExecutedPrice,
 	)
 	if err != nil {
-		log.Printf("save live order error: %v", err)
+		return fmt.Errorf("save order: %w", err)
 	}
 
 	log.Printf("LIVE: %s %s %s @ %s (orderId=%d)", signal.Side, session.Symbol, signal.Quantity, price, order.OrderID)

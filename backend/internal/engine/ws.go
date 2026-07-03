@@ -43,9 +43,17 @@ func (h *WSHub) Unregister(sessionID int64, conn *websocket.Conn) {
 func (h *WSHub) Broadcast(sessionID int64, msg any) {
 	data, _ := json.Marshal(msg)
 	h.mu.RLock()
-	defer h.mu.RUnlock()
+	conns := make([]*websocket.Conn, 0, len(h.clients[sessionID]))
 	for conn := range h.clients[sessionID] {
-		conn.WriteMessage(websocket.TextMessage, data)
+		conns = append(conns, conn)
+	}
+	h.mu.RUnlock()
+
+	for _, conn := range conns {
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			conn.Close()
+			h.Unregister(sessionID, conn)
+		}
 	}
 }
 
