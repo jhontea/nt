@@ -32,14 +32,15 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	if err != nil {
 		return fmt.Errorf("fetch ticker: %w", err)
 	}
-	price := ticker.LastPrice
+	marketPrice := ticker.LastPrice
 	qty := signal.Quantity
 
 	switch signal.Side {
 	case "buy":
-		return p.executeBuy(session, price, qty)
+		return p.executeBuy(session, marketPrice, qty)
 	case "sell":
-		return p.executeSell(session, price, qty)
+		// Match buy at the signal's grid level, execute sell at current market price
+		return p.executeSell(session, signal.Price, marketPrice, qty)
 	}
 	return nil
 }
@@ -88,22 +89,22 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	return nil
 }
 
-func (p *PaperEngine) executeSell(session model.Session, price, qty string) error {
+func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, qty string) error {
 	qtyF, _ := strconv.ParseFloat(qty, 64)
 
 	var buyOrder model.Order
 	err := p.db.Get(&buyOrder,
-		`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled'
+		`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled' AND price = ?
 		 ORDER BY id ASC LIMIT 1`,
-		session.ID, session.Symbol,
+		session.ID, session.Symbol, matchPrice,
 	)
 	if err != nil {
-		log.Printf("paper: no open buy to match for sell: %v", err)
+		log.Printf("paper: no open buy at price %s to match for sell: %v", matchPrice, err)
 		return nil
 	}
 
 	buyPrice, _ := strconv.ParseFloat(buyOrder.Price, 64)
-	sellPrice, _ := strconv.ParseFloat(price, 64)
+	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
 
 	pnl := (sellPrice - buyPrice) * qtyF
 	pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
@@ -125,7 +126,7 @@ func (p *PaperEngine) executeSell(session model.Session, price, qty string) erro
 		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
 		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
-		session.Symbol, "sell", price, qty, qty, price,
+		session.Symbol, "sell", execPrice, qty, qty, execPrice,
 	)
 	if err != nil {
 		return fmt.Errorf("save sell order: %w", err)
@@ -134,14 +135,14 @@ func (p *PaperEngine) executeSell(session model.Session, price, qty string) erro
 	_, err = p.db.Exec(
 		`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-		session.ID, buyOrder.OrderID, session.Symbol, "sell", price, qty, pnlStr,
+		session.ID, buyOrder.OrderID, session.Symbol, "sell", execPrice, qty, pnlStr,
 	)
 	if err != nil {
 		return fmt.Errorf("save trade: %w", err)
 	}
 
 	log.Printf("paper: SELL %s %s @ %s PnL=%s (balance: %.8f -> %.8f)",
-		session.Symbol, qty, price, pnlStr, balance-proceeds, balance+proceeds)
+		session.Symbol, qty, execPrice, pnlStr, balance-proceeds, balance+proceeds)
 	return nil
 }
 

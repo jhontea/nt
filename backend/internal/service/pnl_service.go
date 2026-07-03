@@ -32,11 +32,9 @@ func (s *PnLService) GetSessionPnL(sessionID int64) (*PnLSummary, error) {
 		return nil, err
 	}
 
-	var winCount, lossCount int
+	var winCount, lossCount, tradeCount int
 	s.db.Get(&winCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0", sessionID)
 	s.db.Get(&lossCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0", sessionID)
-
-	var tradeCount int
 	s.db.Get(&tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id = ?", sessionID)
 
 	var balance sql.NullFloat64
