@@ -43,7 +43,8 @@ func main() {
 	sessionRepo := repository.NewSessionRepo(db)
 	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
-	engMgr := engine.NewManager(tokoClient, db)
+	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
+	engMgr := engine.NewManager(tokoClient, db, notifier)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
 	api.POST("/sessions", sessionH.Create)

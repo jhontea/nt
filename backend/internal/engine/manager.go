@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 )
 
@@ -22,6 +23,7 @@ type Manager struct {
 	grid     *GridEngine
 	trend    *TrendEngine
 	paper    *PaperEngine
+	notifier *service.Notifier
 }
 
 type RunningSession struct {
@@ -29,7 +31,7 @@ type RunningSession struct {
 	Cancel  context.CancelFunc
 }
 
-func NewManager(client *tokocrypto.Client, db *sqlx.DB) *Manager {
+func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier) *Manager {
 	return &Manager{
 		sessions: make(map[int64]*RunningSession),
 		client:   client,
@@ -37,6 +39,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB) *Manager {
 		grid:     NewGridEngine(),
 		trend:    NewTrendEngine(),
 		paper:    NewPaperEngine(db, client),
+		notifier: notifier,
 	}
 }
 
@@ -98,11 +101,15 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 	switch session.Mode {
 	case "signal":
 		m.saveSignals(session.ID, signals)
+		for _, sig := range signals {
+			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+		}
 	case "paper":
 		for _, sig := range signals {
 			if err := m.paper.Execute(session, sig); err != nil {
 				log.Printf("paper execute error: %v", err)
 			}
+			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
 		}
 	}
 }
