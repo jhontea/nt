@@ -209,9 +209,7 @@ func (m *Manager) evaluateSignal(session model.Session) []Signal {
 
 func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 	for _, sig := range signals {
-		sig.SessionID = sessionID
-		data, _ := json.Marshal(sig)
-		log.Printf("signal: %s", string(data))
+		log.Printf("signal (session=%d): %s %s %s @ %s qty=%s", sessionID, sig.Side, sig.Symbol, sig.Reason, sig.Price, sig.Quantity)
 		_, err := m.db.Exec(
 			`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status)
 			 VALUES (?, ?, ?, ?, 'signal', ?, ?, 'signal')`,

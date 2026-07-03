@@ -90,7 +90,6 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 }
 
 func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, qty string) error {
-	qtyF, _ := strconv.ParseFloat(qty, 64)
 
 	var buyOrder model.Order
 	err := p.db.Get(&buyOrder,
@@ -105,11 +104,19 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 
 	buyPrice, _ := strconv.ParseFloat(buyOrder.Price, 64)
 	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
+	qtyF, _ := strconv.ParseFloat(qty, 64)
+	buyQtyF, _ := strconv.ParseFloat(buyOrder.Quantity, 64)
+	useQty := qty
+	useQtyF := qtyF
+	if buyQtyF != qtyF {
+		useQty = buyOrder.Quantity
+		useQtyF = buyQtyF
+	}
 
-	pnl := (sellPrice - buyPrice) * qtyF
+	pnl := (sellPrice - buyPrice) * useQtyF
 	pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
 
-	proceeds := sellPrice * qtyF
+	proceeds := sellPrice * useQtyF
 	balance, err := p.getBalance(session.ID)
 	if err != nil {
 		return fmt.Errorf("get balance: %w", err)
@@ -126,7 +133,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
 		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
-		session.Symbol, "sell", execPrice, qty, qty, execPrice,
+		session.Symbol, "sell", execPrice, useQty, useQty, execPrice,
 	)
 	if err != nil {
 		return fmt.Errorf("save sell order: %w", err)
@@ -135,14 +142,14 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	_, err = p.db.Exec(
 		`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-		session.ID, buyOrder.OrderID, session.Symbol, "sell", execPrice, qty, pnlStr,
+		session.ID, buyOrder.OrderID, session.Symbol, "sell", execPrice, useQty, pnlStr,
 	)
 	if err != nil {
 		return fmt.Errorf("save trade: %w", err)
 	}
 
 	log.Printf("paper: SELL %s %s @ %s PnL=%s (balance: %.8f -> %.8f)",
-		session.Symbol, qty, execPrice, pnlStr, balance-proceeds, balance+proceeds)
+		session.Symbol, useQty, execPrice, pnlStr, balance, balance+proceeds)
 	return nil
 }
 
