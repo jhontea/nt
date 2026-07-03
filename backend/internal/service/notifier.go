@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -47,7 +48,9 @@ func (n *Notifier) Send(text string) error {
 }
 
 func (n *Notifier) SendSignal(symbol, side, price, reason string) {
-	n.Send(fmt.Sprintf("🔔 Signal: %s %s %s @ %s", side, symbol, reason, price))
+	if err := n.Send(fmt.Sprintf("🔔 Signal: %s %s %s @ %s", side, symbol, reason, price)); err != nil {
+		log.Printf("telegram send error: %v", err)
+	}
 }
 
 func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {
@@ -55,5 +58,7 @@ func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {
 	if side == "sell" {
 		emoji = "🔴"
 	}
-	n.Send(fmt.Sprintf("%s %s %s %s @ %s | PnL: %s", emoji, symbol, side, qty, price, pnl))
+	if err := n.Send(fmt.Sprintf("%s %s %s %s @ %s | PnL: %s", emoji, symbol, side, qty, price, pnl)); err != nil {
+		log.Printf("telegram send error: %v", err)
+	}
 }

@@ -107,10 +107,17 @@ func (p *PaperEngine) executeSell(session model.Session, price, qty string) erro
 	pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
 
 	proceeds := sellPrice * qtyF
-	balance, _ := p.getBalance(session.ID)
-	p.setBalance(session.ID, balance+proceeds)
+	balance, err := p.getBalance(session.ID)
+	if err != nil {
+		return fmt.Errorf("get balance: %w", err)
+	}
+	if err := p.setBalance(session.ID, balance+proceeds); err != nil {
+		return fmt.Errorf("set balance: %w", err)
+	}
 
-	p.db.Exec("UPDATE orders SET status = 'closed' WHERE id = ?", buyOrder.ID)
+	if _, err := p.db.Exec("UPDATE orders SET status = 'closed' WHERE id = ?", buyOrder.ID); err != nil {
+		return fmt.Errorf("update buy order: %w", err)
+	}
 
 	_, err = p.db.Exec(
 		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)

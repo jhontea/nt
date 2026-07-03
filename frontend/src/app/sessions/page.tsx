@@ -20,6 +20,7 @@ export default function SessionsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [strategy, setStrategy] = useState<'grid' | 'trend'>('grid')
+  const [mode, setMode] = useState<'signal' | 'paper'>('signal')
   const [symbol, setSymbol] = useState('BTC_USDT')
   const [upperPrice, setUpperPrice] = useState('70000')
   const [lowerPrice, setLowerPrice] = useState('60000')
@@ -36,7 +37,7 @@ export default function SessionsPage() {
     } else {
       config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), quantity }
     }
-    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode: 'signal', symbol, config: JSON.stringify(config) })
+    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config) })
     setShowCreate(false)
     refetch()
   }
@@ -70,6 +71,10 @@ export default function SessionsPage() {
           <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
             <option value="grid">Grid Trading</option>
             <option value="trend">Trend Following</option>
+          </select>
+          <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={mode} onChange={e => setMode(e.target.value as any)}>
+            <option value="signal">Signal Mode</option>
+            <option value="paper">Paper Trading</option>
           </select>
           <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Symbol (e.g. BTC_USDT)" value={symbol} onChange={e => setSymbol(e.target.value)} />
           {strategy === 'grid' ? (
