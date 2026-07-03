@@ -14,9 +14,9 @@ type Ticker struct {
 }
 
 type CandleResponse struct {
-	Code    int      `json:"code"`
-	Message string   `json:"msg"`
-	Data    [][]any  `json:"data"`
+	Code    int     `json:"code"`
+	Message string  `json:"msg"`
+	Data    [][]any `json:"data"`
 }
 
 type OrderRequest struct {

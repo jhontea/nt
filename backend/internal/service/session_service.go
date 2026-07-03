@@ -1,40 +1,40 @@
 package service
 
 import (
-    "github.com/user/nt/internal/model"
-    "github.com/user/nt/internal/repository"
+	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/repository"
 )
 
 const DefaultPaperBalance = 1000.0
 
 type SessionService struct {
-    repo *repository.SessionRepo
-    PnL  *PnLService
+	repo *repository.SessionRepo
+	PnL  *PnLService
 }
 
 func NewSessionService(repo *repository.SessionRepo) *SessionService {
-    return &SessionService{repo: repo}
+	return &SessionService{repo: repo}
 }
 
 func NewSessionServiceWithPnL(repo *repository.SessionRepo, pnl *PnLService) *SessionService {
-    return &SessionService{repo: repo, PnL: pnl}
+	return &SessionService{repo: repo, PnL: pnl}
 }
 
 func (s *SessionService) Create(userID int64, name, strategy, mode, symbol, config string) (*model.Session, error) {
-    session := &model.Session{
-        UserID:   userID,
-        Name:     name,
-        Strategy: strategy,
-        Mode:     mode,
-        Symbol:   symbol,
-        Config:   config,
-        Status:   "stopped",
-    }
-    if mode == "paper" {
-        bal := DefaultPaperBalance
-        session.VirtualBalance = &bal
-    }
-    return s.repo.Create(session)
+	session := &model.Session{
+		UserID:   userID,
+		Name:     name,
+		Strategy: strategy,
+		Mode:     mode,
+		Symbol:   symbol,
+		Config:   config,
+		Status:   "stopped",
+	}
+	if mode == "paper" {
+		bal := DefaultPaperBalance
+		session.VirtualBalance = &bal
+	}
+	return s.repo.Create(session)
 }
 
 func (s *SessionService) List(userID int64) ([]model.Session, error) {

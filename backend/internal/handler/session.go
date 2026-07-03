@@ -49,7 +49,7 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 	if req.Mode == "" {
-		req.Mode = "signal"
+		req.Mode = string(model.ModeSignal)
 	}
 	session, err := h.svc.Create(h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
 	if err != nil {

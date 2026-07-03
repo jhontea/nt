@@ -2,10 +2,7 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"strconv"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -16,17 +13,15 @@ import (
 )
 
 type Manager struct {
-	mu       sync.Mutex
-	sessions map[int64]*RunningSession
-	client   *tokocrypto.Client
-	db       *sqlx.DB
-	grid     *GridEngine
-	trend    *TrendEngine
-	dca      *DCAEngine
-	paper    *PaperEngine
-	live     *LiveEngine
-	notifier *service.Notifier
-	Hub      *WSHub
+	mu         sync.Mutex
+	sessions   map[int64]*RunningSession
+	client     *tokocrypto.Client
+	db         *sqlx.DB
+	strategies map[string]StrategyEvaluator
+	paper      *PaperEngine
+	live       *LiveEngine
+	notifier   *service.Notifier
+	Hub        *WSHub
 }
 
 type RunningSession struct {
@@ -39,9 +34,11 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		sessions: make(map[int64]*RunningSession),
 		client:   client,
 		db:       db,
-		grid:     NewGridEngine(),
-		trend:    NewTrendEngine(),
-		dca:      NewDCAEngine(client, db),
+		strategies: map[string]StrategyEvaluator{
+			string(model.StratGrid):  NewGridEngine(client),
+			string(model.StratTrend): NewTrendEngine(client),
+			string(model.StratDCA):   NewDCAEngine(client, db),
+		},
 		paper:    NewPaperEngine(db, client),
 		live:     NewLiveEngine(client, db),
 		notifier: notifier,
@@ -54,7 +51,7 @@ func (m *Manager) Start(session model.Session) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.sessions[session.ID]; exists {
-		return fmt.Errorf("session %d already running", session.ID)
+		return ErrSessionRunning
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -101,13 +98,12 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("session %d stopped", session.ID)
+			slog.Info("session stopped", "id", session.ID)
 			return
 		case <-ticker.C:
-			// Read fresh session data (config may have been updated)
 			var fresh model.Session
 			if err := m.db.Get(&fresh, "SELECT * FROM sessions WHERE id = ?", session.ID); err != nil {
-				log.Printf("error reading session %d: %v", session.ID, err)
+				slog.Error("read session", "id", session.ID, "error", err)
 				continue
 			}
 			m.evaluate(ctx, fresh)
@@ -116,122 +112,58 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 }
 
 func (m *Manager) evaluate(ctx context.Context, session model.Session) {
-	signals := m.evaluateSignal(session)
+	evaluator, ok := m.strategies[session.Strategy]
+	if !ok {
+		slog.Warn("unknown strategy", "strategy", session.Strategy)
+		return
+	}
+
+	signals := evaluator.Evaluate(session, session.Config)
 	if len(signals) == 0 {
 		return
 	}
+
 	switch session.Mode {
-	case "signal":
+	case string(model.ModeSignal):
 		m.saveSignals(session.ID, signals)
-		for _, sig := range signals {
-			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
-			m.Hub.Broadcast(session.ID, WSSignal{
-				Type: "signal", SessionID: session.ID, Signal: sig,
-			})
-		}
-	case "paper":
+		m.broadcast(session.ID, signals)
+	case string(model.ModePaper):
 		for _, sig := range signals {
 			if err := m.paper.Execute(session, sig); err != nil {
-				log.Printf("paper execute error: %v", err)
+				slog.Error("paper execute", "session", session.ID, "error", err)
 			}
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
-			m.Hub.Broadcast(session.ID, WSSignal{
-				Type: "signal", SessionID: session.ID, Signal: sig,
-			})
+			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
-	case "live":
+	case string(model.ModeLive):
 		for _, sig := range signals {
 			if err := m.live.Execute(session, sig); err != nil {
-				log.Printf("live execute error: %v", err)
+				slog.Error("live execute", "session", session.ID, "error", err)
 			}
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
-			m.Hub.Broadcast(session.ID, WSSignal{
-				Type: "signal", SessionID: session.ID, Signal: sig,
-			})
+			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
 	}
 }
 
-func (m *Manager) evaluateSignal(session model.Session) []Signal {
-	switch session.Strategy {
-	case "grid":
-		var cfg GridConfig
-		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
-			log.Printf("error parsing grid config: %v", err)
-			return nil
-		}
-		ticker, err := m.client.GetTicker(session.Symbol)
-		if err != nil {
-			log.Printf("error fetching ticker: %v", err)
-			return nil
-		}
-		price, err := strconv.ParseFloat(ticker.LastPrice, 64)
-		if err != nil {
-			log.Printf("error parsing price '%s': %v", ticker.LastPrice, err)
-			return nil
-		}
-		signals := m.grid.Evaluate(cfg, price)
-		for i := range signals {
-			signals[i].Symbol = session.Symbol
-			signals[i].Quantity = cfg.Quantity
-		}
-		return signals
-
-	case "trend":
-		var cfg TrendConfig
-		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
-			log.Printf("error parsing trend config: %v", err)
-			return nil
-		}
-		raw, err := m.client.GetCandles(session.Symbol, "5m", int(cfg.SlowPeriod)+5)
-		if err != nil {
-			log.Printf("error fetching candles: %v", err)
-			return nil
-		}
-		prices := make([]float64, len(raw))
-		for i, c := range raw {
-			if len(c) >= 5 {
-				p, err := strconv.ParseFloat(fmt.Sprintf("%v", c[4]), 64)
-				if err != nil {
-					log.Printf("error parsing candle close price: %v", err)
-					continue
-				}
-				prices[i] = p
-			}
-		}
-		signals := m.trend.Evaluate(prices, cfg)
-		for i := range signals {
-			signals[i].Symbol = session.Symbol
-			signals[i].Quantity = cfg.Quantity
-		}
-		return signals
-
-	case "dca":
-		var cfg DCAConfig
-		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
-			log.Printf("error parsing dca config: %v", err)
-			return nil
-		}
-		signals := m.dca.Evaluate(session, cfg)
-		for i := range signals {
-			signals[i].Symbol = session.Symbol
-		}
-		return signals
+func (m *Manager) broadcast(sessionID int64, signals []Signal) {
+	for _, sig := range signals {
+		m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+		m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
 	}
-	return nil
 }
 
 func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 	for _, sig := range signals {
-		log.Printf("signal (session=%d): %s %s %s @ %s qty=%s", sessionID, sig.Side, sig.Symbol, sig.Reason, sig.Price, sig.Quantity)
+		slog.Info("signal", "session", sessionID, "side", sig.Side, "price", sig.Price, "reason", sig.Reason)
 		_, err := m.db.Exec(
 			`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status)
 			 VALUES (?, ?, ?, ?, 'signal', ?, ?, 'signal')`,
-			sessionID, fmt.Sprintf("sig_%d", time.Now().UnixNano()),
+			sessionID, "sig_"+time.Now().Format("150405.000000"),
 			sig.Symbol, sig.Side, sig.Price, sig.Quantity,
 		)
 		if err != nil {
-			log.Printf("error saving signal: %v", err)
+			slog.Error("save signal", "session", sessionID, "error", err)
 		}
 	}
 }

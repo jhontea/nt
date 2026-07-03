@@ -3,7 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 
 	"github.com/jmoiron/sqlx"
@@ -41,7 +41,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 
 	side := 0
-	if signal.Side == "sell" {
+	if signal.Side == string(model.SideSell) {
 		side = 1
 	}
 
@@ -72,6 +72,6 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		return fmt.Errorf("save order: %w", err)
 	}
 
-	log.Printf("LIVE: %s %s %s @ %s (orderId=%d)", signal.Side, session.Symbol, signal.Quantity, price, order.OrderID)
+	slog.Info("live order", "side", signal.Side, "symbol", session.Symbol, "qty", signal.Quantity, "price", price, "orderId", order.OrderID)
 	return nil
 }

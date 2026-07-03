@@ -3,7 +3,7 @@ package engine
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"strconv"
 	"sync"
@@ -36,10 +36,9 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	qty := signal.Quantity
 
 	switch signal.Side {
-	case "buy":
+	case string(model.SideBuy):
 		return p.executeBuy(session, marketPrice, qty)
-	case "sell":
-		// Match buy at the signal's grid level, execute sell at current market price
+	case string(model.SideSell):
 		return p.executeSell(session, signal.Price, marketPrice, qty)
 	}
 	return nil
@@ -54,10 +53,10 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	var existing int
 	if err := p.db.Get(&existing, "SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?",
 		session.ID, session.Symbol, price); err != nil {
-		log.Printf("paper: error checking existing buys: %v", err)
+		slog.Warn("check existing buys", "session", session.ID, "error", err)
 	}
 	if existing > 0 {
-		log.Printf("paper: buy at %s already open for %s, skipping", price, session.Symbol)
+		slog.Debug("buy already open, skip", "session", session.ID, "price", price)
 		return nil
 	}
 
@@ -66,7 +65,7 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 		return err
 	}
 	if balance < notional {
-		log.Printf("paper: insufficient balance %.8f < %.8f for buy", balance, notional)
+		slog.Warn("insufficient paper balance", "session", session.ID, "balance", balance, "needed", notional)
 		return nil
 	}
 
@@ -85,7 +84,7 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 		return fmt.Errorf("save buy order: %w", err)
 	}
 
-	log.Printf("paper: BUY %s %s @ %s (balance: %.8f -> %.8f)", session.Symbol, qty, price, balance, newBalance)
+	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "price", price, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
 	return nil
 }
 
@@ -98,7 +97,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		session.ID, session.Symbol, matchPrice,
 	)
 	if err != nil {
-		log.Printf("paper: no open buy at price %s to match for sell: %v", matchPrice, err)
+		slog.Warn("no open buy to match", "session", session.ID, "price", matchPrice, "error", err)
 		return nil
 	}
 
@@ -148,8 +147,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		return fmt.Errorf("save trade: %w", err)
 	}
 
-	log.Printf("paper: SELL %s %s @ %s PnL=%s (balance: %.8f -> %.8f)",
-		session.Symbol, useQty, execPrice, pnlStr, balance, balance+proceeds)
+	slog.Info("paper sell", "session", session.ID, "symbol", session.Symbol, "qty", useQty, "price", execPrice, "pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
 	return nil
 }
 

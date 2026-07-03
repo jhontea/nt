@@ -3,9 +3,9 @@ package repository
 import (
 	"os"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func NewDB(dsn string) (*sqlx.DB, error) {

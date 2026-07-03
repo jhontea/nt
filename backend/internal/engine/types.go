@@ -24,7 +24,7 @@ type TrendConfig struct {
 }
 
 type DCAConfig struct {
-	IntervalSec    int     `json:"interval_sec"`     // seconds between buys, e.g. 3600 = 1h
-	Amount         string  `json:"amount"`            // quote asset per buy, e.g. "10" USDT
-	TakeProfitPct  float64 `json:"take_profit_pct"`   // optional: sell when price >= avg_buy * (1 + pct/100)
+	IntervalSec   int     `json:"interval_sec"`    // seconds between buys, e.g. 3600 = 1h
+	Amount        string  `json:"amount"`          // quote asset per buy, e.g. "10" USDT
+	TakeProfitPct float64 `json:"take_profit_pct"` // optional: sell when price >= avg_buy * (1 + pct/100)
 }

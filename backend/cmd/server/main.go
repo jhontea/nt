@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,7 +22,10 @@ func main() {
 	cfg := config.Load()
 
 	if cfg.TokenAPIKey == "" || cfg.TokenSecretKey == "" {
-		log.Println("WARNING: TOKO_API_KEY or TOKO_SECRET_KEY not set. Live trading will fail.")
+		slog.Warn("TOKO_API_KEY or TOKO_SECRET_KEY not set. Live trading will fail.")
+	}
+	if cfg.JWTSecret == "change-me" {
+		slog.Warn("JWT_SECRET is still default. Change it in .env for security.")
 	}
 
 	dsn := cfg.DatabaseDSN
@@ -31,10 +34,12 @@ func main() {
 	}
 	db, err := repository.NewDB(dsn)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		slog.Error("database", "error", err)
+		os.Exit(1)
 	}
 	if err := repository.Migrate(db); err != nil {
-		log.Fatalf("migration: %v", err)
+		slog.Error("migration", "error", err)
+		os.Exit(1)
 	}
 
 	userRepo := repository.NewUserRepo(db)
@@ -72,18 +77,17 @@ func main() {
 
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
-	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
 		if err := e.Start(":" + cfg.Port); err != nil {
-			log.Printf("server: %v", err)
+			slog.Error("server", "error", err)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("shutting down...")
+	slog.Info("shutting down gracefully...")
 	engMgr.StopAll()
 	e.Shutdown(context.Background())
 }
