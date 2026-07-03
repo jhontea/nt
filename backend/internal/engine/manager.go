@@ -75,6 +75,16 @@ func (m *Manager) Stop(sessionID int64) {
 	}
 }
 
+func (m *Manager) StopAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for id, rs := range m.sessions {
+		rs.Cancel()
+		delete(m.sessions, id)
+	}
+}
+
 func (m *Manager) IsRunning(sessionID int64) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()

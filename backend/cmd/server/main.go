@@ -1,6 +1,12 @@
 package main
 
 import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/user/nt/internal/config"
@@ -15,16 +21,20 @@ import (
 func main() {
 	cfg := config.Load()
 
+	if cfg.TokenAPIKey == "" || cfg.TokenSecretKey == "" {
+		log.Println("WARNING: TOKO_API_KEY or TOKO_SECRET_KEY not set. Live trading will fail.")
+	}
+
 	dsn := cfg.DatabaseDSN
 	if cfg.DatabaseDriver == "" || cfg.DatabaseDriver == "sqlite" {
 		dsn = cfg.DatabasePath
 	}
 	db, err := repository.NewDB(dsn)
 	if err != nil {
-		panic(err)
+		log.Fatalf("database: %v", err)
 	}
 	if err := repository.Migrate(db); err != nil {
-		panic(err)
+		log.Fatalf("migration: %v", err)
 	}
 
 	userRepo := repository.NewUserRepo(db)
@@ -62,5 +72,18 @@ func main() {
 
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
-	e.Logger.Fatal(e.Start(":" + cfg.Port))
+	// Graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		if err := e.Start(":" + cfg.Port); err != nil {
+			log.Printf("server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("shutting down...")
+	engMgr.StopAll()
+	e.Shutdown(context.Background())
 }
