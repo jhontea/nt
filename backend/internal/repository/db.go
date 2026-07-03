@@ -88,6 +88,10 @@ func Migrate(db *sqlx.DB) error {
 		UNIQUE(symbol, interval, open_time)
 	);
 	`
-	_, err := db.Exec(schema)
-	return err
+	if _, err := db.Exec(schema); err != nil {
+		return err
+	}
+	// ponytail: ALTER TABLE may fail if column already exists, that's fine
+	db.Exec("ALTER TABLE sessions ADD COLUMN virtual_balance REAL DEFAULT 0")
+	return nil
 }

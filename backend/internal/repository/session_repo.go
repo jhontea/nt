@@ -15,9 +15,9 @@ func NewSessionRepo(db *sqlx.DB) *SessionRepo {
 
 func (r *SessionRepo) Create(s *model.Session) (*model.Session, error) {
 	result, err := r.db.Exec(
-		`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status,
+		`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status, s.VirtualBalance,
 	)
 	if err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ type Manager struct {
 	db       *sqlx.DB
 	grid     *GridEngine
 	trend    *TrendEngine
+	paper    *PaperEngine
 }
 
 type RunningSession struct {
@@ -35,6 +36,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB) *Manager {
 		db:       db,
 		grid:     NewGridEngine(),
 		trend:    NewTrendEngine(),
+		paper:    NewPaperEngine(db, client),
 	}
 }
 
@@ -89,23 +91,34 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 }
 
 func (m *Manager) evaluate(ctx context.Context, session model.Session) {
-	if session.Mode == "signal" {
-		m.evaluateSignal(session)
+	signals := m.evaluateSignal(session)
+	if len(signals) == 0 {
+		return
+	}
+	switch session.Mode {
+	case "signal":
+		m.saveSignals(session.ID, signals)
+	case "paper":
+		for _, sig := range signals {
+			if err := m.paper.Execute(session, sig); err != nil {
+				log.Printf("paper execute error: %v", err)
+			}
+		}
 	}
 }
 
-func (m *Manager) evaluateSignal(session model.Session) {
+func (m *Manager) evaluateSignal(session model.Session) []Signal {
 	switch session.Strategy {
 	case "grid":
 		var cfg GridConfig
 		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
 			log.Printf("error parsing grid config: %v", err)
-			return
+			return nil
 		}
 		ticker, err := m.client.GetTicker(session.Symbol)
 		if err != nil {
 			log.Printf("error fetching ticker: %v", err)
-			return
+			return nil
 		}
 		price, _ := strconv.ParseFloat(ticker.LastPrice, 64)
 		signals := m.grid.Evaluate(cfg, price)
@@ -113,18 +126,18 @@ func (m *Manager) evaluateSignal(session model.Session) {
 			signals[i].Symbol = session.Symbol
 			signals[i].Quantity = cfg.Quantity
 		}
-		m.saveSignals(session.ID, signals)
+		return signals
 
 	case "trend":
 		var cfg TrendConfig
 		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
 			log.Printf("error parsing trend config: %v", err)
-			return
+			return nil
 		}
 		raw, err := m.client.GetCandles(session.Symbol, "5m", int(cfg.SlowPeriod)+5)
 		if err != nil {
 			log.Printf("error fetching candles: %v", err)
-			return
+			return nil
 		}
 		prices := make([]float64, len(raw))
 		for i, c := range raw {
@@ -137,8 +150,9 @@ func (m *Manager) evaluateSignal(session model.Session) {
 			signals[i].Symbol = session.Symbol
 			signals[i].Quantity = cfg.Quantity
 		}
-		m.saveSignals(session.ID, signals)
+		return signals
 	}
+	return nil
 }
 
 func (m *Manager) saveSignals(sessionID int64, signals []Signal) {

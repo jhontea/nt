@@ -19,17 +19,18 @@ type APIKey struct {
 }
 
 type Session struct {
-	ID        int64      `db:"id" json:"id"`
-	UserID    int64      `db:"user_id" json:"user_id"`
-	Name      string     `db:"name" json:"name"`
-	Strategy  string     `db:"strategy" json:"strategy"`
-	Mode      string     `db:"mode" json:"mode"`
-	Symbol    string     `db:"symbol" json:"symbol"`
-	Config    string     `db:"config" json:"config"`
-	Status    string     `db:"status" json:"status"`
-	StartedAt *time.Time `db:"started_at" json:"started_at,omitempty"`
-	StoppedAt *time.Time `db:"stopped_at" json:"stopped_at,omitempty"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	ID             int64      `db:"id" json:"id"`
+	UserID         int64      `db:"user_id" json:"user_id"`
+	Name           string     `db:"name" json:"name"`
+	Strategy       string     `db:"strategy" json:"strategy"`
+	Mode           string     `db:"mode" json:"mode"`
+	Symbol         string     `db:"symbol" json:"symbol"`
+	Config         string     `db:"config" json:"config"`
+	Status         string     `db:"status" json:"status"`
+	VirtualBalance *float64   `db:"virtual_balance" json:"virtual_balance,omitempty"`
+	StartedAt      *time.Time `db:"started_at" json:"started_at,omitempty"`
+	StoppedAt      *time.Time `db:"stopped_at" json:"stopped_at,omitempty"`
+	CreatedAt      time.Time  `db:"created_at" json:"created_at"`
 }
 
 type Order struct {
