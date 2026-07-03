@@ -29,19 +29,19 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 export const api = {
   auth: {
     login: (username: string, password: string) =>
-      request<{ token: string }>('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+      request<{ token: string }>('/v1/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
     register: (username: string, password: string) =>
-      request<{ token: string }>('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
+      request<{ token: string }>('/v1/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
   },
   sessions: {
-    list: () => request<import('@/types').Session[]>('/api/sessions'),
+    list: () => request<import('@/types').Session[]>('/v1/sessions'),
     create: (data: { name: string; strategy: string; mode: string; symbol: string; config: string }) =>
-      request<import('@/types').Session>('/api/sessions', { method: 'POST', body: JSON.stringify(data) }),
-    get: (id: number) => request<import('@/types').Session>(`/api/sessions/${id}`),
+      request<import('@/types').Session>('/v1/sessions', { method: 'POST', body: JSON.stringify(data) }),
+    get: (id: number) => request<import('@/types').Session>(`/v1/sessions/${id}`),
     update: (id: number, data: Partial<import('@/types').Session>) =>
-      request<import('@/types').Session>(`/api/sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    start: (id: number) => request<{ status: string }>(`/api/sessions/${id}/start`, { method: 'POST' }),
-    stop: (id: number) => request<{ status: string }>(`/api/sessions/${id}/stop`, { method: 'POST' }),
-    getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/api/sessions/${id}/pnl`),
+      request<import('@/types').Session>(`/v1/sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    start: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/start`, { method: 'POST' }),
+    stop: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/stop`, { method: 'POST' }),
+    getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
   },
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +18,23 @@ import (
 	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 )
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+func customHTTPErrorHandler(err error, c echo.Context) {
+	code := http.StatusInternalServerError
+	msg := "internal server error"
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		msg = he.Message.(string)
+	} else if c.Response().Committed {
+		return
+	}
+	slog.Warn("http error", "path", c.Path(), "code", code, "error", msg)
+	c.JSON(code, ErrorResponse{Error: msg})
+}
 
 func main() {
 	cfg := config.Load()
@@ -47,17 +65,28 @@ func main() {
 	authH := handler.NewAuthHandler(authSvc)
 
 	e := echo.New()
+	e.HTTPErrorHandler = customHTTPErrorHandler
 	e.Use(middleware.Logger())
 	e.Use(middleware.CORS())
+	e.Use(middleware.Recover())
 
-	e.GET("/api/health", func(c echo.Context) error {
+	// Public routes
+	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]string{"status": "ok"})
 	})
+	e.GET("/ready", func(c echo.Context) error {
+		if err := db.Ping(); err != nil {
+			return c.JSON(503, ErrorResponse{Error: "database not ready"})
+		}
+		return c.JSON(200, map[string]string{"status": "ready"})
+	})
 
-	e.POST("/api/register", authH.Register)
-	e.POST("/api/login", authH.Login)
+	// Auth routes (public)
+	e.POST("/v1/register", authH.Register)
+	e.POST("/v1/login", authH.Login)
 
-	api := e.Group("/api", authmw.Auth(cfg.JWTSecret))
+	// API v1 (authenticated)
+	v1 := e.Group("/v1", authmw.Auth(cfg.JWTSecret))
 
 	sessionRepo := repository.NewSessionRepo(db)
 	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
@@ -67,16 +96,18 @@ func main() {
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
-	api.POST("/sessions", sessionH.Create)
-	api.GET("/sessions", sessionH.List)
-	api.GET("/sessions/:id", sessionH.Get)
-	api.PUT("/sessions/:id", sessionH.Update)
-	api.POST("/sessions/:id/start", sessionH.Start)
-	api.POST("/sessions/:id/stop", sessionH.Stop)
-	api.GET("/sessions/:id/pnl", sessionH.GetPnL)
+	v1.POST("/sessions", sessionH.Create)
+	v1.GET("/sessions", sessionH.List)
+	v1.GET("/sessions/:id", sessionH.Get)
+	v1.PUT("/sessions/:id", sessionH.Update)
+	v1.POST("/sessions/:id/start", sessionH.Start)
+	v1.POST("/sessions/:id/stop", sessionH.Stop)
+	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 
+	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
+	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

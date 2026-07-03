@@ -58,16 +58,17 @@ docker-compose up --build
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | /api/register | No | Register user |
-| POST | /api/login | No | Login, returns JWT |
-| GET | /api/health | No | Health check |
-| GET | /api/sessions | Yes | List sessions |
-| POST | /api/sessions | Yes | Create session |
-| GET | /api/sessions/:id | Yes | Get session |
-| PUT | /api/sessions/:id | Yes | Update session |
-| POST | /api/sessions/:id/start | Yes | Start session |
-| POST | /api/sessions/:id/stop | Yes | Stop session |
-| GET | /api/sessions/:id/pnl | Yes | Get P&L summary |
+| POST | /v1/register | No | Register user |
+| POST | /v1/login | No | Login, returns JWT |
+| GET | /v1/sessions | Yes | List sessions |
+| POST | /v1/sessions | Yes | Create session |
+| GET | /v1/sessions/:id | Yes | Get session |
+| PUT | /v1/sessions/:id | Yes | Update session |
+| POST | /v1/sessions/:id/start | Yes | Start session |
+| POST | /v1/sessions/:id/stop | Yes | Stop session |
+| GET | /v1/sessions/:id/pnl | Yes | Get P&L summary |
+| GET | /health | No | Health check |
+| GET | /ready | No | Readiness check (DB ping) |
 | WS | /ws/sessions/:id | No | Real-time updates |
 
 ## Modes

@@ -1,5 +1,7 @@
 package repository
 
+//go:generate go run go.uber.org/mock/mockgen -source=$GOFILE -destination=mocks/mock.go -package=mocks
+
 import (
 	"context"
 
