@@ -4,9 +4,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/user/nt/internal/config"
+	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/handler"
+	authmw "github.com/user/nt/internal/middleware"
 	"github.com/user/nt/internal/repository"
 	"github.com/user/nt/internal/service"
+	"github.com/user/nt/internal/tokocrypto"
 )
 
 func main() {
@@ -34,6 +37,21 @@ func main() {
 
 	e.POST("/api/register", authH.Register)
 	e.POST("/api/login", authH.Login)
+
+	api := e.Group("/api", authmw.Auth(cfg.JWTSecret))
+
+	sessionRepo := repository.NewSessionRepo(db)
+	sessionSvc := service.NewSessionService(sessionRepo)
+	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
+	engMgr := engine.NewManager(tokoClient, db)
+	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
+
+	api.POST("/sessions", sessionH.Create)
+	api.GET("/sessions", sessionH.List)
+	api.GET("/sessions/:id", sessionH.Get)
+	api.PUT("/sessions/:id", sessionH.Update)
+	api.POST("/sessions/:id/start", sessionH.Start)
+	api.POST("/sessions/:id/stop", sessionH.Stop)
 
 	e.Logger.Fatal(e.Start(":" + cfg.Port))
 }
