@@ -15,7 +15,11 @@ import (
 func main() {
 	cfg := config.Load()
 
-	db, err := repository.NewDB(cfg.DatabasePath)
+	dsn := cfg.DatabaseDSN
+	if cfg.DatabaseDriver == "" || cfg.DatabaseDriver == "sqlite" {
+		dsn = cfg.DatabasePath
+	}
+	db, err := repository.NewDB(dsn)
 	if err != nil {
 		panic(err)
 	}

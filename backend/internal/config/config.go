@@ -8,6 +8,8 @@ import (
 type Config struct {
 	Port             string
 	DatabasePath     string
+	DatabaseDriver   string
+	DatabaseDSN      string
 	JWTSecret        string
 	TokenAPIKey      string
 	TokenSecretKey   string
@@ -20,6 +22,8 @@ func Load() *Config {
 	return &Config{
 		Port:             getEnv("PORT", "8100"),
 		DatabasePath:     getEnv("DATABASE_PATH", "./data/trading.db"),
+		DatabaseDriver:   os.Getenv("DB_DRIVER"),
+		DatabaseDSN:      os.Getenv("DATABASE_DSN"),
 		JWTSecret:        getEnv("JWT_SECRET", "change-me"),
 		TokenAPIKey:      os.Getenv("TOKO_API_KEY"),
 		TokenSecretKey:   os.Getenv("TOKO_SECRET_KEY"),
