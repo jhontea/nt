@@ -49,6 +49,15 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	qtyF, _ := strconv.ParseFloat(qty, 64)
 	notional := cost * qtyF
 
+	// Skip if already have an open buy at this price
+	var existing int
+	p.db.Get(&existing, "SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?",
+		session.ID, session.Symbol, price)
+	if existing > 0 {
+		log.Printf("paper: buy at %s already open for %s, skipping", price, session.Symbol)
+		return nil
+	}
+
 	balance, err := p.getBalance(session.ID)
 	if err != nil {
 		return err

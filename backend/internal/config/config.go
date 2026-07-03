@@ -18,7 +18,7 @@ type Config struct {
 func Load() *Config {
 	godotenv.Load()
 	return &Config{
-		Port:             getEnv("PORT", "8080"),
+		Port:             getEnv("PORT", "8100"),
 		DatabasePath:     getEnv("DATABASE_PATH", "./data/trading.db"),
 		JWTSecret:        getEnv("JWT_SECRET", "change-me"),
 		TokenAPIKey:      os.Getenv("TOKO_API_KEY"),

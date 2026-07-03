@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/engine"
+	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/service"
 )
 
@@ -26,6 +27,22 @@ type createSessionRequest struct {
 	Config   string `json:"config"`
 }
 
+func (h *SessionHandler) userID(c echo.Context) int64 {
+	id, _ := strconv.ParseInt(c.Get("user_id").(string), 10, 64)
+	return id
+}
+
+func (h *SessionHandler) checkOwnership(c echo.Context, sessionID int64) (*model.Session, error) {
+	session, err := h.svc.GetByID(sessionID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "session not found")
+	}
+	if session.UserID != h.userID(c) {
+		return nil, echo.NewHTTPError(http.StatusForbidden, "access denied")
+	}
+	return session, nil
+}
+
 func (h *SessionHandler) Create(c echo.Context) error {
 	var req createSessionRequest
 	if err := c.Bind(&req); err != nil {
@@ -34,8 +51,7 @@ func (h *SessionHandler) Create(c echo.Context) error {
 	if req.Mode == "" {
 		req.Mode = "signal"
 	}
-	userID, _ := strconv.ParseInt(c.Get("user_id").(string), 10, 64)
-	session, err := h.svc.Create(userID, req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
+	session, err := h.svc.Create(h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
@@ -43,8 +59,7 @@ func (h *SessionHandler) Create(c echo.Context) error {
 }
 
 func (h *SessionHandler) List(c echo.Context) error {
-	userID, _ := strconv.ParseInt(c.Get("user_id").(string), 10, 64)
-	sessions, err := h.svc.List(userID)
+	sessions, err := h.svc.List(h.userID(c))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -53,18 +68,18 @@ func (h *SessionHandler) List(c echo.Context) error {
 
 func (h *SessionHandler) Get(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	session, err := h.svc.GetByID(id)
+	session, err := h.checkOwnership(c, id)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "session not found"})
+		return err
 	}
 	return c.JSON(http.StatusOK, session)
 }
 
 func (h *SessionHandler) Update(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	session, err := h.svc.GetByID(id)
+	session, err := h.checkOwnership(c, id)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "session not found"})
+		return err
 	}
 	var req createSessionRequest
 	if err := c.Bind(&req); err != nil {
@@ -90,9 +105,9 @@ func (h *SessionHandler) Update(c echo.Context) error {
 
 func (h *SessionHandler) Start(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	session, err := h.svc.GetByID(id)
+	session, err := h.checkOwnership(c, id)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "session not found"})
+		return err
 	}
 	if err := h.engine.Start(*session); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -104,6 +119,9 @@ func (h *SessionHandler) Start(c echo.Context) error {
 
 func (h *SessionHandler) GetPnL(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if _, err := h.checkOwnership(c, id); err != nil {
+		return err
+	}
 	pnl, err := h.svc.PnL.GetSessionPnL(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -113,6 +131,10 @@ func (h *SessionHandler) GetPnL(c echo.Context) error {
 
 func (h *SessionHandler) Stop(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	_, err := h.checkOwnership(c, id)
+	if err != nil {
+		return err
+	}
 	h.engine.Stop(id)
 	h.svc.UpdateStatus(id, "stopped")
 	h.svc.UpdateStoppedAt(id)
