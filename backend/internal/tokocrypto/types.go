@@ -1,0 +1,69 @@
+package tokocrypto
+
+type TickerResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"msg"`
+	Data    Ticker `json:"data"`
+}
+
+type Ticker struct {
+	Symbol      string `json:"symbol"`
+	LastPrice   string `json:"lastPrice"`
+	Volume      string `json:"volume"`
+	PriceChange string `json:"priceChange"`
+}
+
+type CandleResponse struct {
+	Code    int      `json:"code"`
+	Message string   `json:"msg"`
+	Data    [][]any  `json:"data"`
+}
+
+type OrderRequest struct {
+	Symbol   string
+	Side     int // 0=buy, 1=sell
+	Type     int // 1=limit, 2=market
+	Quantity string
+	Price    string
+}
+
+type OrderResponseData struct {
+	OrderID       int64  `json:"orderId"`
+	ClientID      string `json:"clientId"`
+	Symbol        string `json:"symbol"`
+	SymbolType    int    `json:"symbolType"`
+	Side          int    `json:"side"`
+	Type          int    `json:"type"`
+	Price         string `json:"price"`
+	OrigQty       string `json:"origQty"`
+	OrigQuoteQty  string `json:"origQuoteQty"`
+	ExecutedQty   string `json:"executedQty"`
+	ExecutedPrice string `json:"executedPrice"`
+	Status        int    `json:"status"`
+	CreateTime    int64  `json:"createTime"`
+}
+
+type OrderResponse struct {
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	Data    OrderResponseData `json:"data"`
+}
+
+type AccountResponse struct {
+	Code    int     `json:"code"`
+	Message string  `json:"msg"`
+	Data    Account `json:"data"`
+}
+
+type Account struct {
+	MakerCommission string         `json:"makerCommission"`
+	TakerCommission string         `json:"takerCommission"`
+	CanTrade        int            `json:"canTrade"`
+	AccountAssets   []AccountAsset `json:"accountAssets"`
+}
+
+type AccountAsset struct {
+	Asset  string `json:"asset"`
+	Free   string `json:"free"`
+	Locked string `json:"locked"`
+}
