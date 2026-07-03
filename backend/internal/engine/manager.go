@@ -22,6 +22,7 @@ type Manager struct {
 	db       *sqlx.DB
 	grid     *GridEngine
 	trend    *TrendEngine
+	dca      *DCAEngine
 	paper    *PaperEngine
 	live     *LiveEngine
 	notifier *service.Notifier
@@ -40,6 +41,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		db:       db,
 		grid:     NewGridEngine(),
 		trend:    NewTrendEngine(),
+		dca:      NewDCAEngine(client, db),
 		paper:    NewPaperEngine(db, client),
 		live:     NewLiveEngine(client, db),
 		notifier: notifier,
@@ -201,6 +203,18 @@ func (m *Manager) evaluateSignal(session model.Session) []Signal {
 		for i := range signals {
 			signals[i].Symbol = session.Symbol
 			signals[i].Quantity = cfg.Quantity
+		}
+		return signals
+
+	case "dca":
+		var cfg DCAConfig
+		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+			log.Printf("error parsing dca config: %v", err)
+			return nil
+		}
+		signals := m.dca.Evaluate(session, cfg)
+		for i := range signals {
+			signals[i].Symbol = session.Symbol
 		}
 		return signals
 	}

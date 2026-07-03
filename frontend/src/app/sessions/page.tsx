@@ -31,7 +31,7 @@ export default function SessionsPage() {
 
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
-  const [strategy, setStrategy] = useState<'grid' | 'trend'>('grid')
+  const [strategy, setStrategy] = useState<'grid' | 'trend' | 'dca'>('grid')
   const [mode, setMode] = useState<'signal' | 'paper' | 'live'>('signal')
   const [symbol, setSymbol] = useState('BTC_USDT')
   const [upperPrice, setUpperPrice] = useState('70000')
@@ -40,14 +40,19 @@ export default function SessionsPage() {
   const [quantity, setQuantity] = useState('0.001')
   const [fastPeriod, setFastPeriod] = useState('10')
   const [slowPeriod, setSlowPeriod] = useState('30')
+  const [dcaInterval, setDcaInterval] = useState('3600')
+  const [dcaAmount, setDcaAmount] = useState('10')
+  const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     let config: any
     if (strategy === 'grid') {
       config = { upper_price: parseFloat(upperPrice), lower_price: parseFloat(lowerPrice), grid_count: parseInt(gridCount), quantity }
-    } else {
+    } else if (strategy === 'trend') {
       config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), quantity }
+    } else {
+      config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
     }
     await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config) })
     setShowCreate(false)
@@ -92,10 +97,11 @@ export default function SessionsPage() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 block mb-1">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
+            <label className="text-sm text-gray-400 block mb-1">Strategi <HelpIcon text={strategyHelp[strategy] || 'DCA: beli rutin dalam jumlah tetap di interval tertentu'} /></label>
             <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
               <option value="grid">Grid Trading — beli & jual di level harga</option>
               <option value="trend">Trend Following — SMA crossover</option>
+              <option value="dca">DCA — beli rutin berkala (Dollar Cost Average)</option>
             </select>
           </div>
 
@@ -128,14 +134,35 @@ export default function SessionsPage() {
                 <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="e.g. 0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
               </div>
             </>
+          ) : strategy === 'trend' ? (
+            <>
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">SMA Period <HelpIcon text="SMA = Simple Moving Average. Fast period lebih sensitif, slow period lebih stabil" /></label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Fast" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} /><p className="text-xs text-gray-500 mt-1">SMA cepat</p></div>
+                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Slow" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} /><p className="text-xs text-gray-500 mt-1">SMA lambat</p></div>
+                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} /><p className="text-xs text-gray-500 mt-1">per order</p></div>
+                </div>
+              </div>
+            </>
           ) : (
             <>
               <div>
-                <label className="text-sm text-gray-400 block mb-1">SMA Period <HelpIcon text="SMA = Simple Moving Average. Fast period lebih sensitif, slow period lebih stabil. Golden cross = fast SMA naik di atas slow SMA (sinyal beli)" /></label>
+                <label className="text-sm text-gray-400 block mb-1">DCA — Interval & Jumlah</label>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Fast Period" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} /><p className="text-xs text-gray-500 mt-1">SMA cepat</p></div>
-                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Slow Period" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} /><p className="text-xs text-gray-500 mt-1">SMA lambat</p></div>
-                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Quantity" value={quantity} onChange={e => setQuantity(e.target.value)} /><p className="text-xs text-gray-500 mt-1">per order</p></div>
+                  <div>
+                    <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
+                      <option value="3600">Setiap 1 Jam</option>
+                      <option value="7200">Setiap 2 Jam</option>
+                      <option value="21600">Setiap 6 Jam</option>
+                      <option value="43200">Setiap 12 Jam</option>
+                      <option value="86400">Setiap 1 Hari</option>
+                      <option value="604800">Setiap 1 Minggu</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Interval beli</p>
+                  </div>
+                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Jumlah" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} /><p className="text-xs text-gray-500 mt-1">Per pembelian (USDT)</p></div>
+                  <div><input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} /><p className="text-xs text-gray-500 mt-1">Take profit % (0 = none)</p></div>
                 </div>
               </div>
             </>
@@ -158,7 +185,7 @@ export default function SessionsPage() {
               <div>
                 <h3 className="font-semibold">{s.name}</h3>
                 <p className="text-sm text-gray-400">
-                  {s.symbol} · {s.strategy === 'grid' ? 'Grid' : 'Trend'} ·{' '}
+                  {s.symbol} · {s.strategy === 'grid' ? 'Grid' : s.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
                   <span className={s.mode === 'live' ? 'text-yellow-400' : ''}>
                     {s.mode === 'signal' ? 'Signal' : s.mode === 'paper' ? 'Paper' : 'Live'}
                   </span> ·{' '}

@@ -108,10 +108,16 @@ export default function SessionDetailPage() {
             <span className="text-blue-400 font-medium">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
             Setiap order {configDisplay.quantity || '?'} {session.symbol.split('_')[0]}. Bot mengevaluasi setiap 30 detik.
           </p>
-        ) : (
+        ) : session.strategy === 'trend' ? (
           <p>
             <span className="text-purple-400 font-medium">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
             Golden cross (SMA cepat &gt; SMA lambat) = sinyal <span className="text-green-400">beli</span>. Death cross (SMA cepat &lt; SMA lambat) = sinyal <span className="text-red-400">jual</span>.
+          </p>
+        ) : (
+          <p>
+            <span className="text-teal-400 font-medium">DCA (Dollar Cost Average)</span>: Bot membeli <strong>${configDisplay.amount || '?'}</strong> setiap{' '}
+            {configDisplay.interval_sec === 3600 ? '1 jam' : configDisplay.interval_sec === 7200 ? '2 jam' : configDisplay.interval_sec === 21600 ? '6 jam' : configDisplay.interval_sec === 43200 ? '12 jam' : configDisplay.interval_sec === 86400 ? '1 hari' : configDisplay.interval_sec === 604800 ? '1 minggu' : `${configDisplay.interval_sec || '?'} detik`}.
+            {configDisplay.take_profit_pct > 0 ? ` Take profit ${configDisplay.take_profit_pct}% dari harga rata-rata beli.` : ' Tidak ada take profit — akumulasi terus.'}
           </p>
         )}
       </div>

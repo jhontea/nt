@@ -102,6 +102,18 @@ const terms = [
     term: 'Slippage',
     desc: 'Perbedaan antara harga yang diharapkan dengan harga eksekusi aktual. Terjadi saat pasar bergerak cepat. Makin likuid pair-nya, makin kecil slippage.',
   },
+  {
+    term: 'DCA (Dollar Cost Average)',
+    desc: 'Strategi membeli aset dalam jumlah tetap secara rutin (misal $10 setiap hari), tanpa peduli harga naik atau turun. Tujuannya adalah merata-ratakan harga beli sehingga tidak perlu timing pasar. Cocok untuk investasi jangka panjang.',
+  },
+  {
+    term: 'Take Profit',
+    desc: 'Level harga dimana bot akan menjual untuk mengunci keuntungan. Contoh: take profit 5% berarti bot akan menjual jika harga naik 5% dari harga rata-rata beli.',
+  },
+  {
+    term: 'Interval DCA',
+    desc: 'Jarak waktu antar pembelian pada strategi DCA. Contoh: interval 1 jam berarti bot akan membeli setiap 1 jam sekali. Makin pendek interval, makin sering beli. Pilihan umum: 1 jam, 6 jam, 12 jam, 1 hari, 1 minggu.',
+  },
 ]
 
 export default function GlossaryPage() {

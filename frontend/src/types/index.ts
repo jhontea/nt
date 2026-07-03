@@ -8,7 +8,7 @@ export interface Session {
   id: number
   user_id: number
   name: string
-  strategy: 'grid' | 'trend'
+  strategy: 'grid' | 'trend' | 'dca'
   mode: 'signal' | 'paper' | 'live'
   symbol: string
   config: string
@@ -29,6 +29,12 @@ export interface TrendConfig {
   fast_period: number
   slow_period: number
   quantity: string
+}
+
+export interface DCAConfig {
+  interval_sec: number
+  amount: string
+  take_profit_pct?: number
 }
 
 export interface Order {
