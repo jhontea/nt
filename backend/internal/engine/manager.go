@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -159,7 +160,7 @@ func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 		_, err := m.db.Exec(
 			`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status)
 			 VALUES (?, ?, ?, ?, 'signal', ?, ?, 'signal')`,
-			sessionID, "sig_"+time.Now().Format("150405.000000"),
+			sessionID, "sig_"+fmt.Sprintf("%d", time.Now().UnixNano()),
 			sig.Symbol, sig.Side, sig.Price, sig.Quantity,
 		)
 		if err != nil {

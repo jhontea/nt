@@ -10,8 +10,8 @@ func TestTrendEngine_GoldenCross(t *testing.T) {
 	// Need enough data for SMA7, then the cross at the final 2 candles
 	prices := []float64{
 		50, 50, 50, 50, 50, 50, 50, // SMA7 = 50
-		30, 30,                      // SMA3 drops to 36.67 (below SMA7 ~44)
-		100,                          // SMA3 jumps to 53.33 → crosses above SMA7 ~51
+		30, 30, // SMA3 drops to 36.67 (below SMA7 ~44)
+		100, // SMA3 jumps to 53.33 → crosses above SMA7 ~51
 	}
 	cfg := TrendConfig{FastPeriod: 3, SlowPeriod: 7}
 
@@ -29,8 +29,8 @@ func TestTrendEngine_DeathCross(t *testing.T) {
 	// Fast (3) is above Slow (7), then crosses below at the last tick
 	prices := []float64{
 		50, 50, 50, 50, 50, 50, 50, // SMA7 = 50
-		70, 70,                      // SMA3 jumps to 63.33 (above SMA7 ~53)
-		5,                            // SMA3 drops to 48.33 → crosses below SMA7 ~49
+		70, 70, // SMA3 jumps to 63.33 (above SMA7 ~53)
+		5, // SMA3 drops to 48.33 → crosses below SMA7 ~49
 	}
 	cfg := TrendConfig{FastPeriod: 3, SlowPeriod: 7}
 

@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/joho/godotenv"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -18,7 +19,9 @@ type Config struct {
 }
 
 func Load() *Config {
-	godotenv.Load()
+	// Best-effort: .env file is optional
+	_ = godotenv.Load()
+
 	return &Config{
 		Port:             getEnv("PORT", "8100"),
 		DatabasePath:     getEnv("DATABASE_PATH", "./data/trading.db"),

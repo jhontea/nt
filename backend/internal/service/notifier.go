@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/user/nt/internal/model"
 )
 
 type Notifier struct {
@@ -55,7 +57,7 @@ func (n *Notifier) SendSignal(symbol, side, price, reason string) {
 
 func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {
 	emoji := "🟢"
-	if side == "sell" {
+	if side == string(model.SideSell) {
 		emoji = "🔴"
 	}
 	if err := n.Send(fmt.Sprintf("%s %s %s %s @ %s | PnL: %s", emoji, symbol, side, qty, price, pnl)); err != nil {

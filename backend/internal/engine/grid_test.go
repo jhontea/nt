@@ -30,10 +30,10 @@ func TestGridEngine_Evaluate(t *testing.T) {
 			wantBuy:  1,
 		},
 		{
-			name:     "price at midpoint — no signals",
-			config:   GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2},
-			price:    65000,
-			wantLen:  0,
+			name:    "price at midpoint — no signals",
+			config:  GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2},
+			price:   65000,
+			wantLen: 0,
 		},
 		{
 			name:     "price at upper level — sell above-mid levels",
@@ -44,10 +44,10 @@ func TestGridEngine_Evaluate(t *testing.T) {
 			wantBuy:  0,
 		},
 		{
-			name:     "invalid config — step=0",
-			config:   GridConfig{UpperPrice: 60000, LowerPrice: 60000, GridCount: 5},
-			price:    65000,
-			wantLen:  0,
+			name:    "invalid config — step=0",
+			config:  GridConfig{UpperPrice: 60000, LowerPrice: 60000, GridCount: 5},
+			price:   65000,
+			wantLen: 0,
 		},
 	}
 

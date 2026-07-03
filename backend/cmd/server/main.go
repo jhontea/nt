@@ -68,6 +68,7 @@ func main() {
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	e.Use(middleware.Logger())
 	e.Use(middleware.CORS())
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 	e.Use(middleware.Recover())
 
 	// Public routes

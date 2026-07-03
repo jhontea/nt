@@ -78,7 +78,7 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
 		session.ID, fmt.Sprintf("paper_buy_%d", time.Now().UnixNano()),
-		session.Symbol, "buy", price, qty, qty, price,
+		session.Symbol, string(model.SideBuy), price, qty, qty, price,
 	)
 	if err != nil {
 		return fmt.Errorf("save buy order: %w", err)
@@ -132,7 +132,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
 		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
-		session.Symbol, "sell", execPrice, useQty, useQty, execPrice,
+		session.Symbol, string(model.SideSell), execPrice, useQty, useQty, execPrice,
 	)
 	if err != nil {
 		return fmt.Errorf("save sell order: %w", err)
@@ -141,7 +141,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	_, err = p.db.Exec(
 		`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-		session.ID, buyOrder.OrderID, session.Symbol, "sell", execPrice, useQty, pnlStr,
+		session.ID, buyOrder.OrderID, session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr,
 	)
 	if err != nil {
 		return fmt.Errorf("save trade: %w", err)
