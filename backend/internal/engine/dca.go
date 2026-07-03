@@ -68,7 +68,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: "dca_interval",
 		})
 		d.lastBuy[session.ID] = time.Now()
-		d.updateAvgPrice(session.ID, currentPrice, qty)
+		d.updateAvgPrice(session.ID, session.Symbol, currentPrice, qty)
 		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "interval", cfg.IntervalSec)
 	}
 
@@ -95,7 +95,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	return signals
 }
 
-func (d *DCAEngine) updateAvgPrice(sessionID int64, price, qty float64) {
+func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, price, qty float64) {
 	oldAvg, ok := d.avgBuyPrice[sessionID]
 	if !ok || oldAvg == 0 {
 		d.avgBuyPrice[sessionID] = price
@@ -105,7 +105,7 @@ func (d *DCAEngine) updateAvgPrice(sessionID int64, price, qty float64) {
 	d.db.Get(&existingQty,
 		`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
 		 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`,
-		sessionID, sessionID)
+		sessionID, symbol)
 	totalQty := existingQty + qty
 	if totalQty > 0 {
 		d.avgBuyPrice[sessionID] = ((oldAvg * existingQty) + (price * qty)) / totalQty

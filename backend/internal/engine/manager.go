@@ -93,6 +93,12 @@ func (m *Manager) IsRunning(sessionID int64) bool {
 }
 
 func (m *Manager) run(ctx context.Context, session model.Session) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("session panic", "id", session.ID, "recover", r)
+		}
+	}()
+
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
