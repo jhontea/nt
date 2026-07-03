@@ -41,7 +41,7 @@ func main() {
 	api := e.Group("/api", authmw.Auth(cfg.JWTSecret))
 
 	sessionRepo := repository.NewSessionRepo(db)
-	sessionSvc := service.NewSessionService(sessionRepo)
+	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
 	engMgr := engine.NewManager(tokoClient, db)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
@@ -52,6 +52,7 @@ func main() {
 	api.PUT("/sessions/:id", sessionH.Update)
 	api.POST("/sessions/:id/start", sessionH.Start)
 	api.POST("/sessions/:id/stop", sessionH.Stop)
+	api.GET("/sessions/:id/pnl", sessionH.GetPnL)
 
 	e.Logger.Fatal(e.Start(":" + cfg.Port))
 }

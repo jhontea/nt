@@ -102,6 +102,15 @@ func (h *SessionHandler) Start(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "running"})
 }
 
+func (h *SessionHandler) GetPnL(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	pnl, err := h.svc.PnL.GetSessionPnL(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, pnl)
+}
+
 func (h *SessionHandler) Stop(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	h.engine.Stop(id)

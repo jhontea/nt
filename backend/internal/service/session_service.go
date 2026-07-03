@@ -9,10 +9,15 @@ const DefaultPaperBalance = 1000.0
 
 type SessionService struct {
     repo *repository.SessionRepo
+    PnL  *PnLService
 }
 
 func NewSessionService(repo *repository.SessionRepo) *SessionService {
     return &SessionService{repo: repo}
+}
+
+func NewSessionServiceWithPnL(repo *repository.SessionRepo, pnl *PnLService) *SessionService {
+    return &SessionService{repo: repo, PnL: pnl}
 }
 
 func (s *SessionService) Create(userID int64, name, strategy, mode, symbol, config string) (*model.Session, error) {
