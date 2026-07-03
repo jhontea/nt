@@ -23,6 +23,7 @@ type Manager struct {
 	grid     *GridEngine
 	trend    *TrendEngine
 	paper    *PaperEngine
+	live     *LiveEngine
 	notifier *service.Notifier
 }
 
@@ -39,6 +40,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		grid:     NewGridEngine(),
 		trend:    NewTrendEngine(),
 		paper:    NewPaperEngine(db, client),
+		live:     NewLiveEngine(client, db),
 		notifier: notifier,
 	}
 }
@@ -108,6 +110,13 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		for _, sig := range signals {
 			if err := m.paper.Execute(session, sig); err != nil {
 				log.Printf("paper execute error: %v", err)
+			}
+			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
+		}
+	case "live":
+		for _, sig := range signals {
+			if err := m.live.Execute(session, sig); err != nil {
+				log.Printf("live execute error: %v", err)
 			}
 			m.notifier.SendSignal(sig.Symbol, sig.Side, sig.Price, sig.Reason)
 		}
