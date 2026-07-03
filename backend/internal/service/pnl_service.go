@@ -28,7 +28,9 @@ func NewPnLService(db *sqlx.DB) *PnLService {
 
 func (s *PnLService) GetSessionPnL(sessionID int64) (*PnLSummary, error) {
 	var realizedPnL sql.NullFloat64
-	s.db.Get(&realizedPnL, "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?", sessionID)
+	if err := s.db.Get(&realizedPnL, "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?", sessionID); err != nil {
+		return nil, err
+	}
 
 	var winCount, lossCount int
 	s.db.Get(&winCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0", sessionID)
@@ -38,7 +40,9 @@ func (s *PnLService) GetSessionPnL(sessionID int64) (*PnLSummary, error) {
 	s.db.Get(&tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id = ?", sessionID)
 
 	var balance sql.NullFloat64
-	s.db.Get(&balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID)
+	if err := s.db.Get(&balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID); err != nil {
+		return nil, err
+	}
 
 	winRate := 0.0
 	if tradeCount > 0 {

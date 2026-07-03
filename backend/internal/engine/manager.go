@@ -153,7 +153,11 @@ func (m *Manager) evaluateSignal(session model.Session) []Signal {
 			log.Printf("error fetching ticker: %v", err)
 			return nil
 		}
-		price, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+		price, err := strconv.ParseFloat(ticker.LastPrice, 64)
+		if err != nil {
+			log.Printf("error parsing price '%s': %v", ticker.LastPrice, err)
+			return nil
+		}
 		signals := m.grid.Evaluate(cfg, price)
 		for i := range signals {
 			signals[i].Symbol = session.Symbol
@@ -175,7 +179,12 @@ func (m *Manager) evaluateSignal(session model.Session) []Signal {
 		prices := make([]float64, len(raw))
 		for i, c := range raw {
 			if len(c) >= 5 {
-				prices[i], _ = strconv.ParseFloat(fmt.Sprintf("%v", c[4]), 64)
+				p, err := strconv.ParseFloat(fmt.Sprintf("%v", c[4]), 64)
+				if err != nil {
+					log.Printf("error parsing candle close price: %v", err)
+					continue
+				}
+				prices[i] = p
 			}
 		}
 		signals := m.trend.Evaluate(prices, cfg)
