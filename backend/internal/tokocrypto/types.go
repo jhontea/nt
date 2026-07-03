@@ -20,11 +20,12 @@ type CandleResponse struct {
 }
 
 type OrderRequest struct {
-	Symbol   string
-	Side     int // 0=buy, 1=sell
-	Type     int // 1=limit, 2=market
-	Quantity string
-	Price    string
+	Symbol        string
+	Side          int // 0=buy, 1=sell
+	Type          int // 1=limit, 2=market
+	Quantity      string
+	QuoteOrderQty string
+	Price         string
 }
 
 type OrderResponseData struct {

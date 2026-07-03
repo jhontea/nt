@@ -51,8 +51,10 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 
 	// Skip if already have an open buy at this price
 	var existing int
-	p.db.Get(&existing, "SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?",
-		session.ID, session.Symbol, price)
+	if err := p.db.Get(&existing, "SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?",
+		session.ID, session.Symbol, price); err != nil {
+		log.Printf("paper: error checking existing buys: %v", err)
+	}
 	if existing > 0 {
 		log.Printf("paper: buy at %s already open for %s, skipping", price, session.Symbol)
 		return nil

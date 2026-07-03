@@ -141,11 +141,16 @@ func (c *Client) GetAccount() (*Account, error) {
 
 func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	params := url.Values{
-		"symbol":   {req.Symbol},
-		"side":     {strconv.Itoa(req.Side)},
-		"type":     {strconv.Itoa(req.Type)},
-		"quantity": {req.Quantity},
-		"price":    {req.Price},
+		"symbol": {req.Symbol},
+		"side":   {strconv.Itoa(req.Side)},
+		"type":   {strconv.Itoa(req.Type)},
+	}
+	if req.Type == 2 && req.Side == 0 && req.QuoteOrderQty != "" {
+		// Market BUY: use quoteOrderQty (spend amount in quote asset)
+		params["quoteOrderQty"] = []string{req.QuoteOrderQty}
+	} else {
+		params["quantity"] = []string{req.Quantity}
+		params["price"] = []string{req.Price}
 	}
 	body, err := c.doSigned("POST", "/open/v1/orders", params)
 	if err != nil {

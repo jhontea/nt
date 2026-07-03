@@ -92,7 +92,13 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 			log.Printf("session %d stopped", session.ID)
 			return
 		case <-ticker.C:
-			m.evaluate(ctx, session)
+			// Read fresh session data (config may have been updated)
+			var fresh model.Session
+			if err := m.db.Get(&fresh, "SELECT * FROM sessions WHERE id = ?", session.ID); err != nil {
+				log.Printf("error reading session %d: %v", session.ID, err)
+				continue
+			}
+			m.evaluate(ctx, fresh)
 		}
 	}
 }

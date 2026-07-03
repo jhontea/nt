@@ -45,13 +45,18 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		side = 1
 	}
 
-	order, err := l.client.PlaceOrder(tokocrypto.OrderRequest{
-		Symbol:   session.Symbol,
-		Side:     side,
-		Type:     2,
-		Quantity: signal.Quantity,
-		Price:    price,
-	})
+	req := tokocrypto.OrderRequest{
+		Symbol: session.Symbol,
+		Side:   side,
+		Type:   2, // market
+	}
+	if side == 1 { // sell: quantity = base asset
+		req.Quantity = signal.Quantity
+	} else { // buy: quoteOrderQty = quote asset to spend
+		req.QuoteOrderQty = strconv.FormatFloat(notional, 'f', 8, 64)
+	}
+
+	order, err := l.client.PlaceOrder(req)
 	if err != nil {
 		return fmt.Errorf("place order: %w", err)
 	}
