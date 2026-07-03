@@ -65,8 +65,12 @@ export default function SessionDetailPage() {
     <div className="max-w-4xl mx-auto p-6">
       <button onClick={() => router.push('/sessions')} className="text-gray-400 hover:text-white mb-4 block">&larr; Back</button>
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">{session.name}</h1>
+        <div>
+          <h1 className="text-2xl font-bold">{session.name}</h1>
+          <p className="text-sm text-gray-500">Detail session trading</p>
+        </div>
         <div className="space-x-2">
+          <button onClick={() => router.push('/glossary')} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">📖 Glosarium</button>
           {session.status === 'running' ? (
             <button onClick={handleStop} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">Stop</button>
           ) : (

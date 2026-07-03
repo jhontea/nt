@@ -46,7 +46,8 @@ export default function LoginPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500">* 2 strategi: Grid Trading & Trend Following (SMA)</p>
+          <p className="text-xs text-gray-500">* 2 strategi: Grid Trading &amp; Trend Following (SMA)</p>
+          <a href="/glossary" className="block text-xs text-blue-400 hover:text-blue-300 mt-2">📖 Lihat Glosarium istilah trading &rarr;</a>
         </div>
 
         {/* Login Form */}

@@ -67,8 +67,14 @@ export default function SessionsPage() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Trading Sessions</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Trading Sessions</h1>
+          <p className="text-sm text-gray-500">Kelola session trading bot Anda</p>
+        </div>
         <div className="space-x-3">
+          <button onClick={() => router.push('/glossary')} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">
+            📖 Glosarium
+          </button>
           <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition">
             {showCreate ? 'Cancel' : '+ New Session'}
           </button>
