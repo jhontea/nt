@@ -42,5 +42,6 @@ export const api = {
       request<import('@/types').Session>(`/api/sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     start: (id: number) => request<{ status: string }>(`/api/sessions/${id}/start`, { method: 'POST' }),
     stop: (id: number) => request<{ status: string }>(`/api/sessions/${id}/stop`, { method: 'POST' }),
+    getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/api/sessions/${id}/pnl`),
   },
 }
