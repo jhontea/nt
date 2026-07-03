@@ -98,6 +98,7 @@ func (h *SessionHandler) Start(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	h.svc.UpdateStatus(id, "running")
+	h.svc.UpdateStartedAt(id)
 	return c.JSON(http.StatusOK, map[string]string{"status": "running"})
 }
 
@@ -105,5 +106,6 @@ func (h *SessionHandler) Stop(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	h.engine.Stop(id)
 	h.svc.UpdateStatus(id, "stopped")
+	h.svc.UpdateStoppedAt(id)
 	return c.JSON(http.StatusOK, map[string]string{"status": "stopped"})
 }

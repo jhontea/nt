@@ -1,17 +1,21 @@
 package config
 
-import "os"
+import (
+    "os"
+    "github.com/joho/godotenv"
+)
 
 type Config struct {
-	Port           string
-	DatabasePath   string
-	JWTSecret      string
-	TokenAPIKey    string
-	TokenSecretKey string
+    Port           string
+    DatabasePath   string
+    JWTSecret      string
+    TokenAPIKey    string
+    TokenSecretKey string
 }
 
 func Load() *Config {
-	return &Config{
+    godotenv.Load()
+    return &Config{
 		Port:           getEnv("PORT", "8080"),
 		DatabasePath:   getEnv("DATABASE_PATH", "./data/trading.db"),
 		JWTSecret:      getEnv("JWT_SECRET", "change-me"),

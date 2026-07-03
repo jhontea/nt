@@ -109,6 +109,10 @@ func (m *Manager) evaluateSignal(session model.Session) {
 		}
 		price, _ := strconv.ParseFloat(ticker.LastPrice, 64)
 		signals := m.grid.Evaluate(cfg, price)
+		for i := range signals {
+			signals[i].Symbol = session.Symbol
+			signals[i].Quantity = cfg.Quantity
+		}
 		m.saveSignals(session.ID, signals)
 
 	case "trend":
@@ -125,10 +129,14 @@ func (m *Manager) evaluateSignal(session model.Session) {
 		prices := make([]float64, len(raw))
 		for i, c := range raw {
 			if len(c) >= 5 {
-				prices[i], _ = strconv.ParseFloat(c[4].(string), 64)
+				prices[i], _ = strconv.ParseFloat(fmt.Sprintf("%v", c[4]), 64)
 			}
 		}
 		signals := m.trend.Evaluate(prices, cfg)
+		for i := range signals {
+			signals[i].Symbol = session.Symbol
+			signals[i].Quantity = cfg.Quantity
+		}
 		m.saveSignals(session.ID, signals)
 	}
 }

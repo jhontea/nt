@@ -49,6 +49,16 @@ func (r *SessionRepo) UpdateStatus(id int64, status string) error {
 	return err
 }
 
+func (r *SessionRepo) UpdateStartedAt(id int64) error {
+	_, err := r.db.Exec("UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?", id)
+	return err
+}
+
+func (r *SessionRepo) UpdateStoppedAt(id int64) error {
+	_, err := r.db.Exec("UPDATE sessions SET stopped_at = CURRENT_TIMESTAMP WHERE id = ?", id)
+	return err
+}
+
 func (r *SessionRepo) Update(s *model.Session) error {
 	_, err := r.db.Exec(
 		`UPDATE sessions SET name=?, config=?, symbol=?, strategy=? WHERE id=?`,

@@ -1,0 +1,6 @@
+panic: Binary was compiled with 'CGO_ENABLED=0', go-sqlite3 requires cgo to work. This is a stub
+
+goroutine 1 [running]:
+main.main()
+	C:/Users/PC/go/src/project/nt/backend/cmd/server/main.go:20 +0xba9
+exit status 2

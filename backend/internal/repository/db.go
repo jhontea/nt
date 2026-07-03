@@ -1,17 +1,17 @@
 package repository
 
 import (
-	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+    "github.com/jmoiron/sqlx"
+    _ "modernc.org/sqlite"
 )
 
 func NewDB(path string) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("sqlite3", path)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
-	return db, nil
+    db, err := sqlx.Open("sqlite", path)
+    if err != nil {
+        return nil, err
+    }
+    db.SetMaxOpenConns(1)
+    return db, nil
 }
 
 func Migrate(db *sqlx.DB) error {

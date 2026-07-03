@@ -41,3 +41,11 @@ func (s *SessionService) Update(session *model.Session) error {
 func (s *SessionService) UpdateStatus(id int64, status string) error {
 	return s.repo.UpdateStatus(id, status)
 }
+
+func (s *SessionService) UpdateStartedAt(id int64) error {
+	return s.repo.UpdateStartedAt(id)
+}
+
+func (s *SessionService) UpdateStoppedAt(id int64) error {
+	return s.repo.UpdateStoppedAt(id)
+}

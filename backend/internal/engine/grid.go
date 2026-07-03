@@ -26,14 +26,14 @@ func (g *GridEngine) Evaluate(config GridConfig, currentPrice float64) []Signal 
 		level := config.LowerPrice + step*float64(i)
 		levelRounded := math.Round(level*1e8) / 1e8
 
-		if currentPrice >= levelRounded && levelRounded >= midPrice {
+		if currentPrice >= levelRounded && levelRounded > midPrice {
 			signals = append(signals, Signal{
 				Side:   "sell",
 				Price:  fmt.Sprintf("%.8f", levelRounded),
 				Reason: "grid_level",
 			})
 		}
-		if currentPrice <= levelRounded && levelRounded <= midPrice {
+		if currentPrice <= levelRounded && levelRounded < midPrice {
 			signals = append(signals, Signal{
 				Side:   "buy",
 				Price:  fmt.Sprintf("%.8f", levelRounded),
