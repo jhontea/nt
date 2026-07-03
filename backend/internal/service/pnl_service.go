@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"strconv"
 
@@ -26,19 +27,19 @@ func NewPnLService(db *sqlx.DB) *PnLService {
 	return &PnLService{db: db}
 }
 
-func (s *PnLService) GetSessionPnL(sessionID int64) (*PnLSummary, error) {
+func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSummary, error) {
 	var realizedPnL sql.NullFloat64
-	if err := s.db.Get(&realizedPnL, "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?", sessionID); err != nil {
+	if err := s.db.GetContext(ctx, &realizedPnL, "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?", sessionID); err != nil {
 		return nil, err
 	}
 
 	var winCount, lossCount, tradeCount int
-	s.db.Get(&winCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0", sessionID)
-	s.db.Get(&lossCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0", sessionID)
-	s.db.Get(&tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id = ?", sessionID)
+	s.db.GetContext(ctx, &winCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0", sessionID)
+	s.db.GetContext(ctx, &lossCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0", sessionID)
+	s.db.GetContext(ctx, &tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id = ?", sessionID)
 
 	var balance sql.NullFloat64
-	if err := s.db.Get(&balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID); err != nil {
+	if err := s.db.GetContext(ctx, &balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID); err != nil {
 		return nil, err
 	}
 

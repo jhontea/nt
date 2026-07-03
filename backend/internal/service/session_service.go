@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/repository"
 )
@@ -8,19 +10,19 @@ import (
 const DefaultPaperBalance = 1000.0
 
 type SessionService struct {
-	repo *repository.SessionRepo
+	repo repository.SessionRepository
 	PnL  *PnLService
 }
 
-func NewSessionService(repo *repository.SessionRepo) *SessionService {
+func NewSessionService(repo repository.SessionRepository) *SessionService {
 	return &SessionService{repo: repo}
 }
 
-func NewSessionServiceWithPnL(repo *repository.SessionRepo, pnl *PnLService) *SessionService {
+func NewSessionServiceWithPnL(repo repository.SessionRepository, pnl *PnLService) *SessionService {
 	return &SessionService{repo: repo, PnL: pnl}
 }
 
-func (s *SessionService) Create(userID int64, name, strategy, mode, symbol, config string) (*model.Session, error) {
+func (s *SessionService) Create(ctx context.Context, userID int64, name, strategy, mode, symbol, config string) (*model.Session, error) {
 	session := &model.Session{
 		UserID:   userID,
 		Name:     name,
@@ -28,35 +30,35 @@ func (s *SessionService) Create(userID int64, name, strategy, mode, symbol, conf
 		Mode:     mode,
 		Symbol:   symbol,
 		Config:   config,
-		Status:   "stopped",
+		Status:   string(model.StatStopped),
 	}
-	if mode == "paper" {
+	if mode == string(model.ModePaper) {
 		bal := DefaultPaperBalance
 		session.VirtualBalance = &bal
 	}
-	return s.repo.Create(session)
+	return s.repo.Create(ctx, session)
 }
 
-func (s *SessionService) List(userID int64) ([]model.Session, error) {
-	return s.repo.ListByUser(userID)
+func (s *SessionService) List(ctx context.Context, userID int64) ([]model.Session, error) {
+	return s.repo.ListByUser(ctx, userID)
 }
 
-func (s *SessionService) GetByID(id int64) (*model.Session, error) {
-	return s.repo.FindByID(id)
+func (s *SessionService) GetByID(ctx context.Context, id int64) (*model.Session, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *SessionService) Update(session *model.Session) error {
-	return s.repo.Update(session)
+func (s *SessionService) Update(ctx context.Context, session *model.Session) error {
+	return s.repo.Update(ctx, session)
 }
 
-func (s *SessionService) UpdateStatus(id int64, status string) error {
-	return s.repo.UpdateStatus(id, status)
+func (s *SessionService) UpdateStatus(ctx context.Context, id int64, status string) error {
+	return s.repo.UpdateStatus(ctx, id, status)
 }
 
-func (s *SessionService) UpdateStartedAt(id int64) error {
-	return s.repo.UpdateStartedAt(id)
+func (s *SessionService) UpdateStartedAt(ctx context.Context, id int64) error {
+	return s.repo.UpdateStartedAt(ctx, id)
 }
 
-func (s *SessionService) UpdateStoppedAt(id int64) error {
-	return s.repo.UpdateStoppedAt(id)
+func (s *SessionService) UpdateStoppedAt(ctx context.Context, id int64) error {
+	return s.repo.UpdateStoppedAt(ctx, id)
 }

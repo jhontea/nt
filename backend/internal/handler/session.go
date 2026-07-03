@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -32,8 +33,16 @@ func (h *SessionHandler) userID(c echo.Context) int64 {
 	return id
 }
 
+func (h *SessionHandler) reqContext(c echo.Context) context.Context {
+	ctx := c.Request().Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return ctx
+}
+
 func (h *SessionHandler) checkOwnership(c echo.Context, sessionID int64) (*model.Session, error) {
-	session, err := h.svc.GetByID(sessionID)
+	session, err := h.svc.GetByID(h.reqContext(c), sessionID)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "session not found")
 	}
@@ -46,22 +55,31 @@ func (h *SessionHandler) checkOwnership(c echo.Context, sessionID int64) (*model
 func (h *SessionHandler) Create(c echo.Context) error {
 	var req createSessionRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid request"))
 	}
 	if req.Mode == "" {
 		req.Mode = string(model.ModeSignal)
 	}
-	session, err := h.svc.Create(h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
+	validModes := map[string]bool{string(model.ModeSignal): true, string(model.ModePaper): true, string(model.ModeLive): true}
+	if !validModes[req.Mode] {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid mode: must be signal, paper, or live"))
+	}
+	validStrats := map[string]bool{string(model.StratGrid): true, string(model.StratTrend): true, string(model.StratDCA): true}
+	if !validStrats[req.Strategy] {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid strategy: must be grid, trend, or dca"))
+	}
+
+	session, err := h.svc.Create(h.reqContext(c), h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusCreated, session)
 }
 
 func (h *SessionHandler) List(c echo.Context) error {
-	sessions, err := h.svc.List(h.userID(c))
+	sessions, err := h.svc.List(h.reqContext(c), h.userID(c))
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, sessions)
 }
@@ -83,7 +101,7 @@ func (h *SessionHandler) Update(c echo.Context) error {
 	}
 	var req createSessionRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid request"))
 	}
 	if req.Name != "" {
 		session.Name = req.Name
@@ -97,8 +115,8 @@ func (h *SessionHandler) Update(c echo.Context) error {
 	if req.Strategy != "" {
 		session.Strategy = req.Strategy
 	}
-	if err := h.svc.Update(session); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if err := h.svc.Update(h.reqContext(c), session); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, session)
 }
@@ -110,10 +128,10 @@ func (h *SessionHandler) Start(c echo.Context) error {
 		return err
 	}
 	if err := h.engine.Start(*session); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
-	h.svc.UpdateStatus(id, "running")
-	h.svc.UpdateStartedAt(id)
+	h.svc.UpdateStatus(h.reqContext(c), id, string(model.StatRunning))
+	h.svc.UpdateStartedAt(h.reqContext(c), id)
 	return c.JSON(http.StatusOK, map[string]string{"status": "running"})
 }
 
@@ -122,9 +140,10 @@ func (h *SessionHandler) GetPnL(c echo.Context) error {
 	if _, err := h.checkOwnership(c, id); err != nil {
 		return err
 	}
-	pnl, err := h.svc.PnL.GetSessionPnL(id)
+	ctx := h.reqContext(c)
+	pnl, err := h.svc.PnL.GetSessionPnL(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, pnl)
 }
@@ -136,7 +155,7 @@ func (h *SessionHandler) Stop(c echo.Context) error {
 		return err
 	}
 	h.engine.Stop(id)
-	h.svc.UpdateStatus(id, "stopped")
-	h.svc.UpdateStoppedAt(id)
+	h.svc.UpdateStatus(h.reqContext(c), id, string(model.StatStopped))
+	h.svc.UpdateStoppedAt(h.reqContext(c), id)
 	return c.JSON(http.StatusOK, map[string]string{"status": "stopped"})
 }

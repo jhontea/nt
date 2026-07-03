@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -11,28 +12,28 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *repository.UserRepo
+	userRepo  repository.UserRepository
 	jwtSecret string
 }
 
-func NewAuthService(userRepo *repository.UserRepo, jwtSecret string) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, jwtSecret string) *AuthService {
 	return &AuthService{userRepo: userRepo, jwtSecret: jwtSecret}
 }
 
-func (s *AuthService) Register(username, password string) (string, error) {
+func (s *AuthService) Register(ctx context.Context, username, password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return "", err
 	}
-	user, err := s.userRepo.Create(username, string(hash))
+	user, err := s.userRepo.Create(ctx, username, string(hash))
 	if err != nil {
 		return "", err
 	}
 	return s.generateToken(user.ID)
 }
 
-func (s *AuthService) Login(username, password string) (string, error) {
-	user, err := s.userRepo.FindByUsername(username)
+func (s *AuthService) Login(ctx context.Context, username, password string) (string, error) {
+	user, err := s.userRepo.FindByUsername(ctx, username)
 	if err != nil {
 		return "", errors.New("invalid credentials")
 	}
