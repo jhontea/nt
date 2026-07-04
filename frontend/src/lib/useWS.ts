@@ -15,7 +15,7 @@ export function useSessionWS(sessionId: number | null, onMessage: WSMessageHandl
   const wsRef = useRef<WebSocket | null>(null)
   const onMessageRef = useRef(onMessage)
   const retriesRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   onMessageRef.current = onMessage
 
   useEffect(() => {
