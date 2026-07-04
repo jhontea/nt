@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useSessionWS } from '@/lib/useWS'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 
 const modeInfo: Record<string, string> = {
@@ -24,8 +24,19 @@ export default function SessionDetailPage() {
   const { isAuthenticated } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
+  const [error, setError] = useState('')
 
   useEffect(() => { if (!isAuthenticated) router.push('/login') }, [isAuthenticated, router])
+
+  // Auto-refresh on page focus
+  useEffect(() => {
+    const onFocus = () => {
+      qc.invalidateQueries({ queryKey: ['session', id] })
+      qc.invalidateQueries({ queryKey: ['pnl', id] })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [id, qc])
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', id],
@@ -46,13 +57,23 @@ export default function SessionDetailPage() {
   })
 
   async function handleStart() {
-    await api.sessions.start(Number(id))
-    qc.invalidateQueries({ queryKey: ['session', id] })
+    setError('')
+    try {
+      await api.sessions.start(Number(id))
+      qc.invalidateQueries({ queryKey: ['session', id] })
+    } catch (e: any) {
+      setError(e.message || 'Failed to start')
+    }
   }
 
   async function handleStop() {
-    await api.sessions.stop(Number(id))
-    qc.invalidateQueries({ queryKey: ['session', id] })
+    setError('')
+    try {
+      await api.sessions.stop(Number(id))
+      qc.invalidateQueries({ queryKey: ['session', id] })
+    } catch (e: any) {
+      setError(e.message || 'Failed to stop')
+    }
   }
 
   if (sessionLoading) return <div className="p-6 text-gray-400">Loading...</div>
@@ -69,7 +90,8 @@ export default function SessionDetailPage() {
           <h1 className="text-2xl font-bold">{session.name}</h1>
           <p className="text-sm text-gray-500">Detail session trading</p>
         </div>
-        <div className="space-x-2">
+        <div className="space-x-2 flex items-center">
+          {error && <span className="text-red-400 text-sm">{error}</span>}
           <button onClick={() => router.push('/glossary')} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">📖 Glosarium</button>
           {session.status === 'running' ? (
             <button onClick={handleStop} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">Stop</button>

@@ -55,6 +55,11 @@ func (m *Manager) Start(session model.Session) error {
 		return ErrSessionRunning
 	}
 
+	// Reset DCA state on restart (clear old buy timestamps and average prices)
+	if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+		dca.Reset(session.ID)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	m.sessions[session.ID] = &RunningSession{
 		Session: session,

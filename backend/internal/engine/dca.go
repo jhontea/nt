@@ -54,6 +54,14 @@ func (d *DCAEngine) Evaluate(session model.Session, configStr string) []Signal {
 	return signals
 }
 
+// Reset clears in-memory state for a session (used when session is restarted).
+func (d *DCAEngine) Reset(sessionID int64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.lastBuy, sessionID)
+	delete(d.avgBuyPrice, sessionID)
+}
+
 func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) []Signal {
 	signals := []Signal{}
 

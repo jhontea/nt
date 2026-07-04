@@ -37,6 +37,9 @@ func (h *WSHub) Unregister(sessionID int64, conn *websocket.Conn) {
 	defer h.mu.Unlock()
 	if h.clients[sessionID] != nil {
 		delete(h.clients[sessionID], conn)
+		if len(h.clients[sessionID]) == 0 {
+			delete(h.clients, sessionID)
+		}
 	}
 }
 
