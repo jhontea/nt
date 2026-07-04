@@ -67,8 +67,11 @@ func main() {
 
 	e := echo.New()
 	e.HTTPErrorHandler = customHTTPErrorHandler
-	e.Use(middleware.Logger())
-	e.Use(middleware.CORS())
+	e.Use(middleware.BodyLimit("1MB"))
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"http://localhost:3100", "http://localhost:3000"},
+		AllowHeaders: []string{"Authorization", "Content-Type"},
+	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 	e.Use(middleware.Recover())
 
@@ -98,7 +101,7 @@ func main() {
 	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
 	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
-	wsHub := engine.NewWSHub()
+	wsHub := engine.NewWSHub(cfg.JWTSecret)
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
