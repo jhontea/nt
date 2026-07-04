@@ -109,6 +109,7 @@ func main() {
 	v1.POST("/sessions/:id/start", sessionH.Start)
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
+	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
 
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)

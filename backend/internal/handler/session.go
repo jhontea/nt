@@ -148,6 +148,18 @@ func (h *SessionHandler) GetPnL(c echo.Context) error {
 	return c.JSON(http.StatusOK, pnl)
 }
 
+func (h *SessionHandler) GetOrders(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if _, err := h.checkOwnership(c, id); err != nil {
+		return err
+	}
+	orders, err := h.svc.PnL.GetOrders(h.reqContext(c), id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	return c.JSON(http.StatusOK, orders)
+}
+
 func (h *SessionHandler) Stop(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	_, err := h.checkOwnership(c, id)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/user/nt/internal/model"
 )
 
 type PnLSummary struct {
@@ -67,4 +68,15 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 		TradeCount:    tradeCount,
 		Balance:       bal,
 	}, nil
+}
+
+func (s *PnLService) GetOrders(ctx context.Context, sessionID int64) ([]model.Order, error) {
+	var orders []model.Order
+	err := s.db.SelectContext(ctx, &orders,
+		`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
+		 FROM orders WHERE session_id = ? ORDER BY created_at DESC LIMIT 50`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return orders, nil
 }

@@ -34,6 +34,7 @@ export default function SessionDetailPage() {
     const onFocus = () => {
       qc.invalidateQueries({ queryKey: ['session', id] })
       qc.invalidateQueries({ queryKey: ['pnl', id] })
+      qc.invalidateQueries({ queryKey: ['orders', id] })
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -51,9 +52,17 @@ export default function SessionDetailPage() {
     enabled: isAuthenticated,
   })
 
+  const { data: orders, isLoading: ordersLoading } = useQuery({
+    queryKey: ['orders', id],
+    queryFn: () => api.sessions.getOrders(Number(id)),
+    enabled: isAuthenticated,
+    refetchInterval: 10000,
+  })
+
   useSessionWS(Number(id), (data) => {
     if (data.type === 'signal') {
       qc.invalidateQueries({ queryKey: ['pnl', id] })
+      qc.invalidateQueries({ queryKey: ['orders', id] })
     }
   })
 
@@ -183,6 +192,41 @@ export default function SessionDetailPage() {
       ) : pnlLoading ? (
         <p className="text-gray-400 mb-6">Loading P&L...</p>
       ) : null}
+
+      {/* Orders Table */}
+      <h2 className="text-lg font-semibold mb-3">Riwayat Signal & Order</h2>
+      {ordersLoading ? (
+        <p className="text-gray-400 mb-6">Loading orders...</p>
+      ) : !orders?.length ? (
+        <p className="text-gray-500 mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
+      ) : (
+        <div className="bg-gray-900 rounded-xl overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead className="text-gray-400 text-xs uppercase border-b border-gray-800">
+              <tr>
+                <th className="px-3 py-2 text-left">Waktu</th>
+                <th className="px-3 py-2 text-left">Sisi</th>
+                <th className="px-3 py-2 text-left">Harga</th>
+                <th className="px-3 py-2 text-left">Jumlah</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Tipe</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {orders.slice(0, 20).map(o => (
+                <tr key={o.id} className="hover:bg-gray-800/50">
+                  <td className="px-3 py-2 text-gray-400">{new Date(o.created_at).toLocaleTimeString('id-ID')}</td>
+                  <td className={`px-3 py-2 font-medium ${o.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>{o.side}</td>
+                  <td className="px-3 py-2">{o.price}</td>
+                  <td className="px-3 py-2">{o.quantity}</td>
+                  <td className="px-3 py-2">{o.status}</td>
+                  <td className="px-3 py-2 text-gray-400">{o.type}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Info untuk pengguna baru */}
       <div className="bg-gray-800/30 rounded-xl p-4 text-xs text-gray-500 space-y-1 mt-4">
