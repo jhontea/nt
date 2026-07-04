@@ -186,7 +186,7 @@ export default function SessionsPage() {
                 <h3 className="font-semibold">{s.name}</h3>
                 <p className="text-sm text-gray-400">
                   {s.symbol} · {s.strategy === 'grid' ? 'Grid' : s.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
-                  <span className={s.mode === 'live' ? 'text-yellow-400' : ''}>
+                  <span className={s.mode === 'live' ? 'text-yellow-400' : s.mode === 'paper' ? 'text-blue-400' : 'text-gray-400'}>
                     {s.mode === 'signal' ? 'Signal' : s.mode === 'paper' ? 'Paper' : 'Live'}
                   </span> ·{' '}
                   <span className={s.status === 'running' ? 'text-green-400' : 'text-gray-500'}>{s.status}</span>
