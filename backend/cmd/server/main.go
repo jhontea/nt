@@ -62,7 +62,7 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepo(db)
-	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
+	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
 	authH := handler.NewAuthHandler(authSvc)
 
 	e := echo.New()

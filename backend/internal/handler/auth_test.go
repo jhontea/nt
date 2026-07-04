@@ -17,7 +17,7 @@ import (
 func setupAuthTest(t *testing.T) (*AuthHandler, *mocks.MockUserRepository, echo.Context, *httptest.ResponseRecorder) {
 	ctrl := gomock.NewController(t)
 	mockRepo := mocks.NewMockUserRepository(ctrl)
-	svc := service.NewAuthService(mockRepo, "test-secret")
+	svc := service.NewAuthService(mockRepo, "test-secret", 24)
 	h := NewAuthHandler(svc)
 
 	e := echo.New()

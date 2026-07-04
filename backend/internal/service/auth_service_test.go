@@ -20,7 +20,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	mockUserRepo.EXPECT().Create(gomock.Any(), "alice", gomock.Any()).
 		Return(&model.User{ID: 1, Username: "alice"}, nil)
 
-	svc := NewAuthService(mockUserRepo, "test-secret")
+	svc := NewAuthService(mockUserRepo, "test-secret", 24)
 	token, err := svc.Register(context.Background(), "alice", "strongpass")
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
@@ -38,7 +38,7 @@ func TestAuthService_Register_Duplicate(t *testing.T) {
 	mockUserRepo.EXPECT().Create(gomock.Any(), "alice", gomock.Any()).
 		Return(nil, errors.New("UNIQUE constraint failed"))
 
-	svc := NewAuthService(mockUserRepo, "test-secret")
+	svc := NewAuthService(mockUserRepo, "test-secret", 24)
 	_, err := svc.Register(context.Background(), "alice", "strongpass")
 	if err == nil {
 		t.Fatal("expected error for duplicate username")
@@ -54,7 +54,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	mockUserRepo.EXPECT().FindByUsername(gomock.Any(), "alice").
 		Return(&model.User{ID: 1, Username: "alice", PasswordHash: string(hash)}, nil)
 
-	svc := NewAuthService(mockUserRepo, "test-secret")
+	svc := NewAuthService(mockUserRepo, "test-secret", 24)
 	token, err := svc.Login(context.Background(), "alice", "mypass")
 	if err != nil {
 		t.Fatalf("Login failed: %v", err)
@@ -73,7 +73,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	mockUserRepo.EXPECT().FindByUsername(gomock.Any(), "alice").
 		Return(&model.User{ID: 1, Username: "alice", PasswordHash: string(hash)}, nil)
 
-	svc := NewAuthService(mockUserRepo, "test-secret")
+	svc := NewAuthService(mockUserRepo, "test-secret", 24)
 	_, err := svc.Login(context.Background(), "alice", "wrongpass")
 	if err == nil {
 		t.Fatal("expected error for wrong password")
@@ -88,7 +88,7 @@ func TestAuthService_Token_HasCorrectClaims(t *testing.T) {
 	mockUserRepo.EXPECT().Create(gomock.Any(), "bob", gomock.Any()).
 		Return(&model.User{ID: 42, Username: "bob"}, nil)
 
-	svc := NewAuthService(mockUserRepo, "my-secret")
+	svc := NewAuthService(mockUserRepo, "my-secret", 24)
 	tokenStr, err := svc.Register(context.Background(), "bob", "pass")
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
