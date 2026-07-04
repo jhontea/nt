@@ -107,6 +107,14 @@ func main() {
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
+	v1.GET("/ticker/:symbol", func(c echo.Context) error {
+		ticker, err := tokoClient.GetTicker(c.Param("symbol"))
+		if err != nil {
+			return c.JSON(502, ErrorResponse{Error: "failed to fetch ticker: " + err.Error()})
+		}
+		return c.JSON(200, ticker)
+	})
+
 	v1.POST("/sessions", sessionH.Create)
 	v1.GET("/sessions", sessionH.List)
 	v1.GET("/sessions/:id", sessionH.Get)

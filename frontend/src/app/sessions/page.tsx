@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 
 const PAIRS = [
@@ -25,16 +25,56 @@ const strategyHelp: Record<string, string> = {
   dca: 'Dollar Cost Averaging — beli aset secara berkala dalam jumlah tetap. Otomatis jual saat harga naik ke target profit.',
 }
 
-const fieldHelp: Record<string, string> = {
-  upper_price: 'Harga tertinggi untuk grid. Bot akan mulai jual di level ini. Contoh: 70000 untuk BTC/USDT.',
-  lower_price: 'Harga terendah untuk grid. Bot akan mulai beli di level ini. Contoh: 60000 untuk BTC/USDT.',
-  grid_count: 'Jumlah level harga antara batas atas dan bawah. Makin banyak makin rapat order. 5-20 grid disarankan.',
-  quantity: 'Jumlah aset per order. Untuk grid: 0.001 BTC. Untuk trend: sesuaikan dengan modal.',
-  fast_period: 'Periode SMA cepat (lebih sensitif terhadap harga terbaru). Default: 10 candle.',
-  slow_period: 'Periode SMA lambat (lebih stabil, melihat tren jangka panjang). Default: 30 candle.',
-  dca_interval: 'Frekuensi pembelian rutin. Makin sering = makin Rata-rata harga beli.',
-  dca_amount: 'Jumlah USDT yang dibelikan setiap interval. Contoh: 10 berarti beli $10 setiap interval.',
-  dca_take_profit: 'Persentase kenaikan harga untuk menjual. 5 = jual saat harga naik 5% dari rata-rata beli.',
+const fieldHelp: Record<string, { short: string; long: string }> = {
+  upper_price: {
+    short: 'Batas harga tertinggi. Bot akan jual di level ini.',
+    long: 'Harga tertinggi yang ingin Anda jangkau. Bot akan memasang order jual di level-level mendekati harga ini. Makin lebar jarak atas-bawah, makin besar potensi profit tapi order lebih jarang terisi. Disarankan 10-20% di atas harga pasar saat ini.',
+  },
+  lower_price: {
+    short: 'Batas harga terendah. Bot akan beli di level ini.',
+    long: 'Harga terendah yang ingin Anda jangkau. Bot akan memasang order beli di level-level mendekati harga ini. Disarankan 10-20% di bawah harga pasar saat ini.',
+  },
+  grid_count: {
+    short: 'Jumlah level harga antara batas atas dan bawah.',
+    long: 'Makin banyak grid = makin rapat order = potensi profit lebih sering tapi lebih kecil per order. 5-10 grid cukup untuk pemula.',
+  },
+  quantity: {
+    short: 'Jumlah aset per order.',
+    long: 'Untuk grid: jumlah aset yang dibeli/dijual setiap kali order terisi. Contoh: 0.001 BTC. Untuk trend: jumlah per sinyal. Sesuaikan dengan modal Anda.',
+  },
+  fast_period: {
+    short: 'Periode SMA cepat — lebih sensitif terhadap harga terbaru.',
+    long: 'SMA Cepat (fast period) bereaksi lebih cepat terhadap perubahan harga. Nilai kecil (5-10) = lebih sering dapat sinyal tapi lebih banyak false signal. Nilai besar (15-20) = lebih selektif.',
+  },
+  slow_period: {
+    short: 'Periode SMA lambat — melihat tren jangka panjang.',
+    long: 'SMA Lambat (slow period) lebih stabil dan menunjukkan tren jangka panjang. Harus lebih besar dari SMA cepat. Disarankan 2-3x dari fast period. Contoh: fast=10, slow=30.',
+  },
+  dca_interval: {
+    short: 'Frekuensi pembelian rutin.',
+    long: 'Makin sering = harga rata-rata lebih halus, cocok untuk pasar volatile. Makin jarang = lebih cocok untuk tren naik jangka panjang.',
+  },
+  dca_amount: {
+    short: 'Jumlah USDT yang dibelikan setiap interval.',
+    long: 'Contoh: 10 berarti bot akan membeli $10 worth of asset setiap interval. Sesuaikan dengan modal. Jangan terlalu besar agar tidak cepat habis.',
+  },
+  dca_take_profit: {
+    short: 'Persentase kenaikan harga untuk menjual.',
+    long: '5 = jual otomatis saat harga naik 5% dari rata-rata harga beli. 0 = nonaktifkan take profit (hold terus). Disarankan 3-10%.',
+  },
+}
+
+interface TickerData {
+  last_price: string
+  volume: string
+}
+
+const DEFAULT_BOUNDARY_PCT = 15 // ±15% around current price
+
+function calcGridDefaults(price: number) {
+  const upper = Math.round(price * (1 + DEFAULT_BOUNDARY_PCT / 100))
+  const lower = Math.round(price * (1 - DEFAULT_BOUNDARY_PCT / 100))
+  return { upper: String(upper), lower: String(lower) }
 }
 
 type Preset = {
@@ -43,14 +83,15 @@ type Preset = {
   strategy: 'grid' | 'trend' | 'dca'
   mode: 'signal' | 'paper' | 'live'
   symbol: string
+  dynamicPrice?: boolean
   config: Record<string, any>
 }
 
 const presets: Preset[] = [
-  { label: '🚀 Mulai Cepat — Grid Signal', desc: 'Buat session Grid Signal dengan pengaturan default. Cocok untuk pemula.', strategy: 'grid', mode: 'signal', symbol: 'BTC_USDT', config: { upper_price: 70000, lower_price: 60000, grid_count: 10, quantity: '0.001' } },
-  { label: '📈 Trend Signal', desc: 'Ikuti tren pasar dengan SMA crossover. Mendeteksi golden cross dan death cross.', strategy: 'trend', mode: 'signal', symbol: 'BTC_USDT', config: { fast_period: 10, slow_period: 30, quantity: '0.001' } },
-  { label: '🪙 DCA Paper $1000', desc: 'Simulasi DCA dengan uang virtual $1000. Beli $10 setiap jam, take profit 5%.', strategy: 'dca', mode: 'paper', symbol: 'BTC_USDT', config: { interval_sec: 3600, amount: '10', take_profit_pct: 5 } },
-  { label: '📊 Grid Paper', desc: 'Simulasi Grid Trading dengan uang virtual $1000.', strategy: 'grid', mode: 'paper', symbol: 'ETH_USDT', config: { upper_price: 2500, lower_price: 2000, grid_count: 8, quantity: '0.01' } },
+  { label: '🚀 Grid Signal', desc: 'Pasang grid di sekitar harga pasar. Bot akan beli murah jual mahal secara otomatis.', strategy: 'grid', mode: 'signal', symbol: 'BTC_USDT', dynamicPrice: true, config: { grid_count: 10, quantity: '0.001' } },
+  { label: '📈 Trend Signal', desc: 'Deteksi golden cross & death cross dengan SMA. Ikuti arah tren pasar.', strategy: 'trend', mode: 'signal', symbol: 'BTC_USDT', config: { fast_period: 10, slow_period: 30, quantity: '0.001' } },
+  { label: '🪙 DCA Paper', desc: 'Simulasi DCA dengan uang virtual $1000. Beli rutin, jual otomatis saat profit.', strategy: 'dca', mode: 'paper', symbol: 'BTC_USDT', config: { interval_sec: 3600, amount: '10', take_profit_pct: 5 } },
+  { label: '📊 Grid Paper', desc: 'Simulasi Grid Trading dengan uang virtual $1000.', strategy: 'grid', mode: 'paper', symbol: 'ETH_USDT', dynamicPrice: true, config: { grid_count: 8, quantity: '0.01' } },
 ]
 
 export default function SessionsPage() {
@@ -79,21 +120,56 @@ export default function SessionsPage() {
   const [dcaInterval, setDcaInterval] = useState('3600')
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
+  const [priceLoading, setPriceLoading] = useState(false)
+
+  const fetchPrice = useCallback(async (sym: string) => {
+    setPriceLoading(true)
+    try {
+      const ticker = await api.sessions.getTicker(sym)
+      const price = parseFloat(ticker.last_price)
+      if (!isNaN(price) && price > 0) {
+        setCurrentPrice(price)
+        if (strategy === 'grid') {
+          const { upper, lower } = calcGridDefaults(price)
+          setUpperPrice(upper)
+          setLowerPrice(lower)
+        }
+        return price
+      }
+    } catch { /* ignore */ }
+    setPriceLoading(false)
+  }, [strategy])
+
+  useEffect(() => {
+    if (showCreate) fetchPrice(symbol)
+  }, [showCreate, symbol, fetchPrice])
 
   function applyPreset(p: Preset) {
     setStrategy(p.strategy)
     setMode(p.mode)
     setSymbol(p.symbol)
-    setName(p.label.split('—')[1]?.trim() || p.label)
+    setName(p.label)
+    setQuantity(p.config.quantity || '0.001')
     if (p.strategy === 'grid') {
-      setUpperPrice(String(p.config.upper_price))
-      setLowerPrice(String(p.config.lower_price))
       setGridCount(String(p.config.grid_count))
-      setQuantity(p.config.quantity)
+      if (!p.dynamicPrice) {
+        setUpperPrice(String(p.config.upper_price))
+        setLowerPrice(String(p.config.lower_price))
+      }
+      // Fetch price for dynamic presets
+      if (p.dynamicPrice) {
+        fetchPrice(p.symbol).then(price => {
+          if (price) {
+            const { upper, lower } = calcGridDefaults(price)
+            setUpperPrice(upper)
+            setLowerPrice(lower)
+          }
+        })
+      }
     } else if (p.strategy === 'trend') {
       setFastPeriod(String(p.config.fast_period))
       setSlowPeriod(String(p.config.slow_period))
-      setQuantity(p.config.quantity)
     } else {
       setDcaInterval(String(p.config.interval_sec))
       setDcaAmount(p.config.amount)
@@ -129,7 +205,9 @@ export default function SessionsPage() {
   }
 
   function renderConfigHelp(key: string) {
-    return <HelpIcon text={fieldHelp[key] || ''} />
+    const h = fieldHelp[key]
+    if (!h) return null
+    return <HelpIcon text={`${h.short}\n\n${h.long}`} />
   }
 
   return (
@@ -148,7 +226,7 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      {/* Rekomendasi / Presets */}
+      {/* Rekomendasi */}
       {!showCreate && (
         <div className="mb-8">
           <h2 className="text-sm text-gray-400 uppercase tracking-wider font-semibold mb-3">Rekomendasi Cepat</h2>
@@ -168,6 +246,15 @@ export default function SessionsPage() {
       {showCreate && (
         <form onSubmit={handleCreate} className="bg-gray-900 p-6 rounded-xl mb-6 space-y-4">
           <h2 className="font-semibold">New Trading Session</h2>
+
+          {/* Info harga saat ini */}
+          {currentPrice && (
+            <div className="bg-gray-800 rounded-lg p-3 text-sm flex items-center gap-2">
+              <span className="text-gray-400">Harga {symbol}:</span>
+              <span className="font-semibold text-green-400">${currentPrice.toLocaleString()}</span>
+              <span className="text-xs text-gray-500">— Harga diambil langsung dari TokoCrypto</span>
+            </div>
+          )}
 
           <div>
             <label className="text-sm text-gray-400 block mb-1">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
@@ -194,7 +281,7 @@ export default function SessionsPage() {
 
           <div>
             <label className="text-sm text-gray-400 block mb-1">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
-            <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={symbol} onChange={e => setSymbol(e.target.value)}>
+            <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={symbol} onChange={e => { setSymbol(e.target.value); fetchPrice(e.target.value) }}>
               <optgroup label="USDT Pairs">
                 {PAIRS.filter(p => p.endsWith('_USDT')).map(p => <option key={p} value={p}>{p}</option>)}
               </optgroup>
@@ -206,15 +293,19 @@ export default function SessionsPage() {
 
           {strategy === 'grid' ? (
             <>
+              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+                <p><strong>Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
+                <p><strong>Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
+              </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Konfigurasi Grid</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Atas</span>{renderConfigHelp('upper_price')}</div>
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
                     <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Bawah</span>{renderConfigHelp('lower_price')}</div>
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
                     <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
                   </div>
                   <div>
@@ -230,6 +321,12 @@ export default function SessionsPage() {
             </>
           ) : strategy === 'trend' ? (
             <>
+              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+                <p><strong>Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
+                <p><strong>Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
+                <p><strong>Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
+                <p><strong>Tips:</strong> Fast period harus &lt; slow period. Semakin besar selisihnya, semakin kuat sinyalnya tapi semakin jarang dapat sinyal. Contoh: fast=10, slow=30 (cocok untuk BTC jangka menengah).</p>
+              </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Konfigurasi SMA</label>
                 <div className="grid grid-cols-3 gap-3">
@@ -250,6 +347,11 @@ export default function SessionsPage() {
             </>
           ) : (
             <>
+              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+                <p><strong>Apa itu DCA?</strong> Dollar Cost Averaging — strategi membeli aset dalam jumlah tetap secara rutin, tanpa peduli harga sedang naik atau turun. Tujuannya adalah meratakan harga beli rata-rata.</p>
+                <p><strong>Contoh:</strong> Beli $10 BTC setiap 1 jam. Saat harga turun, $10 dapat BTC lebih banyak. Saat harga naik, $10 dapat BTC lebih sedikit. Rata-rata harga beli jadi lebih stabil.</p>
+                <p><strong>Take Profit:</strong> Jika diaktifkan, bot akan menjual semua posisi saat harga naik X% dari rata-rata harga beli. Contoh: 5% = jual saat harga naik 5%.</p>
+              </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Konfigurasi DCA</label>
                 <div className="grid grid-cols-3 gap-3">

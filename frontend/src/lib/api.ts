@@ -44,5 +44,6 @@ export const api = {
     stop: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/stop`, { method: 'POST' }),
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
     getOrders: (id: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders`),
+    getTicker: (symbol: string) => request<{ last_price: string; volume: string }>(`/v1/ticker/${symbol}`),
   },
 }
