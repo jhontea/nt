@@ -11,3 +11,9 @@ node_modules/
 frontend/out/
 
 *.log
+*.out
+*.test
+coverage*
+*.prof
+*.db
+tmp/
