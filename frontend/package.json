@@ -8,17 +8,18 @@
     "start": "next start -p 3100"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@tanstack/react-query": "^5.0.0",
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.12.0",
-    "@tanstack/react-query": "^5.0.0"
+    "recharts": "^2.12.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "tailwindcss": "^4.0.0"
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }
