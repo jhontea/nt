@@ -122,3 +122,147 @@ func TestSessionRepo_UpdateStatus(t *testing.T) {
 		t.Errorf("expected 'running', got '%s'", updated.Status)
 	}
 }
+
+func TestSessionRepo_FindByID_NotFound(t *testing.T) {
+	db := setupDB(t)
+	repo := NewSessionRepo(db)
+
+	_, err := repo.FindByID(context.Background(), 999)
+	if err == nil {
+		t.Fatal("expected error for non-existent session")
+	}
+}
+
+func TestSessionRepo_Update(t *testing.T) {
+	db := setupDB(t)
+	repo := NewSessionRepo(db)
+
+	s, _ := repo.Create(context.Background(), &model.Session{
+		UserID: 1, Name: "original", Strategy: "grid",
+		Mode: "signal", Symbol: "BTC_USDT", Config: `{"a":1}`, Status: "stopped",
+	})
+
+	s.Name = "updated"
+	s.Config = `{"b":2}`
+	s.Symbol = "ETH_USDT"
+	s.Strategy = "trend"
+
+	if err := repo.Update(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := repo.FindByID(context.Background(), s.ID)
+	if updated.Name != "updated" {
+		t.Errorf("expected 'updated', got '%s'", updated.Name)
+	}
+	if updated.Config != `{"b":2}` {
+		t.Errorf("expected config `{\"b\":2}`, got '%s'", updated.Config)
+	}
+	if updated.Symbol != "ETH_USDT" {
+		t.Errorf("expected 'ETH_USDT', got '%s'", updated.Symbol)
+	}
+}
+
+func TestSessionRepo_UpdateStartedAt(t *testing.T) {
+	db := setupDB(t)
+	repo := NewSessionRepo(db)
+
+	s, _ := repo.Create(context.Background(), &model.Session{
+		UserID: 1, Name: "s", Strategy: "grid",
+		Mode: "signal", Symbol: "BTC_USDT", Config: "{}", Status: "stopped",
+	})
+
+	if err := repo.UpdateStartedAt(context.Background(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := repo.FindByID(context.Background(), s.ID)
+	if updated.StartedAt == nil {
+		t.Error("expected started_at to be set")
+	}
+}
+
+func TestSessionRepo_UpdateStoppedAt(t *testing.T) {
+	db := setupDB(t)
+	repo := NewSessionRepo(db)
+
+	s, _ := repo.Create(context.Background(), &model.Session{
+		UserID: 1, Name: "s", Strategy: "grid",
+		Mode: "signal", Symbol: "BTC_USDT", Config: "{}", Status: "stopped",
+	})
+
+	if err := repo.UpdateStoppedAt(context.Background(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := repo.FindByID(context.Background(), s.ID)
+	if updated.StoppedAt == nil {
+		t.Error("expected stopped_at to be set")
+	}
+}
+
+func TestNewDB_DefaultSQLite(t *testing.T) {
+	// Reset env for test
+	oldDriver := os.Getenv("DB_DRIVER")
+	os.Setenv("DB_DRIVER", "")
+	defer os.Setenv("DB_DRIVER", oldDriver)
+
+	db, err := NewDB(":memory:")
+	if err != nil {
+		t.Fatalf("NewDB failed: %v", err)
+	}
+	defer db.Close()
+
+	if db.DriverName() != "sqlite" {
+		t.Errorf("expected sqlite driver, got %s", db.DriverName())
+	}
+}
+
+func TestMigrate_SQLite(t *testing.T) {
+	db, _ := NewDB(":memory:")
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatalf("Migrate failed: %v", err)
+	}
+
+	// Verify tables exist
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+
+	tables := []string{}
+	for rows.Next() {
+		var name string
+		rows.Scan(&name)
+		tables = append(tables, name)
+	}
+	expected := []string{"api_keys", "candles", "orders", "sessions", "trades", "users"}
+	for _, e := range expected {
+		found := false
+		for _, t := range tables {
+			if t == e {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected table %s to exist, got %v", e, tables)
+		}
+	}
+}
+
+func TestMigrate_Idempotent(t *testing.T) {
+	db, _ := NewDB(":memory:")
+	defer db.Close()
+
+	if err := Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	// Running twice should not fail
+	if err := Migrate(db); err != nil {
+		t.Fatalf("second migrate failed: %v", err)
+	}
+}
