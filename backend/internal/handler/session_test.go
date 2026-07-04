@@ -1,0 +1,106 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/user/nt/internal/engine"
+	"github.com/user/nt/internal/model"
+	mockrepo "github.com/user/nt/internal/repository/mocks"
+	"github.com/user/nt/internal/service"
+	"github.com/user/nt/internal/tokocrypto"
+	"go.uber.org/mock/gomock"
+)
+
+func setupSessionTest(t *testing.T) (*SessionHandler, *mockrepo.MockSessionRepository, echo.Context, *httptest.ResponseRecorder) {
+	ctrl := gomock.NewController(t)
+	mockRepo := mockrepo.NewMockSessionRepository(ctrl)
+	svc := service.NewSessionServiceWithPnL(mockRepo, service.NewPnLService(nil))
+
+	client := tokocrypto.NewClient("", "")
+	wsHub := engine.NewWSHub("test")
+	notifier := service.NewNotifier("", "")
+	mgr := engine.NewManager(client, nil, notifier, wsHub)
+	h := NewSessionHandler(svc, mgr)
+
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(context.WithValue(context.Background(), "user_id", "1"))
+	c := e.NewContext(req, rec)
+	c.Set("user_id", "1")
+	return h, mockRepo, c, rec
+}
+
+func TestSessionHandler_Create_Valid(t *testing.T) {
+	h, mockRepo, c, rec := setupSessionTest(t)
+
+	body := `{"name":"test","strategy":"grid","mode":"signal","symbol":"BTC_USDT","config":"{\"upper_price\":70000,\"lower_price\":60000,\"grid_count\":10,\"quantity\":\"0.001\"}"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/sessions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(context.Background(), "user_id", "1"))
+	c.SetRequest(req)
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+
+	mockRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&model.Session{ID: 1, Name: "test"}, nil)
+	_ = h.Create(c)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSessionHandler_Create_InvalidConfig(t *testing.T) {
+	h, _, c, rec := setupSessionTest(t)
+
+	body := `{"strategy":"grid","mode":"signal","symbol":"INVALID","config":"{\"upper_price\":0,\"lower_price\":0,\"grid_count\":0,\"quantity\":\"0\"}"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/sessions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(context.Background(), "user_id", "1"))
+	c.SetRequest(req)
+
+	_ = h.Create(c)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid config, got %d", rec.Code)
+	}
+}
+
+func TestSessionHandler_List(t *testing.T) {
+	h, mockRepo, c, rec := setupSessionTest(t)
+
+	sessions := []model.Session{{ID: 1, Name: "s1"}, {ID: 2, Name: "s2"}}
+	mockRepo.EXPECT().ListByUser(gomock.Any(), int64(1)).Return(sessions, nil)
+
+	_ = h.List(c)
+
+	var result []model.Session
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result) != 2 {
+		t.Errorf("expected 2 sessions, got %d", len(result))
+	}
+}
+
+func TestSessionHandler_Get_NotFound(t *testing.T) {
+	h, mockRepo, c, _ := setupSessionTest(t)
+	c.SetParamNames("id")
+	c.SetParamValues("999")
+
+	mockRepo.EXPECT().FindByID(gomock.Any(), int64(999)).Return(nil, echo.NewHTTPError(404))
+
+	err := h.Get(c)
+	if err != nil {
+		he, ok := err.(*echo.HTTPError)
+		if !ok || he.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %v", err)
+		}
+	}
+}
