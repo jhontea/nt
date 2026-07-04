@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/service"
+	"github.com/user/nt/internal/validator"
 )
 
 type AuthHandler struct {
@@ -26,8 +27,15 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid request"))
 	}
-	if req.Username == "" || req.Password == "" {
-		return c.JSON(http.StatusBadRequest, ErrorJSON("username and password required"))
+	var v validator.Errors
+	v.Add(validator.Required(req.Username))
+	v.Add(validator.MinLength(req.Username, 2))
+	v.Add(validator.MaxLength(req.Username, 50))
+	v.Add(validator.Required(req.Password))
+	v.Add(validator.MinLength(req.Password, 4))
+	v.Add(validator.MaxLength(req.Password, 100))
+	if err := v.Err(); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
 	ctx := c.Request().Context()
 	if ctx == nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/service"
+	"github.com/user/nt/internal/validator"
 )
 
 type SessionHandler struct {
@@ -60,13 +61,11 @@ func (h *SessionHandler) Create(c echo.Context) error {
 	if req.Mode == "" {
 		req.Mode = string(model.ModeSignal)
 	}
-	validModes := map[string]bool{string(model.ModeSignal): true, string(model.ModePaper): true, string(model.ModeLive): true}
-	if !validModes[req.Mode] {
-		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid mode: must be signal, paper, or live"))
+	if err := validator.ValidateSession(req.Mode, req.Strategy, req.Config); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
-	validStrats := map[string]bool{string(model.StratGrid): true, string(model.StratTrend): true, string(model.StratDCA): true}
-	if !validStrats[req.Strategy] {
-		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid strategy: must be grid, trend, or dca"))
+	if err := validator.Symbol(req.Symbol); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid symbol: "+err.Error()))
 	}
 
 	session, err := h.svc.Create(h.reqContext(c), h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
