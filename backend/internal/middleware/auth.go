@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -25,6 +26,9 @@ func Auth(jwtSecret string) echo.MiddlewareFunc {
 			})
 			if err != nil || !token.Valid {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
+			}
+			if _, err := strconv.ParseInt(claims.Subject, 10, 64); err != nil {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token subject"})
 			}
 			c.Set("user_id", claims.Subject)
 			return next(c)

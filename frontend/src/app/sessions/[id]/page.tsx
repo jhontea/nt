@@ -25,6 +25,7 @@ export default function SessionDetailPage() {
   const router = useRouter()
   const qc = useQueryClient()
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState('')
 
   useEffect(() => { if (!isAuthenticated) router.push('/login') }, [isAuthenticated, router])
 
@@ -58,22 +59,26 @@ export default function SessionDetailPage() {
 
   async function handleStart() {
     setError('')
+    setLoading('start')
     try {
       await api.sessions.start(Number(id))
       qc.invalidateQueries({ queryKey: ['session', id] })
     } catch (e: any) {
       setError(e.message || 'Failed to start')
     }
+    setLoading('')
   }
 
   async function handleStop() {
     setError('')
+    setLoading('stop')
     try {
       await api.sessions.stop(Number(id))
       qc.invalidateQueries({ queryKey: ['session', id] })
     } catch (e: any) {
       setError(e.message || 'Failed to stop')
     }
+    setLoading('')
   }
 
   if (sessionLoading) return <div className="p-6 text-gray-400">Loading...</div>
@@ -94,9 +99,9 @@ export default function SessionDetailPage() {
           {error && <span className="text-red-400 text-sm">{error}</span>}
           <button onClick={() => router.push('/glossary')} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">📖 Glosarium</button>
           {session.status === 'running' ? (
-            <button onClick={handleStop} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">Stop</button>
+            <button onClick={handleStop} disabled={loading === 'stop'} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50">{loading === 'stop' ? '...' : 'Stop'}</button>
           ) : (
-            <button onClick={handleStart} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition">Start</button>
+            <button onClick={handleStart} disabled={loading === 'start'} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-50">{loading === 'start' ? '...' : 'Start'}</button>
           )}
         </div>
       </div>
