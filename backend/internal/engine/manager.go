@@ -15,6 +15,7 @@ import (
 
 type Manager struct {
 	mu         sync.Mutex
+	wg         sync.WaitGroup
 	sessions   map[int64]*RunningSession
 	client     *tokocrypto.Client
 	db         *sqlx.DB
@@ -66,6 +67,7 @@ func (m *Manager) Start(session model.Session) error {
 		Cancel:  cancel,
 	}
 
+	m.wg.Add(1)
 	go m.run(ctx, session)
 	return nil
 }
@@ -82,12 +84,12 @@ func (m *Manager) Stop(sessionID int64) {
 
 func (m *Manager) StopAll() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	for id, rs := range m.sessions {
 		rs.Cancel()
 		delete(m.sessions, id)
 	}
+	m.mu.Unlock()
+	m.wg.Wait()
 }
 
 func (m *Manager) IsRunning(sessionID int64) bool {
@@ -98,6 +100,7 @@ func (m *Manager) IsRunning(sessionID int64) bool {
 }
 
 func (m *Manager) run(ctx context.Context, session model.Session) {
+	defer m.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("session panic", "id", session.ID, "recover", r)
@@ -166,16 +169,22 @@ func (m *Manager) broadcast(sessionID int64, signals []Signal) {
 }
 
 func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
-	for _, sig := range signals {
-		slog.Info("signal", "session", sessionID, "side", sig.Side, "price", sig.Price, "reason", sig.Reason)
-		_, err := m.db.Exec(
-			`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status)
-			 VALUES (?, ?, ?, ?, 'signal', ?, ?, 'signal')`,
-			sessionID, "sig_"+fmt.Sprintf("%d", time.Now().UnixNano()),
-			sig.Symbol, sig.Side, sig.Price, sig.Quantity,
-		)
-		if err != nil {
-			slog.Error("save signal", "session", sessionID, "error", err)
+	if len(signals) == 0 {
+		return
+	}
+	now := time.Now().UnixNano()
+	query := `INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status) VALUES `
+	vals := []any{}
+	for i, sig := range signals {
+		if i > 0 {
+			query += ", "
 		}
+		query += "(?, ?, ?, ?, 'signal', ?, ?, 'signal')"
+		vals = append(vals, sessionID, fmt.Sprintf("sig_%d", now+int64(i)), sig.Symbol, sig.Side, sig.Price, sig.Quantity)
+		slog.Info("signal", "session", sessionID, "side", sig.Side, "price", sig.Price, "reason", sig.Reason)
+	}
+	_, err := m.db.Exec(query, vals...)
+	if err != nil {
+		slog.Error("save signals batch", "session", sessionID, "error", err)
 	}
 }

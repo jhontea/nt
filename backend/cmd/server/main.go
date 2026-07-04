@@ -90,9 +90,11 @@ func main() {
 		return c.JSON(200, map[string]string{"status": "ready"})
 	})
 
-	// Auth routes (public)
-	e.POST("/v1/register", authH.Register)
-	e.POST("/v1/login", authH.Login)
+	// Auth routes (public, strict rate limit)
+	auth := e.Group("/v1")
+	auth.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(5)))
+	auth.POST("/register", authH.Register)
+	auth.POST("/login", authH.Login)
 
 	// API v1 (authenticated)
 	v1 := e.Group("/v1", authmw.Auth(cfg.JWTSecret))
