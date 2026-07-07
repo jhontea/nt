@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/tokocrypto"
 )
@@ -27,22 +28,23 @@ type gridLevel struct {
 	price     float64
 	side      string // "buy" or "sell"
 	state     levelState
-	lastPrice float64 // last market price when this level was evaluated
+	lastPrice float64
 }
 
 type GridEngine struct {
-	client  *tokocrypto.Client
-	states  map[int64]*gridSessionState
+	client *tokocrypto.Client
+	db     *sqlx.DB
+	states map[int64]*gridSessionState
 }
 
-func NewGridEngine(client *tokocrypto.Client) *GridEngine {
+func NewGridEngine(client *tokocrypto.Client, db *sqlx.DB) *GridEngine {
 	return &GridEngine{
 		client: client,
+		db:     db,
 		states: make(map[int64]*gridSessionState),
 	}
 }
 
-// Reset clears state for a session (called when session is restarted).
 func (g *GridEngine) Reset(sessionID int64) {
 	delete(g.states, sessionID)
 }
@@ -81,7 +83,6 @@ func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice f
 
 	midPrice := (config.UpperPrice + config.LowerPrice) / 2
 
-	// Build or rebuild levels if needed
 	state := g.getOrCreateState(sessionID, config, step, midPrice)
 
 	signals := []Signal{}
@@ -90,7 +91,7 @@ func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice f
 		lvl := &state.levels[i]
 		levelPrice := lvl.price
 
-		// Re-arm: if price has moved away from this level by at least 1 step, rearm
+		// Re-arm: if price has moved away by at least 1 step
 		if lvl.state == levelTriggered {
 			distance := math.Abs(currentPrice - levelPrice)
 			if distance >= step {
@@ -109,7 +110,6 @@ func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice f
 			} else if levelPrice > midPrice {
 				side = string(model.SideSell)
 			} else {
-				// skip the exact midpoint (neutral)
 				continue
 			}
 
@@ -151,6 +151,21 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 			state: levelInactive,
 		}
 	}
+
+	// Pre-mark levels that already have signals in the DB (prevents duplicates on restart)
+	if g.db != nil {
+		var triggeredLevels []int
+		err := g.db.Select(&triggeredLevels,
+			g.db.Rebind("SELECT DISTINCT grid_level_index FROM strategy_signals WHERE session_id = ?"), sessionID)
+		if err == nil {
+			for _, idx := range triggeredLevels {
+				if idx >= 0 && idx < len(state.levels) {
+					state.levels[idx].state = levelTriggered
+				}
+			}
+		}
+	}
+
 	g.states[sessionID] = state
 	return state
 }

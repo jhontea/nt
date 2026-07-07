@@ -42,7 +42,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		client:   client,
 		db:       db,
 		strategies: map[string]StrategyEvaluator{
-			string(model.StratGrid):  NewGridEngine(client),
+			string(model.StratGrid):  NewGridEngine(client, db),
 			string(model.StratTrend): NewTrendEngine(client),
 			string(model.StratDCA):   NewDCAEngine(client, db),
 		},
