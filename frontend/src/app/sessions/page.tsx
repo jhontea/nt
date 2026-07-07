@@ -205,6 +205,7 @@ export default function SessionsPage() {
           <p className="text-sm text-gray-500">Kelola session trading bot Anda</p>
         </div>
         <div className="space-x-3">
+          <button onClick={() => router.push('/market')} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition text-sm">📈 Market Price</button>
           <button onClick={() => router.push('/glossary')} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">📖 Glosarium</button>
           <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition">
             {showCreate ? 'Cancel' : '+ New Session'}
