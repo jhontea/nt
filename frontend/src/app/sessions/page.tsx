@@ -532,7 +532,12 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
           <span className={session.mode === 'live' ? 'text-yellow-400' : session.mode === 'paper' ? 'text-blue-400' : 'text-gray-400'}>
             {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
           </span> ·{' '}
-          <span className={session.status === 'running' ? 'text-green-400' : 'text-gray-500'}>{session.status}</span>
+          <span className={session.status === 'running' ? 'text-green-400' : 'text-gray-500'}>
+            {session.status}
+            {session.status === 'running' && (
+              <span className={`ml-1 inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
+            )}
+          </span>
         </p>
       </div>
       <div className="space-x-2 shrink-0 ml-4">

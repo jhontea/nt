@@ -13,6 +13,7 @@ export interface Session {
   symbol: string
   config: string
   status: 'stopped' | 'running' | 'paused'
+  is_alive?: boolean
   started_at: string | null
   stopped_at: string | null
   created_at: string

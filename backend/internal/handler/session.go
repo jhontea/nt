@@ -80,7 +80,18 @@ func (h *SessionHandler) List(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
-	return c.JSON(http.StatusOK, sessions)
+	type sessionWithStatus struct {
+		*model.Session
+		IsAlive bool `json:"is_alive"`
+	}
+	result := make([]sessionWithStatus, len(sessions))
+	for i, s := range sessions {
+		result[i] = sessionWithStatus{
+			Session: &s,
+			IsAlive: h.engine.IsRunning(s.ID),
+		}
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *SessionHandler) Get(c echo.Context) error {
