@@ -221,14 +221,9 @@ export default function SessionDetailPage() {
                 const invalidPrice = isPercent ? (isBuy ? price * (1 - inv / 100) : price * (1 + inv / 100)) : null
                 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
                 const border = isBuy ? 'border-[#054d28]' : 'border-[#d03238]'
-                const badge = isBuy ? 'bg-[#f0fdf4] dark:bg-[#0c1f0f] text-[#054d28] dark:text-[#9fe870]' : 'bg-[#fff1f2] dark:bg-[#1f0c0d] text-[#d03238]'
-                const nowPrice = null
-                // compute progress: 0 = at signal, 1 = at confirm, -1 = at invalid
-                const progress = nowPrice && confirmPrice && invalidPrice ? (() => {
-                  const total = isBuy ? (confirmPrice - invalidPrice) : (invalidPrice - confirmPrice)
-                  const moved = isBuy ? (nowPrice - invalidPrice) : (invalidPrice - nowPrice)
-                  return Math.max(0, Math.min(1, moved / total))
-                })() : null
+                const badge = isBuy
+                  ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]'
+                  : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238]'
                 return (
                   <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border-2 ${border} shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]`}>
                     <div className="flex items-center justify-between mb-3">
@@ -251,21 +246,7 @@ export default function SessionDetailPage() {
                       </div>
                     </div>
                     <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-2">Window: {s.validation_window_minutes} menit · Sejak {new Date(s.created_at).toLocaleTimeString('id-ID')}</p>
-                    {nowPrice && (
-                      <div className="mt-3 pt-3 border-t border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-[#d03238] font-mono">{invalidPrice ? fmt(invalidPrice) : '–'}</span>
-                          <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] font-mono">{fmt(nowPrice)} <span className="text-[10px] text-[#686868]">sekarang</span></span>
-                          <span className="text-[#054d28] dark:text-[#9fe870] font-mono">{confirmPrice ? fmt(confirmPrice) : '–'}</span>
-                        </div>
-                        {progress !== null && (
-                          <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-[#d03238] via-[#f5c842] to-[#054d28] dark:to-[#9fe870] rounded-full transition-all"
-                              style={{ width: `${progress * 100}%` }} />
-                          </div>
-                        )}
-                      </div>
-                    )}
+
                   </div>
                 )
               })}
@@ -371,7 +352,7 @@ export default function SessionDetailPage() {
 
         {/* Grid Signal Summary */}
         {isGridSignal && signalSummary && signalSummary.total_count > 0 && (
-          <div className="mb-6">
+          <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Ringkasan Sinyal</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
@@ -469,7 +450,7 @@ export default function SessionDetailPage() {
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
+                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                         <th className="px-4 py-3 text-left">Sisi</th>
