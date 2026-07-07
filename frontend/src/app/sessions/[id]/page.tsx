@@ -155,16 +155,16 @@ export default function SessionDetailPage() {
             <div className="flex items-center gap-2 mb-2">
               <h1 className="text-2xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
               {session.mode === 'signal' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3]">Signal</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>
               )}
               {session.mode === 'paper' && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>
               )}
               {session.mode === 'live' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00]">Live</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>
               )}
               {session.status === 'running' ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(5,77,40,0.1)] text-[#054d28]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
                   Running
                 </span>
@@ -301,14 +301,14 @@ export default function SessionDetailPage() {
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Success Rate</p>
-                <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00]' : 'text-[#686868]'}`}>
+                  <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed / Invalid / Expired</p>
                 <p className="text-lg font-bold mt-1">
-                  <span className="text-[#054d28]">{signalSummary.confirmed_count}</span>
+                  <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.confirmed_count}</span>
                   <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
                   <span className="text-[#d03238]">{signalSummary.invalidated_count}</span>
                   <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
@@ -318,11 +318,56 @@ export default function SessionDetailPage() {
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Buy / Sell</p>
                 <p className="text-lg font-bold mt-1">
-                  <span className="text-[#054d28]">{signalSummary.buy_count}</span>
+                  <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.buy_count}</span>
                   <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
                   <span className="text-[#d03238]">{signalSummary.sell_count}</span>
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Signals */}
+        {isGridSignal && strategySignals && strategySignals.some(s => s.validation_status === 'pending') && (
+          <div className="mb-6">
+            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Sinyal Aktif</h2>
+            <div className="space-y-3">
+              {strategySignals.filter(s => s.validation_status === 'pending').map(s => {
+                const price = parseFloat(s.grid_level_price)
+                const t = s.validation_target_value
+                const inv = s.validation_invalid_value
+                const isBuy = s.signal_type === 'buy'
+                const isPercent = s.validation_mode === 'percent'
+                const confirmPrice = isPercent ? (isBuy ? price * (1 + t / 100) : price * (1 - t / 100)) : null
+                const invalidPrice = isPercent ? (isBuy ? price * (1 - inv / 100) : price * (1 + inv / 100)) : null
+                const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+                const border = isBuy ? 'border-[#054d28]' : 'border-[#d03238]'
+                const badge = isBuy ? 'bg-[#f0fdf4] dark:bg-[#0c1f0f] text-[#054d28] dark:text-[#9fe870]' : 'bg-[#fff1f2] dark:bg-[#1f0c0d] text-[#d03238]'
+                return (
+                  <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border-2 ${border} border-opacity-40`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${badge}`}>{isBuy ? '▲ Beli' : '▼ Jual'}</span>
+                        <span className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index} · {fmt(price)}</span>
+                      </div>
+                      <span className="text-xs text-[#7a5f00] dark:text-[#f5c842] font-medium animate-pulse">● menunggu</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-[#f0fdf4] dark:bg-[#0c1f0f] rounded-[12px] p-3">
+                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✓ Target Confirmed</p>
+                        <p className="font-bold text-[#054d28] dark:text-[#9fe870]">{confirmPrice ? fmt(confirmPrice) : `+${t} step`}</p>
+                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '+' : '-'}${t}%` : `${t} level`}</p>
+                      </div>
+                      <div className="bg-[#fff1f2] dark:bg-[#1f0c0d] rounded-[12px] p-3">
+                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✗ Batas Invalid</p>
+                        <p className="font-bold text-[#d03238]">{invalidPrice ? fmt(invalidPrice) : `-${inv} step`}</p>
+                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '-' : '+'}${inv}%` : `${inv} level`}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-2">Window: {s.validation_window_minutes} menit · Sejak {new Date(s.created_at).toLocaleTimeString('id-ID')}</p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -364,31 +409,7 @@ export default function SessionDetailPage() {
                               {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
                             </span>
                           )}
-                          {s.validation_status === 'pending' && (() => {
-                            const p = parseFloat(s.grid_level_price)
-                            const t = s.validation_target_value
-                            const inv = s.validation_invalid_value
-                            const isBuy = s.signal_type === 'buy'
-                            const isPercent = s.validation_mode === 'percent'
-                            // For percent mode compute target prices
-                            // For grid_steps mode we don't have step size here, show generic label
-                            if (isPercent) {
-                              const confirmPrice = isBuy
-                                ? p * (1 + t / 100)
-                                : p * (1 - t / 100)
-                              const invalidPrice = isBuy
-                                ? p * (1 - inv / 100)
-                                : p * (1 + inv / 100)
-                              const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
-                              return (
-                                <div className="space-y-0.5">
-                                  <div className="text-[#054d28] text-xs">✓ {fmt(confirmPrice)} (+{t}%)</div>
-                                  <div className="text-[#d03238] text-xs">✗ {fmt(invalidPrice)} (-{inv}%)</div>
-                                </div>
-                              )
-                            }
-                            return <span className="text-[#7a5f00] text-xs">menunggu {t} step</span>
-                          })()}
+                          {s.validation_status === 'pending' && <span className="text-[#7a5f00]">menunggu</span>}
                         </td>
                       </tr>
                     ))}
@@ -442,7 +463,7 @@ export default function SessionDetailPage() {
 
         {/* Tips box */}
         <div className="bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] border border-[rgba(159,232,112,0.2)] rounded-[16px] p-4 mt-4">
-          <p className="text-xs font-semibold text-[#163300] mb-2">Tips untuk pemula</p>
+          <p className="text-xs font-semibold text-[#163300] dark:text-[#9fe870] mb-2">Tips untuk pemula</p>
           <ul className="list-disc list-inside space-y-1 text-xs text-[#454745] dark:text-[#8a8d88]">
             <li>Mulai dari <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Signal Mode</strong> — lihat sinyal tanpa risiko</li>
             <li>Lanjut ke <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Paper Trading</strong> — uji strategi dengan uang virtual $1000</li>

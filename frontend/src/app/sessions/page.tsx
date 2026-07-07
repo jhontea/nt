@@ -301,17 +301,17 @@ export default function SessionsPage() {
                   <span className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol}</span>
                   {strategy === 'grid' && lowerPrice && upperPrice && (
                     <span className="text-xs text-[#686868] ml-auto">
-                      Grid: <span className="text-[#163300] font-medium">{parseInt(lowerPrice).toLocaleString()}</span>
+                      Grid: <span className="text-[#163300] dark:text-[#9fe870] font-medium">{parseInt(lowerPrice).toLocaleString()}</span>
                       {' — '}
-                      <span className="text-[#163300] font-medium">{parseInt(upperPrice).toLocaleString()}</span>
-                      <span className="text-[#686868]"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
+                      <span className="text-[#163300] dark:text-[#9fe870] font-medium">{parseInt(upperPrice).toLocaleString()}</span>
+                      <span className="text-[#686868] dark:text-[#898989]"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
                     </span>
                   )}
                 </div>
               )}
               {priceError && (
                 <div className="bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] border border-[rgba(208,50,56,0.15)] dark:border-[rgba(208,50,56,0.2)] rounded-[10px] p-3 text-sm text-[#d03238]">
-                  {priceError} <span className="text-[#5a5b58]">— isi manual atau coba pair lain</span>
+                  {priceError} <span className="text-[#5a5b58] dark:text-[#8a8d88]">— isi manual atau coba pair lain</span>
                 </div>
               )}
 
@@ -404,7 +404,7 @@ export default function SessionsPage() {
                   {/* Recommendation Preview */}
                   {recommendation && (
                     <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[#9fe870] rounded-[12px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)] dark:shadow-[0_1px_4px_rgba(232,235,230,0.06)]">
-                      <p className="text-[#054d28] font-semibold">Rekomendasi untuk {symbol}</p>
+                      <p className="text-[#054d28] dark:text-[#9fe870] font-semibold">Rekomendasi untuk {symbol}</p>
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
@@ -425,7 +425,7 @@ export default function SessionsPage() {
                               <span className="text-[#686868] dark:text-[#898989]">
                                 {h.name} · grid {cfg.grid_count || '?'}
                               </span>
-                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28]' : h.success_rate >= 30 ? 'text-[#b0630f]' : 'text-[#991b1b]'}`}>
+                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28] dark:text-[#9fe870]' : h.success_rate >= 30 ? 'text-[#b0630f] dark:text-[#f5a53a]' : 'text-[#991b1b] dark:text-[#f87171]'}`}>
                                 {h.success_rate.toFixed(0)}% ({h.confirmed}/{h.total})
                               </span>
                             </div>
@@ -448,15 +448,15 @@ export default function SessionsPage() {
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi Grid</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Jumlah Grid</span>{renderConfigHelp('grid_count')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah Grid</span>{renderConfigHelp('grid_count')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={gridCount} onChange={e => setGridCount(e.target.value)} />
                   </div>
                 </div>
@@ -478,15 +478,15 @@ export default function SessionsPage() {
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi SMA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
                   </div>
                 </div>
@@ -503,7 +503,7 @@ export default function SessionsPage() {
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi DCA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
                     <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
                       <option value="3600">Setiap 1 Jam</option>
                       <option value="7200">Setiap 2 Jam</option>
@@ -514,7 +514,7 @@ export default function SessionsPage() {
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
@@ -605,16 +605,16 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
             <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] text-base leading-tight">{session.name}</span>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               session.mode === 'live'
-                ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00]'
+                ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]'
                 : session.mode === 'paper'
-                ? 'bg-[rgba(159,232,112,0.15)] text-[#163300]'
-                : 'bg-[rgba(56,200,255,0.12)] text-[#0994b3]'
+                ? 'bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870]'
+                : 'bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]'
             }`}>
               {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : '⚡ Live'}
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               session.status === 'running'
-                ? 'bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300]'
+                ? 'bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]'
                 : 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]'
             }`}>
               {session.status === 'running' && (

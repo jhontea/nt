@@ -33,7 +33,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa] dark:bg-[#141411]">
       <div className="flex flex-col lg:flex-row gap-8 max-w-3xl w-full">
         {/* Info Panel */}
-        <div className="bg-white dark:bg-[#1e201c] rounded-xl p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+        <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <h1 className="text-2xl font-bold">Trading Bot</h1>
           <p className="text-sm text-[#686868] dark:text-[#898989]">
             Bot trading otomatis untuk TokoCrypto. Mulai dari sinyal, uji coba kertas, hingga trading sungguhan.
@@ -41,7 +41,7 @@ export default function LoginPage() {
           <div className="space-y-2">
             <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] uppercase tracking-wider font-semibold">3 Mode Trading</p>
             {modes.map(m => (
-              <div key={m.name} className="bg-[#f0f1ee] dark:bg-[#252822] rounded-lg p-3">
+              <div key={m.name} className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[10px] p-3">
                 <p className="text-sm font-medium">{m.name}</p>
                 <p className="text-xs text-[#686868] dark:text-[#898989]">{m.desc}</p>
               </div>
@@ -97,7 +97,7 @@ export default function LoginPage() {
             <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
-          <button className="w-full py-2 bg-[#9fe870] hover:bg-[#8ad05e] rounded-lg font-semibold transition text-[#163300]">
+          <button className="w-full py-2 bg-[#9fe870] hover:bg-[#8ad05e] rounded-full font-semibold transition text-[#163300]">
             {isRegister ? 'Register' : 'Login'}
           </button>
           <button type="button" className="w-full text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition" onClick={() => setIsRegister(!isRegister)}>

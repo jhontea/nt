@@ -109,7 +109,7 @@ export default function Home() {
         <h3 className="text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 text-center">3 Strategi Trading</h3>
         <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
           {strategies.map(s => (
-            <div key={s.name} className="bg-white dark:bg-[#1e201c] rounded-xl p-5 sm:p-6 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.12)] dark:hover:border-[rgba(232,235,230,0.12)] transition">
+            <div key={s.name} className="bg-white dark:bg-[#1e201c] rounded-[16px] p-5 sm:p-6 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.12)] dark:hover:border-[rgba(232,235,230,0.12)] transition">
               <div className="text-3xl mb-3">{s.icon}</div>
               <h4 className="font-semibold mb-2 text-lg">{s.name}</h4>
               <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{s.desc}</p>
