@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { useSessionWS } from '@/lib/useWS'
 import { useEffect, useState } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
+import { PriceBadge } from '@/components/PriceBadge'
 
 const modeInfo: Record<string, string> = {
   signal: 'Bot hanya mencatat sinyal. Tidak ada eksekusi order.',
@@ -135,6 +136,11 @@ export default function SessionDetailPage() {
           <summary className="text-gray-500 cursor-pointer hover:text-gray-300">Lihat konfigurasi</summary>
           <pre className="mt-2 bg-gray-800 p-2 rounded text-xs">{JSON.stringify(configDisplay, null, 2)}</pre>
         </details>
+      </div>
+
+      {/* Real-time Price */}
+      <div className="mb-6">
+        <PriceBadge symbol={session.symbol} />
       </div>
 
       {/* Strategy Description */}

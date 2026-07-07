@@ -37,6 +37,13 @@ export interface DCAConfig {
   take_profit_pct?: number
 }
 
+export interface Ticker {
+  symbol: string
+  lastPrice: string
+  volume: string
+  priceChange: string
+}
+
 export interface Order {
   id: number
   session_id: number

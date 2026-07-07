@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useState, useEffect } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
+import { PriceBadge } from '@/components/PriceBadge'
 
 const PAIRS = [
   'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT',
@@ -124,7 +125,7 @@ export default function SessionsPage() {
     setPriceError('')
     try {
       const ticker = await api.sessions.getTicker(sym)
-      const price = parseFloat(ticker.last_price)
+      const price = parseFloat(ticker.lastPrice)
       if (!isNaN(price) && price > 0) {
         setCurrentPrice(price)
         // Auto-calculate grid boundaries from live price
@@ -393,29 +394,45 @@ export default function SessionsPage() {
       ) : (
         <div className="space-y-3">
           {sessions.map(s => (
-            <div key={s.id} className="bg-gray-900 p-4 rounded-xl flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">{s.name}</h3>
-                <p className="text-sm text-gray-400">
-                  {s.symbol} · {s.strategy === 'grid' ? 'Grid' : s.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
-                  <span className={s.mode === 'live' ? 'text-yellow-400' : s.mode === 'paper' ? 'text-blue-400' : 'text-gray-400'}>
-                    {s.mode === 'signal' ? 'Signal' : s.mode === 'paper' ? 'Paper' : 'Live'}
-                  </span> ·{' '}
-                  <span className={s.status === 'running' ? 'text-green-400' : 'text-gray-500'}>{s.status}</span>
-                </p>
-              </div>
-              <div className="space-x-2">
-                <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm" onClick={() => router.push(`/sessions/${s.id}`)}>Detail</button>
-                {s.status === 'running' ? (
-                  <button className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm" onClick={() => handleStop(s.id)}>Stop</button>
-                ) : (
-                  <button className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm" onClick={() => handleStart(s.id)}>Start</button>
-                )}
-              </div>
-            </div>
+            <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDetail={(id) => router.push(`/sessions/${id}`)} />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ---
+
+function SessionCard({ session, onStart, onStop, onDetail }: {
+  session: import('@/types').Session
+  onStart: (id: number) => void
+  onStop: (id: number) => void
+  onDetail: (id: number) => void
+}) {
+  return (
+    <div className="bg-gray-900 p-4 rounded-xl flex items-center justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h3 className="font-semibold">{session.name}</h3>
+          <PriceBadge symbol={session.symbol} compact />
+        </div>
+        <p className="text-sm text-gray-400 mt-0.5">
+          {session.symbol} · {session.strategy === 'grid' ? 'Grid' : session.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
+          <span className={session.mode === 'live' ? 'text-yellow-400' : session.mode === 'paper' ? 'text-blue-400' : 'text-gray-400'}>
+            {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
+          </span> ·{' '}
+          <span className={session.status === 'running' ? 'text-green-400' : 'text-gray-500'}>{session.status}</span>
+        </p>
+      </div>
+      <div className="space-x-2 shrink-0 ml-4">
+        <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm" onClick={() => onDetail(session.id)}>Detail</button>
+        {session.status === 'running' ? (
+          <button className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm" onClick={() => onStop(session.id)}>Stop</button>
+        ) : (
+          <button className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm" onClick={() => onStart(session.id)}>Start</button>
+        )}
+      </div>
     </div>
   )
 }
