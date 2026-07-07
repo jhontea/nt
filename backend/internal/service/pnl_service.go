@@ -30,17 +30,17 @@ func NewPnLService(db *sqlx.DB) *PnLService {
 
 func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSummary, error) {
 	var realizedPnL sql.NullFloat64
-	if err := s.db.GetContext(ctx, &realizedPnL, "SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?", sessionID); err != nil {
+	if err := s.db.GetContext(ctx, &realizedPnL, s.db.Rebind("SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?"), sessionID); err != nil {
 		return nil, err
 	}
 
 	var winCount, lossCount, tradeCount int
-	s.db.GetContext(ctx, &winCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0", sessionID)
-	s.db.GetContext(ctx, &lossCount, "SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0", sessionID)
-	s.db.GetContext(ctx, &tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id = ?", sessionID)
+	s.db.GetContext(ctx, &winCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0"), sessionID)
+	s.db.GetContext(ctx, &lossCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0"), sessionID)
+	s.db.GetContext(ctx, &tradeCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ?"), sessionID)
 
 	var balance sql.NullFloat64
-	if err := s.db.GetContext(ctx, &balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID); err != nil {
+	if err := s.db.GetContext(ctx, &balance, s.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID); err != nil {
 		return nil, err
 	}
 
@@ -73,8 +73,8 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 func (s *PnLService) GetOrders(ctx context.Context, sessionID int64) ([]model.Order, error) {
 	var orders []model.Order
 	err := s.db.SelectContext(ctx, &orders,
-		`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-		 FROM orders WHERE session_id = ? ORDER BY created_at DESC LIMIT 50`, sessionID)
+		s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
+		 FROM orders WHERE session_id = ? ORDER BY created_at DESC LIMIT 50`), sessionID)
 	if err != nil {
 		return nil, err
 	}

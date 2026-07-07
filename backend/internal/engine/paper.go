@@ -49,9 +49,8 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	qtyF, _ := strconv.ParseFloat(qty, 64)
 	notional := cost * qtyF
 
-	// Skip if already have an open buy at this price
 	var existing int
-	if err := p.db.Get(&existing, "SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?",
+	if err := p.db.Get(&existing, p.db.Rebind("SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?"),
 		session.ID, session.Symbol, price); err != nil {
 		slog.Warn("check existing buys", "session", session.ID, "error", err)
 	}
@@ -75,8 +74,8 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	}
 
 	_, err = p.db.Exec(
-		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
+		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_buy_%d", time.Now().UnixNano()),
 		session.Symbol, string(model.SideBuy), price, qty, qty, price,
 	)
@@ -92,8 +91,8 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 
 	var buyOrder model.Order
 	err := p.db.Get(&buyOrder,
-		`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled' AND price = ?
-		 ORDER BY id ASC LIMIT 1`,
+		p.db.Rebind(`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled' AND price = ?
+		 ORDER BY id ASC LIMIT 1`),
 		session.ID, session.Symbol, matchPrice,
 	)
 	if err != nil {
@@ -124,13 +123,13 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		return fmt.Errorf("set balance: %w", err)
 	}
 
-	if _, err := p.db.Exec("UPDATE orders SET status = 'closed' WHERE id = ?", buyOrder.ID); err != nil {
+	if _, err := p.db.Exec(p.db.Rebind("UPDATE orders SET status = 'closed' WHERE id = ?"), buyOrder.ID); err != nil {
 		return fmt.Errorf("update buy order: %w", err)
 	}
 
 	_, err = p.db.Exec(
-		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`,
+		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
 		session.Symbol, string(model.SideSell), execPrice, useQty, useQty, execPrice,
 	)
@@ -139,8 +138,8 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	}
 
 	_, err = p.db.Exec(
-		`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		p.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
 		session.ID, buyOrder.OrderID, session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr,
 	)
 	if err != nil {
@@ -153,7 +152,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 
 func (p *PaperEngine) getBalance(sessionID int64) (float64, error) {
 	var balance sql.NullFloat64
-	err := p.db.Get(&balance, "SELECT virtual_balance FROM sessions WHERE id = ?", sessionID)
+	err := p.db.Get(&balance, p.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID)
 	if err != nil {
 		return 0, err
 	}
@@ -164,7 +163,7 @@ func (p *PaperEngine) getBalance(sessionID int64) (float64, error) {
 }
 
 func (p *PaperEngine) setBalance(sessionID int64, balance float64) error {
-	_, err := p.db.Exec("UPDATE sessions SET virtual_balance = ? WHERE id = ?",
+	_, err := p.db.Exec(p.db.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"),
 		math.Round(balance*1e8)/1e8, sessionID)
 	return err
 }

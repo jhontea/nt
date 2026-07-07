@@ -86,8 +86,8 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			if currentPrice >= targetPrice {
 				var totalQty float64
 				d.db.Get(&totalQty,
-					`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-					 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`,
+					d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
+					 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
 					session.ID, session.Symbol)
 				if totalQty > 0 {
 					qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
@@ -111,8 +111,8 @@ func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, price, qty fl
 	}
 	var existingQty float64
 	d.db.Get(&existingQty,
-		`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-		 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`,
+		d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
+		 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
 		sessionID, symbol)
 	totalQty := existingQty + qty
 	if totalQty > 0 {

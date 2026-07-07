@@ -128,7 +128,7 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 			return
 		case <-ticker.C:
 			var fresh model.Session
-			if err := m.db.Get(&fresh, "SELECT * FROM sessions WHERE id = ?", session.ID); err != nil {
+			if err := m.db.Get(&fresh, m.db.Rebind("SELECT * FROM sessions WHERE id = ?"), session.ID); err != nil {
 				slog.Error("read session", "id", session.ID, "error", err)
 				continue
 			}
@@ -200,7 +200,7 @@ func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 		vals = append(vals, sessionID, fmt.Sprintf("sig_%d", now+int64(i)), sig.Symbol, sig.Side, sig.Price, sig.Quantity)
 		slog.Info("signal", "session", sessionID, "side", sig.Side, "price", sig.Price, "reason", sig.Reason)
 	}
-	_, err := m.db.Exec(query, vals...)
+	_, err := m.db.Exec(m.db.Rebind(query), vals...)
 	if err != nil {
 		slog.Error("save signals batch", "session", sessionID, "error", err)
 	}

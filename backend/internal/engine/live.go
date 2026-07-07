@@ -62,8 +62,8 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 
 	_, err = l.db.Exec(
-		`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?)`,
+		l.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?)`),
 		session.ID, fmt.Sprintf("%d", order.OrderID),
 		session.Symbol, signal.Side, price, signal.Quantity,
 		strconv.Itoa(order.Status), order.ExecutedQty, order.ExecutedPrice,

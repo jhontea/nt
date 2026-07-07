@@ -29,8 +29,8 @@ func NewSessionRepo(db *sqlx.DB) *SessionRepo {
 
 func (r *SessionRepo) Create(ctx context.Context, s *model.Session) (*model.Session, error) {
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.db.Rebind(`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
 		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status, s.VirtualBalance,
 	)
 	if err != nil {
@@ -42,7 +42,7 @@ func (r *SessionRepo) Create(ctx context.Context, s *model.Session) (*model.Sess
 
 func (r *SessionRepo) FindByID(ctx context.Context, id int64) (*model.Session, error) {
 	var s model.Session
-	err := r.db.GetContext(ctx, &s, "SELECT * FROM sessions WHERE id = ?", id)
+	err := r.db.GetContext(ctx, &s, r.db.Rebind("SELECT * FROM sessions WHERE id = ?"), id)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (r *SessionRepo) FindByID(ctx context.Context, id int64) (*model.Session, e
 
 func (r *SessionRepo) ListByUser(ctx context.Context, userID int64) ([]model.Session, error) {
 	var sessions []model.Session
-	err := r.db.SelectContext(ctx, &sessions, "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC", userID)
+	err := r.db.SelectContext(ctx, &sessions, r.db.Rebind("SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC"), userID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,23 +59,23 @@ func (r *SessionRepo) ListByUser(ctx context.Context, userID int64) ([]model.Ses
 }
 
 func (r *SessionRepo) UpdateStatus(ctx context.Context, id int64, status string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE sessions SET status = ? WHERE id = ?", status, id)
+	_, err := r.db.ExecContext(ctx, r.db.Rebind("UPDATE sessions SET status = ? WHERE id = ?"), status, id)
 	return err
 }
 
 func (r *SessionRepo) UpdateStartedAt(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?", id)
+	_, err := r.db.ExecContext(ctx, r.db.Rebind("UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?"), id)
 	return err
 }
 
 func (r *SessionRepo) UpdateStoppedAt(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE sessions SET stopped_at = CURRENT_TIMESTAMP WHERE id = ?", id)
+	_, err := r.db.ExecContext(ctx, r.db.Rebind("UPDATE sessions SET stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), id)
 	return err
 }
 
 func (r *SessionRepo) Update(ctx context.Context, s *model.Session) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE sessions SET name=?, config=?, symbol=?, strategy=? WHERE id=?`,
+		r.db.Rebind(`UPDATE sessions SET name=?, config=?, symbol=?, strategy=? WHERE id=?`),
 		s.Name, s.Config, s.Symbol, s.Strategy, s.ID,
 	)
 	return err

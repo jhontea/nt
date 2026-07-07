@@ -25,7 +25,7 @@ func NewUserRepo(db *sqlx.DB) *UserRepo {
 
 func (r *UserRepo) Create(ctx context.Context, username, passwordHash string) (*model.User, error) {
 	result, err := r.db.ExecContext(ctx,
-		"INSERT INTO users (username, password_hash) VALUES (?, ?)",
+		r.db.Rebind("INSERT INTO users (username, password_hash) VALUES (?, ?)"),
 		username, passwordHash,
 	)
 	if err != nil {
@@ -37,7 +37,7 @@ func (r *UserRepo) Create(ctx context.Context, username, passwordHash string) (*
 
 func (r *UserRepo) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	err := r.db.GetContext(ctx, &user, "SELECT * FROM users WHERE id = ?", id)
+	err := r.db.GetContext(ctx, &user, r.db.Rebind("SELECT * FROM users WHERE id = ?"), id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id int64) (*model.User, error) 
 
 func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
-	err := r.db.GetContext(ctx, &user, "SELECT * FROM users WHERE username = ?", username)
+	err := r.db.GetContext(ctx, &user, r.db.Rebind("SELECT * FROM users WHERE username = ?"), username)
 	if err != nil {
 		return nil, err
 	}
