@@ -30,39 +30,39 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa] dark:bg-[#141411]">
       <div className="flex flex-col lg:flex-row gap-8 max-w-3xl w-full">
         {/* Info Panel */}
-        <div className="bg-white rounded-xl p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)]">
+        <div className="bg-white dark:bg-[#1e201c] rounded-xl p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <h1 className="text-2xl font-bold">Trading Bot</h1>
-          <p className="text-sm text-[#686868]">
+          <p className="text-sm text-[#686868] dark:text-[#898989]">
             Bot trading otomatis untuk TokoCrypto. Mulai dari sinyal, uji coba kertas, hingga trading sungguhan.
           </p>
           <div className="space-y-2">
-            <p className="text-xs text-[#5a5b58] uppercase tracking-wider font-semibold">3 Mode Trading</p>
+            <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] uppercase tracking-wider font-semibold">3 Mode Trading</p>
             {modes.map(m => (
-              <div key={m.name} className="bg-[#f0f1ee] rounded-lg p-3">
+              <div key={m.name} className="bg-[#f0f1ee] dark:bg-[#252822] rounded-lg p-3">
                 <p className="text-sm font-medium">{m.name}</p>
-                <p className="text-xs text-[#686868]">{m.desc}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989]">{m.desc}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#5a5b58]">* 3 strategi: Grid, Trend Following, DCA</p>
-          <a href="/glossary" className="block text-xs text-[#2d7a1a] hover:text-[#3a9422] mt-2">📖 Lihat Glosarium istilah trading &rarr;</a>
+          <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">* 3 strategi: Grid, Trend Following, DCA</p>
+          <a href="/glossary" className="block text-xs text-[#2d7a1a] dark:text-[#b3f08a] hover:text-[#3a9422] mt-2">📖 Lihat Glosarium istilah trading &rarr;</a>
         </div>
 
         {/* Login Form */}
-        <form action="#" method="post" onSubmit={handleSubmit} className="bg-white p-8 rounded-xl w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)]">
+        <form action="#" method="post" onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-xl w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <h2 className="text-xl font-semibold text-center">{isRegister ? 'Register' : 'Login'}</h2>
           {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <div>
-            <label htmlFor="username" className="block text-sm text-[#686868] mb-1">Username</label>
+            <label htmlFor="username" className="block text-sm text-[#686868] dark:text-[#898989] mb-1">Username</label>
             <input
               id="username"
               name="username"
               type="text"
-              className="w-full px-4 py-2 bg-[#f0f1ee] rounded-lg border border-[rgba(14,15,12,0.12)] focus:border-[#9fe870] outline-none"
+              className="w-full px-4 py-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
               placeholder="Username"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -72,11 +72,11 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm text-[#686868] mb-1">Password</label>
+            <label htmlFor="password" className="block text-sm text-[#686868] dark:text-[#898989] mb-1">Password</label>
             <input
               id="password"
               name="password"
-              className="w-full px-4 py-2 bg-[#f0f1ee] rounded-lg border border-[rgba(14,15,12,0.12)] focus:border-[#9fe870] outline-none"
+              className="w-full px-4 py-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
               type="password"
               placeholder="Password"
               value={password}
@@ -92,15 +92,15 @@ export default function LoginPage() {
               type="checkbox"
               checked={rememberMe}
               onChange={e => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-600 bg-[#f0f1ee] text-[#9fe870] focus:ring-[#9fe870] focus:ring-offset-white"
+              className="w-4 h-4 rounded border-gray-600 bg-[#f0f1ee] dark:bg-[#252822] text-[#9fe870] focus:ring-[#9fe870] focus:ring-offset-white"
             />
-            <span className="text-sm text-[#686868]">Ingat Saya</span>
+            <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
           <button className="w-full py-2 bg-[#9fe870] hover:bg-[#8ad05e] rounded-lg font-semibold transition text-[#163300]">
             {isRegister ? 'Register' : 'Login'}
           </button>
-          <button type="button" className="w-full text-sm text-[#686868] hover:text-[#0e0f0c] transition" onClick={() => setIsRegister(!isRegister)}>
+          <button type="button" className="w-full text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? 'Sudah punya akun? Login' : 'Belum punya akun? Register'}
           </button>
         </form>

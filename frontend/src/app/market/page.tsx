@@ -36,10 +36,10 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
 
   if (!data) {
     return (
-      <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] animate-pulse">
-        <p className="text-sm text-[#686868]">{label}</p>
-        <p className="text-xs text-[#5a5b58] mt-1">{symbol}</p>
-        <p className="text-sm text-[#5a5b58] mt-4">Mengambil harga...</p>
+      <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] animate-pulse">
+        <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>
+        <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-1">{symbol}</p>
+        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88] mt-4">Mengambil harga...</p>
       </div>
     )
   }
@@ -51,38 +51,38 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
   const approxIDR = !isIDRPair && usdtIdrRate ? last * usdtIdrRate : null
 
   return (
-    <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] hover:border-[rgba(14,15,12,0.16)] hover:shadow-[0_4px_20px_rgba(14,15,12,0.06)] transition-all">
+    <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.2)] hover:shadow-[0_4px_20px_rgba(14,15,12,0.06)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-[#686868]">{label}</p>
-          <p className="text-xs text-[#5a5b58] mt-1">{symbol}</p>
+          <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>
+          <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-1">{symbol}</p>
         </div>
-        <div className={`text-sm font-semibold ${isUp ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
+        <div className={`text-sm font-semibold ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
           {isUp ? '+' : ''}{changePct.toFixed(2)}%
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-2xl font-bold font-mono text-[#0e0f0c]">
+        <p className="text-2xl font-bold font-mono text-[#0e0f0c] dark:text-[#e8ebe6]">
           {isIDRPair ? formatIDR(last) : `$${formatUSDTPrice(last)}`}
         </p>
         {approxIDR && (
-          <p className="text-sm text-[#686868] mt-1">~ {formatIDR(approxIDR)}</p>
+          <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">~ {formatIDR(approxIDR)}</p>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 border-t border-[rgba(14,15,12,0.06)] mt-3 pt-3 text-xs text-[#5a5b58]">
+      <div className="grid grid-cols-3 gap-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
         <div>
           <p>24h High</p>
-          <p className="text-[#0e0f0c] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
+          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
         </div>
         <div>
           <p>24h Low</p>
-          <p className="text-[#0e0f0c] mt-1">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
+          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
         </div>
         <div>
           <p>Volume</p>
-          <p className="text-[#0e0f0c] mt-1">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
         </div>
       </div>
     </div>
@@ -102,14 +102,14 @@ export default function MarketPage() {
   if (!initialized || !isAuthenticated) return null
 
   return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="market" />
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <h1 className="text-3xl font-black text-[#0e0f0c] tracking-tight">Market Price</h1>
-        <p className="text-sm text-[#686868] mt-1">Harga pasar aktual untuk pair utama di TokoCrypto</p>
+        <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Market Price</h1>
+        <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Harga pasar aktual untuk pair utama di TokoCrypto</p>
 
-        <div className="bg-[rgba(14,15,12,0.02)] rounded-[16px] p-4 border border-[rgba(14,15,12,0.06)] mb-8 mt-4 text-sm text-[#686868]">
-          Halaman ini menampilkan harga pair utama di TokoCrypto. Untuk pair USDT, harga juga dikonversi kira-kira ke rupiah memakai kurs <span className="text-[#0e0f0c] font-medium">USDT/IDR</span>{usdtIdrRate ? ` (${formatIDR(usdtIdrRate)})` : ''}.
+        <div className="bg-[rgba(14,15,12,0.02)] dark:bg-[rgba(232,235,230,0.04)] rounded-[16px] p-4 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-8 mt-4 text-sm text-[#686868] dark:text-[#898989]">
+          Halaman ini menampilkan harga pair utama di TokoCrypto. Untuk pair USDT, harga juga dikonversi kira-kira ke rupiah memakai kurs <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-medium">USDT/IDR</span>{usdtIdrRate ? ` (${formatIDR(usdtIdrRate)})` : ''}.
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

@@ -118,20 +118,20 @@ const terms = [
 
 export default function GlossaryPage() {
   return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="glossary" />
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <h1 className="text-3xl font-black text-[#0e0f0c] tracking-tight mb-1">Glosarium</h1>
-        <p className="text-sm text-[#686868] mb-8">Istilah-istilah yang digunakan di aplikasi Trading Bot, dijelaskan dalam bahasa sederhana.</p>
+        <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight mb-1">Glosarium</h1>
+        <p className="text-sm text-[#686868] dark:text-[#898989] mb-8">Istilah-istilah yang digunakan di aplikasi Trading Bot, dijelaskan dalam bahasa sederhana.</p>
 
         <div className="space-y-2">
           {terms.map(t => (
-            <details key={t.term} className="bg-white rounded-[16px] border border-[rgba(14,15,12,0.08)] overflow-hidden group">
-              <summary className="px-5 py-4 cursor-pointer hover:bg-[#f5f6f4] transition font-semibold text-[#0e0f0c] text-sm flex items-center justify-between list-none">
+            <details key={t.term} className="bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] overflow-hidden group">
+              <summary className="px-5 py-4 cursor-pointer hover:bg-[#f5f6f4] dark:hover:bg-[#252822] transition font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm flex items-center justify-between list-none">
                 {t.term}
-                <span className="text-[#686868] group-open:rotate-180 transition-transform text-xs">▼</span>
+                <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform text-xs">▼</span>
               </summary>
-              <div className="px-5 pt-1 pb-4 text-sm text-[#686868] leading-relaxed border-t border-[rgba(14,15,12,0.06)]">
+              <div className="px-5 pt-1 pb-4 text-sm text-[#686868] dark:text-[#898989] leading-relaxed border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
                 {t.desc}
               </div>
             </details>

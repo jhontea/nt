@@ -114,10 +114,10 @@ export default function SessionDetailPage() {
   }
 
   if (sessionLoading) return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="flex items-center gap-2 text-[#686868] animate-pulse">
+        <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse">
           <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
           <span className="text-sm">Memuat session...</span>
         </div>
@@ -125,10 +125,10 @@ export default function SessionDetailPage() {
     </div>
   )
   if (!session) return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <p className="text-sm text-[#686868]">Session not found</p>
+        <p className="text-sm text-[#686868] dark:text-[#898989]">Session not found</p>
       </div>
     </div>
   )
@@ -137,14 +137,14 @@ export default function SessionDetailPage() {
   try { configDisplay = JSON.parse(session.config) } catch {}
 
   return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
 
         {/* Back navigation */}
         <button
           onClick={() => router.push('/sessions')}
-          className="flex items-center gap-1.5 text-sm text-[#686868] hover:text-[#0e0f0c] mb-6 transition-colors w-fit"
+          className="flex items-center gap-1.5 text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] mb-6 transition-colors w-fit"
         >
           &larr; Kembali ke Sessions
         </button>
@@ -153,26 +153,26 @@ export default function SessionDetailPage() {
         <div className="flex justify-between items-start mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-2xl font-black tracking-tight text-[#0e0f0c]">{session.name}</h1>
+              <h1 className="text-2xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
               {session.mode === 'signal' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] text-[#0994b3]">Signal</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3]">Signal</span>
               )}
               {session.mode === 'paper' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] text-[#163300]">Paper</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>
               )}
               {session.mode === 'live' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] text-[#7a5f00]">Live</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00]">Live</span>
               )}
               {session.status === 'running' ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] text-[#054d28]">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(5,77,40,0.1)] text-[#054d28]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
                   Running
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] text-[#5a5b58]">Stopped</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
               )}
             </div>
-            <p className="text-sm text-[#686868] mt-1">{session.symbol} · {session.strategy} · {modeInfo[session.mode]}</p>
+            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">{session.symbol} · {session.strategy} · {modeInfo[session.mode]}</p>
           </div>
           <div className="flex items-center gap-2">
             {error && <span className="text-[#d03238] text-sm">{error}</span>}
@@ -197,48 +197,48 @@ export default function SessionDetailPage() {
         </div>
 
         {/* Session Info Card */}
-        <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] mb-6">
+        <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider">Pair</span>
-              <p className="font-semibold text-[#0e0f0c] mt-1">{session.symbol}</p>
+              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Pair</span>
+              <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.symbol}</p>
             </div>
             <div>
-              <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
                 Strategi <HelpIcon text={session.strategy === 'grid' ? 'Grid Trading: pasang order di level harga tetap' : 'Trend Following: deteksi tren pakai SMA'} />
               </span>
-              <p className="font-semibold text-[#0e0f0c] mt-1">{session.strategy === 'grid' ? 'Grid Trading' : 'Trend Following'}</p>
+              <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.strategy === 'grid' ? 'Grid Trading' : 'Trend Following'}</p>
             </div>
             <div>
-              <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
                 Mode <HelpIcon text={modeInfo[session.mode] || ''} />
               </span>
-              <p className={`font-semibold mt-1 ${session.mode === 'live' ? 'text-[#7a5f00]' : 'text-[#0e0f0c]'}`}>
+              <p className={`font-semibold mt-1 ${session.mode === 'live' ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
                 {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
               </p>
             </div>
             <div>
-              <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider">Status</span>
-              <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28]' : 'text-[#5a5b58]'}`}>{session.status}</p>
+              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Status</span>
+              <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
             </div>
           </div>
           <details className="mt-4 text-sm">
-            <summary className="text-[#686868] cursor-pointer hover:text-[#0e0f0c] transition-colors text-xs font-medium">Lihat konfigurasi</summary>
-            <pre className="mt-2 bg-[#f0f1ee] p-3 rounded-[16px] text-xs text-[#454745] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
+            <summary className="text-[#686868] dark:text-[#898989] cursor-pointer hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors text-xs font-medium">Lihat konfigurasi</summary>
+            <pre className="mt-2 bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#454745] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
           </details>
         </div>
 
         {/* Real-time Price */}
         <div className="mb-6">
-          <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider block mb-2">Harga Real-time</span>
+          <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider block mb-2">Harga Real-time</span>
           <PriceBadge symbol={session.symbol} />
         </div>
 
         {/* Strategy Description */}
-        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] rounded-[16px] p-4 mb-6 text-sm text-[#454745]">
+        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-[16px] p-4 mb-6 text-sm text-[#454745] dark:text-[#8a8d88]">
           {session.strategy === 'grid' ? (
             <p>
-              <span className="text-[#163300] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
+              <span className="text-[#163300] dark:text-[#9fe870] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
               Setiap order {configDisplay.quantity || '?'} {session.symbol.split('_')[0]}. Bot mengevaluasi setiap 30 detik.
             </p>
           ) : session.strategy === 'trend' ? (
@@ -258,68 +258,68 @@ export default function SessionDetailPage() {
         {/* P&L Cards */}
         {pnl ? (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Ringkasan Performa</h2>
+            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Ringkasan Performa</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
-                <p className="text-xl font-bold text-[#0e0f0c] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Realized P&L <HelpIcon text={pnlHelp.realized} /></p>
-                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized P&L <HelpIcon text={pnlHelp.realized} /></p>
+                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
                   {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
                 </p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Total P&L</p>
-                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total P&L</p>
+                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
                 </p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Win Rate <HelpIcon text={pnlHelp.winRate} /></p>
-                <p className="text-xl font-bold text-[#0e0f0c] mt-1">{pnl.win_rate?.toFixed(1) || '0'}%</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Win Rate <HelpIcon text={pnlHelp.winRate} /></p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.win_rate?.toFixed(1) || '0'}%</p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Trades</p>
-                <p className="text-xl font-bold text-[#0e0f0c] mt-1">{pnl.trade_count || 0}</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Trades</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.trade_count || 0}</p>
               </div>
             </div>
           </div>
         ) : pnlLoading ? (
-          <p className="text-[#686868] mb-6 text-sm">Loading P&L...</p>
+          <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Loading P&L...</p>
         ) : null}
 
         {/* Grid Signal Summary */}
         {isGridSignal && signalSummary && signalSummary.total_count > 0 && (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Ringkasan Sinyal Grid</h2>
+            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Ringkasan Sinyal Grid</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Total Sinyal</p>
-                <p className="text-lg font-bold text-[#0e0f0c] mt-1">{signalSummary.total_count}</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total Sinyal</p>
+                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Success Rate</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Success Rate</p>
                 <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00]' : 'text-[#686868]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Confirmed / Invalid / Expired</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed / Invalid / Expired</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28]">{signalSummary.confirmed_count}</span>
-                  <span className="text-[#686868] mx-1">/</span>
+                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
                   <span className="text-[#d03238]">{signalSummary.invalidated_count}</span>
-                  <span className="text-[#686868] mx-1">/</span>
-                  <span className="text-[#686868]">{signalSummary.expired_count}</span>
+                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
+                  <span className="text-[#686868] dark:text-[#898989]">{signalSummary.expired_count}</span>
                 </p>
               </div>
-              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
-                <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Buy / Sell</p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Buy / Sell</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28]">{signalSummary.buy_count}</span>
-                  <span className="text-[#686868] mx-1">/</span>
+                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
                   <span className="text-[#d03238]">{signalSummary.sell_count}</span>
                 </p>
               </div>
@@ -330,11 +330,11 @@ export default function SessionDetailPage() {
         {/* Grid Signal History */}
         {isGridSignal && strategySignals && strategySignals.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Histori Sinyal Grid</h2>
-            <div className="bg-white rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)]">
+            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Histori Sinyal Grid</h2>
+            <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="text-[#686868] text-xs font-semibold uppercase tracking-wider bg-[#fafafa]">
+                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#141411]">
                     <tr>
                       <th className="px-4 py-3 text-left">Waktu</th>
                       <th className="px-4 py-3 text-left">Sisi</th>
@@ -345,14 +345,14 @@ export default function SessionDetailPage() {
                       <th className="px-4 py-3 text-left">Hasil</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[rgba(14,15,12,0.08)]">
+                  <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                     {strategySignals.slice(0, 30).map(s => (
-                      <tr key={s.id} className="hover:bg-[#fafafa] transition-colors">
-                        <td className="px-4 py-3 text-[#686868] text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
+                      <tr key={s.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
+                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
                         <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28]' : 'text-[#d03238]'}`}>{s.signal_type}</td>
-                        <td className="px-4 py-3 text-[#686868] text-xs">#{s.grid_level_index}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c]">{parseFloat(s.grid_level_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
-                        <td className="px-4 py-3 text-xs text-[#454745]">{s.quantity}</td>
+                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">#{s.grid_level_index}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{parseFloat(s.grid_level_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
+                        <td className="px-4 py-3 text-xs text-[#454745] dark:text-[#8a8d88]">{s.quantity}</td>
                         <td className={`px-4 py-3 text-xs font-semibold ${
                           s.validation_status === 'confirmed' ? 'text-[#054d28]' :
                           s.validation_status === 'invalidated' ? 'text-[#d03238]' :
@@ -364,7 +364,31 @@ export default function SessionDetailPage() {
                               {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
                             </span>
                           )}
-                          {s.validation_status === 'pending' && <span className="text-[#7a5f00]">menunggu</span>}
+                          {s.validation_status === 'pending' && (() => {
+                            const p = parseFloat(s.grid_level_price)
+                            const t = s.validation_target_value
+                            const inv = s.validation_invalid_value
+                            const isBuy = s.signal_type === 'buy'
+                            const isPercent = s.validation_mode === 'percent'
+                            // For percent mode compute target prices
+                            // For grid_steps mode we don't have step size here, show generic label
+                            if (isPercent) {
+                              const confirmPrice = isBuy
+                                ? p * (1 + t / 100)
+                                : p * (1 - t / 100)
+                              const invalidPrice = isBuy
+                                ? p * (1 - inv / 100)
+                                : p * (1 + inv / 100)
+                              const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+                              return (
+                                <div className="space-y-0.5">
+                                  <div className="text-[#054d28] text-xs">✓ {fmt(confirmPrice)} (+{t}%)</div>
+                                  <div className="text-[#d03238] text-xs">✗ {fmt(invalidPrice)} (-{inv}%)</div>
+                                </div>
+                              )
+                            }
+                            return <span className="text-[#7a5f00] text-xs">menunggu {t} step</span>
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -378,16 +402,16 @@ export default function SessionDetailPage() {
         {/* Orders Table — hidden when grid signal history is shown */}
         {!isGridSignal && (
           <>
-            <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Riwayat Signal & Order</h2>
+            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Riwayat Signal & Order</h2>
             {ordersLoading ? (
-              <p className="text-[#686868] mb-6 text-sm">Loading orders...</p>
+              <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Loading orders...</p>
             ) : !orders?.length ? (
-              <p className="text-[#686868] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
+              <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
             ) : (
-              <div className="bg-white rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] mb-6">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-[#686868] text-xs font-semibold uppercase tracking-wider bg-[#fafafa]">
+                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#1a1c18]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                         <th className="px-4 py-3 text-left">Sisi</th>
@@ -397,15 +421,15 @@ export default function SessionDetailPage() {
                         <th className="px-4 py-3 text-left">Tipe</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[rgba(14,15,12,0.08)]">
+                    <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                       {orders.slice(0, 20).map(o => (
-                        <tr key={o.id} className="hover:bg-[#fafafa] transition-colors">
-                          <td className="px-4 py-3 text-[#686868] text-xs">{new Date(o.created_at).toLocaleTimeString('id-ID')}</td>
+                        <tr key={o.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(o.created_at).toLocaleTimeString('id-ID')}</td>
                           <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28]' : 'text-[#d03238]'}`}>{o.side}</td>
-                          <td className="px-4 py-3 text-[#0e0f0c]">{o.price}</td>
-                          <td className="px-4 py-3 text-[#0e0f0c]">{o.quantity}</td>
-                          <td className="px-4 py-3 text-[#454745]">{o.status}</td>
-                          <td className="px-4 py-3 text-[#686868]">{o.type}</td>
+                          <td className="px-4 py-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
+                          <td className="px-4 py-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
+                          <td className="px-4 py-3 text-[#454745] dark:text-[#8a8d88]">{o.status}</td>
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989]">{o.type}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -417,12 +441,12 @@ export default function SessionDetailPage() {
         )}
 
         {/* Tips box */}
-        <div className="bg-[rgba(159,232,112,0.06)] border border-[rgba(159,232,112,0.2)] rounded-[16px] p-4 mt-4">
+        <div className="bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] border border-[rgba(159,232,112,0.2)] rounded-[16px] p-4 mt-4">
           <p className="text-xs font-semibold text-[#163300] mb-2">Tips untuk pemula</p>
-          <ul className="list-disc list-inside space-y-1 text-xs text-[#454745]">
-            <li>Mulai dari <strong className="text-[#0e0f0c]">Signal Mode</strong> — lihat sinyal tanpa risiko</li>
-            <li>Lanjut ke <strong className="text-[#0e0f0c]">Paper Trading</strong> — uji strategi dengan uang virtual $1000</li>
-            <li>Baru ke <strong className="text-[#0e0f0c]">Live Trading</strong> — setelah strategi terbukti profit</li>
+          <ul className="list-disc list-inside space-y-1 text-xs text-[#454745] dark:text-[#8a8d88]">
+            <li>Mulai dari <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Signal Mode</strong> — lihat sinyal tanpa risiko</li>
+            <li>Lanjut ke <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Paper Trading</strong> — uji strategi dengan uang virtual $1000</li>
+            <li>Baru ke <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Live Trading</strong> — setelah strategi terbukti profit</li>
             <li>Session berjalan otomatis setiap 30 detik — start sekali, bot bekerja sendiri</li>
           </ul>
         </div>
