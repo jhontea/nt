@@ -27,11 +27,12 @@ func NewStrategySignalRepo(db *sqlx.DB) *StrategySignalRepo {
 }
 
 func (r *StrategySignalRepo) Create(ctx context.Context, s *model.StrategySignal) (*model.StrategySignal, error) {
-	result, err := r.db.ExecContext(ctx,
+	var id int64
+	err := r.db.GetContext(ctx, &id,
 		r.db.Rebind(`INSERT INTO strategy_signals (session_id, symbol, strategy, signal_type, grid_level_index, grid_level_price,
 			market_price_at_signal, quantity, reason, validation_mode, validation_target_value,
 			validation_invalid_value, validation_window_minutes, validation_status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`),
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending') RETURNING id`),
 		s.SessionID, s.Symbol, s.Strategy, s.SignalType, s.GridLevelIndex, s.GridLevelPrice,
 		s.MarketPriceAtSignal, s.Quantity, s.Reason, s.ValidationMode, s.ValidationTargetValue,
 		s.ValidationInvalidValue, s.ValidationWindowMinutes,
@@ -39,7 +40,6 @@ func (r *StrategySignalRepo) Create(ctx context.Context, s *model.StrategySignal
 	if err != nil {
 		return nil, err
 	}
-	id, _ := result.LastInsertId()
 	return r.findByID(ctx, id)
 }
 

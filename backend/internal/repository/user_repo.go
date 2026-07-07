@@ -24,14 +24,14 @@ func NewUserRepo(db *sqlx.DB) *UserRepo {
 }
 
 func (r *UserRepo) Create(ctx context.Context, username, passwordHash string) (*model.User, error) {
-	result, err := r.db.ExecContext(ctx,
-		r.db.Rebind("INSERT INTO users (username, password_hash) VALUES (?, ?)"),
+	var id int64
+	err := r.db.GetContext(ctx, &id,
+		r.db.Rebind("INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id"),
 		username, passwordHash,
 	)
 	if err != nil {
 		return nil, err
 	}
-	id, _ := result.LastInsertId()
 	return r.FindByID(ctx, id)
 }
 

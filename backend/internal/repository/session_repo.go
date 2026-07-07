@@ -28,15 +28,15 @@ func NewSessionRepo(db *sqlx.DB) *SessionRepo {
 }
 
 func (r *SessionRepo) Create(ctx context.Context, s *model.Session) (*model.Session, error) {
-	result, err := r.db.ExecContext(ctx,
+	var id int64
+	err := r.db.GetContext(ctx, &id,
 		r.db.Rebind(`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
 		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status, s.VirtualBalance,
 	)
 	if err != nil {
 		return nil, err
 	}
-	id, _ := result.LastInsertId()
 	return r.FindByID(ctx, id)
 }
 
