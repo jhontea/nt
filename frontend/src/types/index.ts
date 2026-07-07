@@ -42,6 +42,8 @@ export interface Ticker {
   lastPrice: string
   volume: string
   priceChange: string
+  high24h: string
+  low24h: string
 }
 
 export interface Order {

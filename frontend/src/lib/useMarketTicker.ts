@@ -19,20 +19,20 @@ interface MarketTickerState {
   connected: boolean
 }
 
-function restToData(ticker: { lastPrice: string; volume: string; priceChange: string }): MarketTickerData {
+function restToData(ticker: { lastPrice: string; volume: string; priceChange: string; high24h: string; low24h: string }): MarketTickerData {
   const last = parseFloat(ticker.lastPrice)
   const change = parseFloat(ticker.priceChange)
   const open = last - change
   const changePct = open > 0 ? (change / open) * 100 : 0
-  return {
-    lastPrice: ticker.lastPrice,
-    open24h: open.toFixed(8),
-    high24h: '0',
-    low24h: '0',
-    volume: ticker.volume,
-    priceChange: ticker.priceChange,
-    priceChangePct: changePct.toFixed(2),
-  }
+	return {
+		lastPrice: ticker.lastPrice,
+		open24h: open.toFixed(8),
+		high24h: ticker.high24h,
+		low24h: ticker.low24h,
+		volume: ticker.volume,
+		priceChange: ticker.priceChange,
+		priceChangePct: changePct.toFixed(2),
+	}
 }
 
 export function useMarketTicker(symbol: string | null): MarketTickerState {

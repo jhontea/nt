@@ -31,17 +31,18 @@ type Client struct {
 	http        *http.Client
 	mu          sync.Mutex
 	tickCache   map[string]cacheEntry
-	wsStarted   map[string]bool
+	streamStarted bool
 }
 
 func NewClient(apiKey, secretKey string) *Client {
-	return &Client{
+	c := &Client{
 		apiKey:    apiKey,
 		secretKey: secretKey,
 		http:      &http.Client{Timeout: 10 * time.Second},
 		tickCache: make(map[string]cacheEntry),
-		wsStarted: make(map[string]bool),
 	}
+	go c.runAllMiniTickerStream()
+	return c
 }
 
 func (c *Client) doPublic(path string, params url.Values) ([]byte, error) {
@@ -103,77 +104,76 @@ func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error
 	return body, nil
 }
 
-// SubscribeTicker starts a WebSocket stream for the given symbol (e.g. "BTC_USDT").
-// Updates the cache in real-time (~1s updates). Idempotent — safe to call multiple times.
-func (c *Client) SubscribeTicker(symbol string) {
-	c.mu.Lock()
-	if c.wsStarted[symbol] {
-		c.mu.Unlock()
-		return
+func wsSymbolToInternal(sym string) string {
+	if strings.HasSuffix(sym, "USDT") {
+		return sym[:len(sym)-4] + "_USDT"
 	}
-	c.wsStarted[symbol] = true
-	c.mu.Unlock()
-
-	go c.runTickerStream(symbol)
+	if strings.HasSuffix(sym, "IDR") {
+		return sym[:len(sym)-3] + "_IDR"
+	}
+	return ""
 }
 
-func (c *Client) runTickerStream(symbol string) {
-	wsSymbol := strings.ToLower(strings.ReplaceAll(symbol, "_", ""))
-	u := fmt.Sprintf("wss://stream-cloud.tokocrypto.site/stream/ws/%s@miniTicker", wsSymbol)
+func (c *Client) runAllMiniTickerStream() {
+	u := "wss://stream-cloud.tokocrypto.site/stream?streams=!miniTicker@arr"
 	dialer := &websocket.Dialer{HandshakeTimeout: 5 * time.Second}
 
 	for {
 		ws, _, err := dialer.Dial(u, nil)
 		if err != nil {
-			slog.Warn("ticker ws dial failed, retry in 5s", "symbol", symbol, "error", err)
+			slog.Warn("ticker ws dial failed, retry in 5s", "error", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		slog.Info("ticker ws connected", "symbol", symbol)
+		slog.Info("ticker ws connected")
 
 		for {
 			_, msg, err := ws.ReadMessage()
 			if err != nil {
-				slog.Warn("ticker ws read error", "symbol", symbol, "error", err)
+				slog.Warn("ticker ws read error", "error", err)
 				ws.Close()
 				break
 			}
 
-			var raw struct {
-				Close string `json:"c"`
-				Open  string `json:"o"`
-				High  string `json:"h"`
-				Low   string `json:"l"`
-				Vol   string `json:"v"`
-				QVol  string `json:"q"`
+			var wrap struct {
+				Data []struct {
+					Symbol string `json:"s"`
+					Close  string `json:"c"`
+					Open   string `json:"o"`
+					High   string `json:"h"`
+					Low    string `json:"l"`
+					Vol    string `json:"v"`
+				} `json:"data"`
 			}
-			if err := json.Unmarshal(msg, &raw); err != nil {
+			if err := json.Unmarshal(msg, &wrap); err != nil {
 				continue
 			}
 
-			priceChange := parseFloat(raw.Close) - parseFloat(raw.Open)
+			for _, raw := range wrap.Data {
+				symbol := wsSymbolToInternal(raw.Symbol)
+				if symbol == "" {
+					continue
+				}
+				priceChange := parseFloat(raw.Close) - parseFloat(raw.Open)
+				ticker := &Ticker{
+					Symbol:      symbol,
+					LastPrice:   raw.Close,
+					Volume:      raw.Vol,
+					PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
+					High24h:     raw.High,
+					Low24h:      raw.Low,
+				}
 
-			ticker := &Ticker{
-				Symbol:      symbol,
-				LastPrice:   raw.Close,
-				Volume:      raw.Vol,
-				PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
-				High24h:     raw.High,
-				Low24h:      raw.Low,
+				c.mu.Lock()
+				c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(3 * time.Second)}
+				c.mu.Unlock()
 			}
-
-			c.mu.Lock()
-			c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(3 * time.Second)}
-			c.mu.Unlock()
 		}
 		time.Sleep(3 * time.Second)
 	}
 }
 
 func (c *Client) GetTicker(symbol string) (*Ticker, error) {
-	// Start WS stream if not already running (idempotent)
-	c.SubscribeTicker(symbol)
-
 	// Check cache (updated by WS in real-time)
 	c.mu.Lock()
 	if entry, ok := c.tickCache[symbol]; ok && time.Now().Before(entry.expiresAt) {
