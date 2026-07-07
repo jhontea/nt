@@ -136,6 +136,8 @@ export default function SessionDetailPage() {
   let configDisplay: any = {}
   try { configDisplay = JSON.parse(session.config) } catch {}
 
+  const strategyLabel = session.strategy === 'grid' ? 'Grid' : session.strategy === 'trend' ? 'Trend' : 'DCA'
+
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
@@ -149,116 +151,134 @@ export default function SessionDetailPage() {
           &larr; Kembali ke Sessions
         </button>
 
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-2xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
-              {session.mode === 'signal' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>
-              )}
-              {session.mode === 'paper' && (
+        {/* Hero Header */}
+        <div className="mb-8">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <h1 className="text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
+                {session.mode === 'signal' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>
+                )}
+                {session.mode === 'paper' && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>
-              )}
-              {session.mode === 'live' && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>
-              )}
+                )}
+                {session.mode === 'live' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>
+                )}
+                {session.status === 'running' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
+                    Running
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
+                )}
+              </div>
+              <p className="text-sm text-[#686868] dark:text-[#898989]">{session.symbol} · {strategyLabel} · {modeInfo[session.mode]}</p>
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <PriceBadge symbol={session.symbol} compact />
+              {error && <span className="text-[#d03238] text-sm">{error}</span>}
               {session.status === 'running' ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
-                  Running
-                </span>
+                <button
+                  onClick={handleStop}
+                  disabled={loading === 'stop'}
+                  className="bg-[#d03238] text-white border-2 border-[#d03238] hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
+                >
+                  {loading === 'stop' ? '...' : 'Stop'}
+                </button>
               ) : (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
+                <button
+                  onClick={handleStart}
+                  disabled={loading === 'start'}
+                  className="bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full px-5 py-2 font-semibold transition-all disabled:opacity-50 shadow-[0_2px_8px_rgba(159,232,112,0.4)]"
+                >
+                  {loading === 'start' ? '...' : 'Start'}
+                </button>
               )}
             </div>
-            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">{session.symbol} · {session.strategy} · {modeInfo[session.mode]}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {error && <span className="text-[#d03238] text-sm">{error}</span>}
-            {session.status === 'running' ? (
-              <button
-                onClick={handleStop}
-                disabled={loading === 'stop'}
-                className="bg-[#d03238] text-white border-2 border-[#d03238] hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
-              >
-                {loading === 'stop' ? '...' : 'Stop'}
-              </button>
-            ) : (
-              <button
-                onClick={handleStart}
-                disabled={loading === 'start'}
-                className="bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full px-5 py-2 font-semibold transition-all disabled:opacity-50"
-              >
-                {loading === 'start' ? '...' : 'Start'}
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Session Info Card */}
-        <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Pair</span>
-              <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.symbol}</p>
-            </div>
-            <div>
-              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
-                Strategi <HelpIcon text={session.strategy === 'grid' ? 'Grid Trading: pasang order di level harga tetap' : 'Trend Following: deteksi tren pakai SMA'} />
+        {/* Active Signals */}
+        {isGridSignal && strategySignals && strategySignals.some(s => s.validation_status === 'pending') && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sinyal Aktif</h2>
+              <span className="text-xs font-bold bg-[#9fe870] text-[#163300] rounded-full px-2 py-0.5">
+                {strategySignals.filter(s => s.validation_status === 'pending').length}
               </span>
-              <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.strategy === 'grid' ? 'Grid Trading' : 'Trend Following'}</p>
             </div>
-            <div>
-              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
-                Mode <HelpIcon text={modeInfo[session.mode] || ''} />
-              </span>
-              <p className={`font-semibold mt-1 ${session.mode === 'live' ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
-                {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
-              </p>
-            </div>
-            <div>
-              <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Status</span>
-              <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
+            <div className="space-y-3">
+              {strategySignals.filter(s => s.validation_status === 'pending').map(s => {
+                const price = parseFloat(s.grid_level_price)
+                const t = s.validation_target_value
+                const inv = s.validation_invalid_value
+                const isBuy = s.signal_type === 'buy'
+                const isPercent = s.validation_mode === 'percent'
+                const confirmPrice = isPercent ? (isBuy ? price * (1 + t / 100) : price * (1 - t / 100)) : null
+                const invalidPrice = isPercent ? (isBuy ? price * (1 - inv / 100) : price * (1 + inv / 100)) : null
+                const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+                const border = isBuy ? 'border-[#054d28]' : 'border-[#d03238]'
+                const badge = isBuy ? 'bg-[#f0fdf4] dark:bg-[#0c1f0f] text-[#054d28] dark:text-[#9fe870]' : 'bg-[#fff1f2] dark:bg-[#1f0c0d] text-[#d03238]'
+                const nowPrice = null
+                // compute progress: 0 = at signal, 1 = at confirm, -1 = at invalid
+                const progress = nowPrice && confirmPrice && invalidPrice ? (() => {
+                  const total = isBuy ? (confirmPrice - invalidPrice) : (invalidPrice - confirmPrice)
+                  const moved = isBuy ? (nowPrice - invalidPrice) : (invalidPrice - nowPrice)
+                  return Math.max(0, Math.min(1, moved / total))
+                })() : null
+                return (
+                  <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border-2 ${border} shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${badge}`}>{isBuy ? '▲ Beli' : '▼ Jual'}</span>
+                        <span className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index} · {fmt(price)}</span>
+                      </div>
+                      <span className="text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-2 py-0.5 rounded-full animate-pulse">⏳ menunggu</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.08)] rounded-[12px] p-3">
+                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✓ Target Confirmed</p>
+                        <p className="font-bold text-[#054d28] dark:text-[#9fe870]">{confirmPrice ? fmt(confirmPrice) : `+${t} step`}</p>
+                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '+' : '-'}${t}%` : `${t} level`}</p>
+                      </div>
+                      <div className="bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] rounded-[12px] p-3">
+                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✗ Batas Invalid</p>
+                        <p className="font-bold text-[#d03238]">{invalidPrice ? fmt(invalidPrice) : `-${inv} step`}</p>
+                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '-' : '+'}${inv}%` : `${inv} level`}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-2">Window: {s.validation_window_minutes} menit · Sejak {new Date(s.created_at).toLocaleTimeString('id-ID')}</p>
+                    {nowPrice && (
+                      <div className="mt-3 pt-3 border-t border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-[#d03238] font-mono">{invalidPrice ? fmt(invalidPrice) : '–'}</span>
+                          <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] font-mono">{fmt(nowPrice)} <span className="text-[10px] text-[#686868]">sekarang</span></span>
+                          <span className="text-[#054d28] dark:text-[#9fe870] font-mono">{confirmPrice ? fmt(confirmPrice) : '–'}</span>
+                        </div>
+                        {progress !== null && (
+                          <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-[#d03238] via-[#f5c842] to-[#054d28] dark:to-[#9fe870] rounded-full transition-all"
+                              style={{ width: `${progress * 100}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
-          <details className="mt-4 text-sm">
-            <summary className="text-[#686868] dark:text-[#898989] cursor-pointer hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors text-xs font-medium">Lihat konfigurasi</summary>
-            <pre className="mt-2 bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#454745] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
-          </details>
-        </div>
-
-        {/* Real-time Price */}
-        <div className="mb-6">
-          <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider block mb-2">Harga Real-time</span>
-          <PriceBadge symbol={session.symbol} />
-        </div>
-
-        {/* Strategy Description */}
-        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-[16px] p-4 mb-6 text-sm text-[#454745] dark:text-[#8a8d88]">
-          {session.strategy === 'grid' ? (
-            <p>
-              <span className="text-[#163300] dark:text-[#9fe870] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
-              Setiap order {configDisplay.quantity || '?'} {session.symbol.split('_')[0]}. Bot mengevaluasi setiap 30 detik.
-            </p>
-          ) : session.strategy === 'trend' ? (
-            <p>
-              <span className="text-[#454745] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
-              Golden cross (SMA cepat &gt; SMA lambat) = sinyal <span className="text-[#054d28] font-medium">beli</span>. Death cross (SMA cepat &lt; SMA lambat) = sinyal <span className="text-[#d03238] font-medium">jual</span>.
-            </p>
-          ) : (
-            <p>
-              <span className="text-[#0994b3] font-semibold">DCA (Dollar Cost Average)</span>: Bot membeli <strong>${configDisplay.amount || '?'}</strong> setiap{' '}
-              {configDisplay.interval_sec === 3600 ? '1 jam' : configDisplay.interval_sec === 7200 ? '2 jam' : configDisplay.interval_sec === 21600 ? '6 jam' : configDisplay.interval_sec === 43200 ? '12 jam' : configDisplay.interval_sec === 86400 ? '1 hari' : configDisplay.interval_sec === 604800 ? '1 minggu' : `${configDisplay.interval_sec || '?'} detik`}.
-              {configDisplay.take_profit_pct > 0 ? ` Take profit ${configDisplay.take_profit_pct}% dari harga rata-rata beli.` : ' Tidak ada take profit — akumulasi terus.'}
-            </p>
-          )}
-        </div>
+        )}
 
         {/* P&L Cards */}
         {pnl ? (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Ringkasan Performa</h2>
+            <div className="mb-3">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Performa</h2>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
@@ -270,9 +290,9 @@ export default function SessionDetailPage() {
                   {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
                 </p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total P&L</p>
-                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+                <p className={`text-2xl font-black mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
                 </p>
               </div>
@@ -287,13 +307,72 @@ export default function SessionDetailPage() {
             </div>
           </div>
         ) : pnlLoading ? (
-          <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Loading P&L...</p>
+          <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse mb-6">
+            <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
+            <span className="text-sm">Memuat data P&L...</span>
+          </div>
         ) : null}
+
+        {/* Strategy Description */}
+        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-r-[16px] rounded-l-none px-4 py-3 mb-4 text-xs text-[#454745] dark:text-[#8a8d88]">
+          {session.strategy === 'grid' ? (
+            <p>
+              <span className="text-[#163300] dark:text-[#9fe870] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
+              Setiap order {configDisplay.quantity || '?'} {session.symbol.split('_')[0]}. Bot mengevaluasi setiap 30 detik.
+            </p>
+          ) : session.strategy === 'trend' ? (
+            <p>
+              <span className="text-[#454745] dark:text-[#d0d3ce] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
+              Golden cross = sinyal <span className="text-[#054d28] dark:text-[#9fe870] font-medium">beli</span>. Death cross = sinyal <span className="text-[#d03238] font-medium">jual</span>.
+            </p>
+          ) : (
+            <p>
+              <span className="text-[#0994b3] font-semibold">DCA</span>: Bot membeli <strong>${configDisplay.amount || '?'}</strong> setiap{' '}
+              {configDisplay.interval_sec === 3600 ? '1 jam' : configDisplay.interval_sec === 7200 ? '2 jam' : configDisplay.interval_sec === 21600 ? '6 jam' : configDisplay.interval_sec === 43200 ? '12 jam' : configDisplay.interval_sec === 86400 ? '1 hari' : configDisplay.interval_sec === 604800 ? '1 minggu' : `${configDisplay.interval_sec || '?'} detik`}.
+              {configDisplay.take_profit_pct > 0 ? ` Take profit ${configDisplay.take_profit_pct}%.` : ' Akumulasi terus.'}
+            </p>
+          )}
+        </div>
+
+        {/* Detail Konfigurasi — collapsible */}
+        <details className="mb-4">
+          <summary className="text-xs font-semibold text-[#686868] dark:text-[#898989] cursor-pointer hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors flex items-center gap-1.5 select-none">
+            › Detail Konfigurasi
+          </summary>
+          <div className="mb-2" />
+          <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+              <div>
+                <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Pair</span>
+                <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.symbol}</p>
+              </div>
+              <div>
+                <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
+                  Strategi <HelpIcon text={session.strategy === 'grid' ? 'Grid Trading: pasang order di level harga tetap' : session.strategy === 'trend' ? 'Trend Following: deteksi tren pakai SMA' : 'DCA: beli rutin dengan jumlah tetap'} />
+                </span>
+                <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{strategyLabel}</p>
+              </div>
+              <div>
+                <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider flex items-center gap-1">
+                  Mode <HelpIcon text={modeInfo[session.mode] || ''} />
+                </span>
+                <p className={`font-semibold mt-1 ${session.mode === 'live' ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
+                  {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
+                </p>
+              </div>
+              <div>
+                <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Status</span>
+                <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
+              </div>
+            </div>
+            <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#454745] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
+          </div>
+        </details>
 
         {/* Grid Signal Summary */}
         {isGridSignal && signalSummary && signalSummary.total_count > 0 && (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Ringkasan Sinyal Grid</h2>
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Ringkasan Sinyal</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total Sinyal</p>
@@ -327,59 +406,14 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Active Signals */}
-        {isGridSignal && strategySignals && strategySignals.some(s => s.validation_status === 'pending') && (
-          <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Sinyal Aktif</h2>
-            <div className="space-y-3">
-              {strategySignals.filter(s => s.validation_status === 'pending').map(s => {
-                const price = parseFloat(s.grid_level_price)
-                const t = s.validation_target_value
-                const inv = s.validation_invalid_value
-                const isBuy = s.signal_type === 'buy'
-                const isPercent = s.validation_mode === 'percent'
-                const confirmPrice = isPercent ? (isBuy ? price * (1 + t / 100) : price * (1 - t / 100)) : null
-                const invalidPrice = isPercent ? (isBuy ? price * (1 - inv / 100) : price * (1 + inv / 100)) : null
-                const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
-                const border = isBuy ? 'border-[#054d28]' : 'border-[#d03238]'
-                const badge = isBuy ? 'bg-[#f0fdf4] dark:bg-[#0c1f0f] text-[#054d28] dark:text-[#9fe870]' : 'bg-[#fff1f2] dark:bg-[#1f0c0d] text-[#d03238]'
-                return (
-                  <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border-2 ${border} border-opacity-40`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${badge}`}>{isBuy ? '▲ Beli' : '▼ Jual'}</span>
-                        <span className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index} · {fmt(price)}</span>
-                      </div>
-                      <span className="text-xs text-[#7a5f00] dark:text-[#f5c842] font-medium animate-pulse">● menunggu</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-[#f0fdf4] dark:bg-[#0c1f0f] rounded-[12px] p-3">
-                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✓ Target Confirmed</p>
-                        <p className="font-bold text-[#054d28] dark:text-[#9fe870]">{confirmPrice ? fmt(confirmPrice) : `+${t} step`}</p>
-                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '+' : '-'}${t}%` : `${t} level`}</p>
-                      </div>
-                      <div className="bg-[#fff1f2] dark:bg-[#1f0c0d] rounded-[12px] p-3">
-                        <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✗ Batas Invalid</p>
-                        <p className="font-bold text-[#d03238]">{invalidPrice ? fmt(invalidPrice) : `-${inv} step`}</p>
-                        <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '-' : '+'}${inv}%` : `${inv} level`}</p>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-2">Window: {s.validation_window_minutes} menit · Sejak {new Date(s.created_at).toLocaleTimeString('id-ID')}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Grid Signal History */}
         {isGridSignal && strategySignals && strategySignals.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Histori Sinyal Grid</h2>
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Histori Sinyal Grid</h2>
             <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#141411]">
+                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
                     <tr>
                       <th className="px-4 py-3 text-left">Waktu</th>
                       <th className="px-4 py-3 text-left">Sisi</th>
@@ -394,22 +428,22 @@ export default function SessionDetailPage() {
                     {strategySignals.slice(0, 30).map(s => (
                       <tr key={s.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
                         <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
-                        <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28]' : 'text-[#d03238]'}`}>{s.signal_type}</td>
+                        <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>{s.signal_type}</td>
                         <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">#{s.grid_level_index}</td>
                         <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{parseFloat(s.grid_level_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
                         <td className="px-4 py-3 text-xs text-[#454745] dark:text-[#8a8d88]">{s.quantity}</td>
                         <td className={`px-4 py-3 text-xs font-semibold ${
-                          s.validation_status === 'confirmed' ? 'text-[#054d28]' :
+                          s.validation_status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]' :
                           s.validation_status === 'invalidated' ? 'text-[#d03238]' :
-                          s.validation_status === 'expired' ? 'text-[#5a5b58]' : 'text-[#7a5f00]'
+                          s.validation_status === 'expired' ? 'text-[#5a5b58] dark:text-[#8a8d88]' : 'text-[#7a5f00] dark:text-[#f5c842]'
                         }`}>{s.validation_status}</td>
                         <td className="px-4 py-3 text-xs">
                           {s.validation_status === 'confirmed' && s.result_pct != null && (
-                            <span className={`font-semibold ${s.result_pct >= 0 ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
+                            <span className={`font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
                               {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
                             </span>
                           )}
-                          {s.validation_status === 'pending' && <span className="text-[#7a5f00]">menunggu</span>}
+                          {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842]">menunggu</span>}
                         </td>
                       </tr>
                     ))}
@@ -423,16 +457,19 @@ export default function SessionDetailPage() {
         {/* Orders Table — hidden when grid signal history is shown */}
         {!isGridSignal && (
           <>
-            <h2 className="text-base font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">Riwayat Signal & Order</h2>
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Riwayat Signal & Order</h2>
             {ordersLoading ? (
-              <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Loading orders...</p>
+              <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse py-4">
+                <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
+                <span className="text-sm">Memuat orders...</span>
+              </div>
             ) : !orders?.length ? (
               <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
             ) : (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#1a1c18]">
+                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                         <th className="px-4 py-3 text-left">Sisi</th>
@@ -446,7 +483,7 @@ export default function SessionDetailPage() {
                       {orders.slice(0, 20).map(o => (
                         <tr key={o.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(o.created_at).toLocaleTimeString('id-ID')}</td>
-                          <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28]' : 'text-[#d03238]'}`}>{o.side}</td>
+                          <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>{o.side}</td>
                           <td className="px-4 py-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
                           <td className="px-4 py-3 text-[#454745] dark:text-[#8a8d88]">{o.status}</td>
@@ -460,17 +497,6 @@ export default function SessionDetailPage() {
             )}
           </>
         )}
-
-        {/* Tips box */}
-        <div className="bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] border border-[rgba(159,232,112,0.2)] rounded-[16px] p-4 mt-4">
-          <p className="text-xs font-semibold text-[#163300] dark:text-[#9fe870] mb-2">Tips untuk pemula</p>
-          <ul className="list-disc list-inside space-y-1 text-xs text-[#454745] dark:text-[#8a8d88]">
-            <li>Mulai dari <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Signal Mode</strong> — lihat sinyal tanpa risiko</li>
-            <li>Lanjut ke <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Paper Trading</strong> — uji strategi dengan uang virtual $1000</li>
-            <li>Baru ke <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Live Trading</strong> — setelah strategi terbukti profit</li>
-            <li>Session berjalan otomatis setiap 30 detik — start sekali, bot bekerja sendiri</li>
-          </ul>
-        </div>
 
       </div>
     </div>

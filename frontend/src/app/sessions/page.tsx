@@ -518,7 +518,7 @@ export default function SessionsPage() {
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
                   </div>
                 </div>
