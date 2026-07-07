@@ -25,6 +25,11 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 			continue
 		}
 
+		// Give user time to see the signal before auto-validating
+		if now.Sub(sig.CreatedAt) < 60*time.Second {
+			continue
+		}
+
 		signalPrice, _ := parseFloatStr(sig.GridLevelPrice)
 		if signalPrice == 0 {
 			continue
