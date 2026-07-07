@@ -58,6 +58,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Reset sessions that were left "running" after a shutdown
+	if _, err := db.Exec(`UPDATE sessions SET status = 'stopped' WHERE status = 'running'`); err != nil {
+		slog.Warn("reset stalled sessions", "error", err)
+	}
+
 	userRepo := repository.NewUserRepo(db)
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
 	authH := handler.NewAuthHandler(authSvc)
