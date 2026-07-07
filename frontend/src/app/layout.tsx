@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import { Providers } from './providers'
 import './globals.css'
+import { Geist, Inter } from 'next/font/google'
+
+const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
   title: 'Trading Bot',
@@ -9,8 +13,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-gray-950 text-gray-100 min-h-screen">
+    <html lang="en" className={`${geist.variable} ${inter.variable}`}>
+      <body className="bg-[#fafafa] text-[#0e0f0c] min-h-screen font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

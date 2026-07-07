@@ -1,1 +1,78 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #9fe870;
+  --color-primary-hover: #cdffad;
+  --color-primary-text: #163300;
+  
+  --color-secondary: #0e0f0c;
+  --color-secondary-hover: #2a2b27;
+  
+  --color-success: #054d28;
+  --color-danger: #d03238;
+  --color-warning: #ffd11a;
+  --color-info: #38c8ff;
+  
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-canvas: #fafafa;
+  --color-card: #ffffff;
+  
+  --color-foreground: #0e0f0c;
+  --color-muted: #686868;
+  --color-ash: #5a5b58;
+  
+  --color-border: rgb(14 15 12 / 0.48);
+  --color-border-subtle: rgb(14 15 12 / 0.06);
+  --color-border-divider: rgb(14 15 12 / 0.08);
+  
+  --color-link: #2d7a1a;
+  
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f0f1ee;
+  --color-gray-400: #686868;
+  --color-gray-500: #5a5b58;
+  --color-gray-700: #2a2b27;
+  --color-gray-800: rgb(14 15 12 / 0.08);
+  --color-gray-900: rgb(14 15 12 / 0.06);
+  --color-gray-950: #0e0f0c;
+  
+  --color-blue-600: #9fe870;
+  --color-blue-700: #8ad05e;
+}
+
+.dark {
+  --color-primary: #9fe870;
+  --color-primary-hover: #cdffad;
+  --color-primary-text: #163300;
+  
+  --color-secondary: #e8ebe6;
+  --color-secondary-hover: #d0d3ce;
+  
+  --color-background: #0e0f0c;
+  --color-surface: #1e201c;
+  --color-canvas: #141411;
+  --color-card: #1e201c;
+  
+  --color-foreground: #e8ebe6;
+  --color-muted: #898989;
+  --color-ash: #8a8d88;
+  
+  --color-border: rgb(232 235 230 / 0.37);
+  --color-border-subtle: rgb(232 235 230 / 0.05);
+  --color-border-divider: rgb(232 235 230 / 0.08);
+  
+  --color-link: #b3f08a;
+  
+  --color-gray-50: #141411;
+  --color-gray-100: #1e201c;
+  --color-gray-400: #898989;
+  --color-gray-500: #8a8d88;
+  --color-gray-700: #d0d3ce;
+  --color-gray-800: rgb(232 235 230 / 0.08);
+  --color-gray-900: rgb(232 235 230 / 0.06);
+  --color-gray-950: #e8ebe6;
+  
+  --color-blue-600: #9fe870;
+  --color-blue-700: #8ad05e;
+}

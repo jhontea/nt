@@ -174,6 +174,51 @@ func main() {
 		return c.JSON(200, rec)
 	})
 
+	// Grid insights: analyze past signal data for recommendations
+	v1.GET("/grid/insights", func(c echo.Context) error {
+		symbol := c.QueryParam("symbol")
+		if symbol == "" {
+			return c.JSON(400, ErrorResponse{Error: "symbol is required"})
+		}
+
+		// Find grid signal sessions for this pair with their signal stats
+		type insight struct {
+			SessionID   int64   `json:"session_id"`
+			Name        string  `json:"name"`
+			Config      string  `json:"config"`
+			Total       int     `json:"total"`
+			Confirmed   int     `json:"confirmed"`
+			Invalidated int     `json:"invalidated"`
+			SuccessRate float64 `json:"success_rate"`
+		}
+
+		var insights []insight
+		err := db.Select(&insights, db.Rebind(`
+			SELECT s.id as session_id, s.name, s.config,
+				COUNT(ss.id) as total,
+				SUM(CASE WHEN ss.validation_status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+				SUM(CASE WHEN ss.validation_status = 'invalidated' THEN 1 ELSE 0 END) as invalidated
+			FROM sessions s
+			LEFT JOIN strategy_signals ss ON ss.session_id = s.id
+			WHERE s.symbol = ? AND s.strategy = 'grid' AND s.mode = 'signal'
+			GROUP BY s.id, s.name, s.config
+			HAVING COUNT(ss.id) > 0
+			ORDER BY s.created_at DESC
+			LIMIT 20`), symbol)
+		if err != nil {
+			return c.JSON(500, ErrorResponse{Error: err.Error()})
+		}
+
+		// Calculate success rates
+		for i := range insights {
+			if insights[i].Total > 0 {
+				insights[i].SuccessRate = float64(insights[i].Confirmed) / float64(insights[i].Total) * 100
+			}
+		}
+
+		return c.JSON(200, insights)
+	})
+
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 

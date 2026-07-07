@@ -229,25 +229,33 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-[#fafafa]">
+      {/* Topbar */}
+      <header className="sticky top-0 z-10 bg-white border-b border-[rgba(14,15,12,0.08)]">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <span className="font-bold text-[#0e0f0c] tracking-tight">NeuralTrade</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.push('/market')} className="px-4 py-1.5 text-sm font-medium bg-transparent text-[#0e0f0c] border-2 border-[rgba(14,15,12,0.48)] hover:bg-[#f5f6f4] hover:border-[#9fe870] hover:text-[#163300] rounded-full transition">Market</button>
+            <button onClick={() => router.push('/glossary')} className="px-4 py-1.5 text-sm font-medium bg-transparent text-[#0e0f0c] border-2 border-[rgba(14,15,12,0.48)] hover:bg-[#f5f6f4] hover:border-[#9fe870] hover:text-[#163300] rounded-full transition">Glosarium</button>
+            <button onClick={logout} className="px-4 py-1.5 text-sm font-medium bg-[#f0f1ee] text-[#0e0f0c] border border-transparent hover:bg-[#e8ebe6] rounded-full transition">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Trading Sessions</h1>
-          <p className="text-sm text-gray-500">Kelola session trading bot Anda</p>
+          <h1 className="text-2xl font-bold text-[#0e0f0c]">Trading Sessions</h1>
+          <p className="text-sm text-[#686868] mt-0.5">Kelola session trading bot Anda</p>
         </div>
-        <div className="space-x-3">
-          <button onClick={() => router.push('/market')} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition text-sm">📈 Market Price</button>
-          <button onClick={() => router.push('/glossary')} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm">📖 Glosarium</button>
-          <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition">
-            {showCreate ? 'Cancel' : '+ New Session'}
-          </button>
-          <button onClick={logout} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">Logout</button>
-        </div>
+        <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-2 bg-[#9fe870] text-[#163300] font-semibold border border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.05] active:scale-[0.95] rounded-full transition-all text-sm">
+          {showCreate ? 'Cancel' : '+ New Session'}
+        </button>
       </div>
 
       {/* Market Ticker */}
-      <div className="mb-6">
-        <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Harga Pasar Real-time</p>
+      <div className="mb-8">
+        <p className="text-xs text-[#686868] uppercase tracking-widest font-semibold mb-3">Harga Pasar Real-time</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <PriceBadge symbol="BTC_USDT" />
           <PriceBadge symbol="ETH_USDT" />
@@ -258,56 +266,56 @@ export default function SessionsPage() {
       {/* Rekomendasi */}
       {!showCreate && (
         <div className="mb-8">
-          <h2 className="text-sm text-gray-400 uppercase tracking-wider font-semibold mb-3">Rekomendasi Cepat</h2>
+          <h2 className="text-xs text-[#686868] uppercase tracking-widest font-semibold mb-3">Rekomendasi Cepat</h2>
           <div className="grid md:grid-cols-4 gap-3">
             {presets.map(p => (
               <button key={p.label} onClick={() => applyPreset(p)}
-                className="bg-gray-900 hover:bg-gray-800 rounded-xl p-4 text-left transition border border-gray-800 hover:border-gray-700">
-                <p className="font-semibold text-sm mb-1">{p.label}</p>
-                <p className="text-xs text-gray-400">{p.desc}</p>
+                className="bg-white hover:bg-[#f0f1ee] rounded-[30px] p-5 text-left transition border border-[rgba(14,15,12,0.08)] hover:border-[#9fe870] hover:shadow-[rgba(14,15,12,0.06)_0px_4px_12px]">
+                <p className="font-semibold text-sm text-[#0e0f0c] mb-1">{p.label}</p>
+                <p className="text-xs text-[#686868] leading-snug">{p.desc}</p>
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-600 mt-2">Atau klik &quot;+ New Session&quot; untuk konfigurasi manual.</p>
+          <p className="text-xs text-[#686868] mt-3">Atau klik &quot;+ New Session&quot; untuk konfigurasi manual.</p>
         </div>
       )}
 
       {showCreate && (
-        <form onSubmit={handleCreate} className="bg-gray-900 p-6 rounded-xl mb-6 space-y-4">
-          <h2 className="font-semibold">New Trading Session</h2>
+        <form onSubmit={handleCreate} className="bg-white shadow-[rgba(14,15,12,0.12)_0px_0px_0px_1px,rgba(14,15,12,0.06)_0px_4px_12px] rounded-[30px] p-8 mb-8 space-y-5">
+          <h2 className="font-bold text-lg text-[#0e0f0c]">New Trading Session</h2>
 
           {/* Info harga saat ini */}
           {priceLoading && (
-            <div className="bg-gray-800 rounded-lg p-3 text-sm flex items-center gap-2">
-              <span className="text-gray-400">Mengambil harga {symbol}...</span>
+            <div className="bg-[#f0f1ee] rounded-[10px] p-3 text-sm flex items-center gap-2">
+              <span className="text-[#686868]">Mengambil harga {symbol}...</span>
             </div>
           )}
           {currentPrice && !priceLoading && (
-            <div className="bg-gray-800 rounded-lg p-3 text-sm flex items-center gap-2">
-              <span className="text-gray-400">Harga {symbol}:</span>
-              <span className="font-semibold text-green-400">{currentPrice.toLocaleString()}</span>
+            <div className="bg-[#f0f1ee] rounded-[10px] p-3 text-sm flex items-center gap-2">
+              <span className="text-[#686868]">Harga {symbol}:</span>
+              <span className="font-semibold text-[#054d28]">{currentPrice.toLocaleString()}</span>
               {strategy === 'grid' && (
-                <span className="text-xs text-gray-500">
-                  → Grid otomatis: <span className="text-yellow-400">${parseInt(lowerPrice).toLocaleString()}</span> — <span className="text-green-400">${parseInt(upperPrice).toLocaleString()}</span>
-                  <span className="text-gray-600"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
+                <span className="text-xs text-[#5a5b58]">
+                  → Grid otomatis: <span className="text-[#e6bc00]">${parseInt(lowerPrice).toLocaleString()}</span> — <span className="text-[#054d28]">${parseInt(upperPrice).toLocaleString()}</span>
+                  <span className="text-[#686868]"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
                 </span>
               )}
             </div>
           )}
           {priceError && (
-            <div className="bg-gray-800 rounded-lg p-3 text-sm text-red-400">
-              {priceError} <span className="text-gray-500">— isi manual atau coba pair lain</span>
+            <div className="bg-[rgba(208,50,56,0.06)] border border-[rgba(208,50,56,0.15)] rounded-[10px] p-3 text-sm text-[#d03238]">
+              {priceError} <span className="text-[#5a5b58]">— isi manual atau coba pair lain</span>
             </div>
           )}
 
           <div>
-            <label className="text-sm text-gray-400 block mb-1">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
-            <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="Nama session" value={name} onChange={e => setName(e.target.value)} />
+            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
+            <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="Nama session" value={name} onChange={e => setName(e.target.value)} />
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 block mb-1">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
-            <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
+            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
+            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
               <option value="grid">📐 Grid Trading — beli & jual di level harga</option>
               <option value="trend">📈 Trend Following — SMA crossover</option>
               <option value="dca">🪙 DCA — beli rutin berkala (Dollar Cost Average)</option>
@@ -315,8 +323,8 @@ export default function SessionsPage() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 block mb-1">Mode <HelpIcon text={modeHelp[mode]} /></label>
-            <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={mode} onChange={e => setMode(e.target.value as any)}>
+            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Mode <HelpIcon text={modeHelp[mode]} /></label>
+            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={mode} onChange={e => setMode(e.target.value as any)}>
               <option value="signal">📊 Signal — sinyal saja, tanpa eksekusi</option>
               <option value="paper">📝 Paper — trading simulasi (uang virtual $1000)</option>
               <option value="live">⚡ Live — trading sungguhan (RISIKO TINGGI)</option>
@@ -324,8 +332,8 @@ export default function SessionsPage() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 block mb-1">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
-            <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={symbol} onChange={e => setSymbol(e.target.value)}>
+            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
+            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={symbol} onChange={e => setSymbol(e.target.value)}>
               <optgroup label="USDT Pairs">
                 {PAIRS.filter(p => p.endsWith('_USDT')).map(p => <option key={p} value={p}>{p}</option>)}
               </optgroup>
@@ -338,61 +346,61 @@ export default function SessionsPage() {
           {strategy === 'grid' ? (
             <>
               {/* Beginner / Advanced Toggle */}
-              <div className="flex items-center gap-3">
-                <label className="text-xs text-gray-500">Mode:</label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-[#686868] font-medium">Mode:</label>
                 <button type="button"
                   onClick={() => { setIsBeginner(true); fetchRecommendation() }}
-                  className={`px-3 py-1 rounded text-xs transition ${isBeginner ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] text-[#686868] hover:bg-[#e8ebe6] hover:text-[#0e0f0c]'}`}>
                   🎓 Pemula
                 </button>
                 <button type="button"
                   onClick={() => setIsBeginner(false)}
-                  className={`px-3 py-1 rounded text-xs transition ${!isBeginner ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] text-[#686868] hover:bg-[#e8ebe6] hover:text-[#0e0f0c]'}`}>
                   ⚙️ Manual
                 </button>
               </div>
 
               {/* Beginner Controls */}
               {isBeginner && (
-                <div className="bg-gray-800 rounded-lg p-3 space-y-3">
+                <div className="bg-[#f0f1ee] rounded-[10px] p-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Horizon</label>
-                      <select className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                      <label className="text-xs text-[#686868] font-medium block mb-1">Horizon</label>
+                      <select className="w-full px-2 py-1.5 bg-white border border-[rgba(14,15,12,0.12)] rounded-[10px] text-sm text-[#0e0f0c]" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
                         <option value="short">Pendek (±5-10%)</option>
                         <option value="medium">Menengah (±10-18%)</option>
                         <option value="long">Panjang (±15-25%)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Modal (USDT)</label>
-                      <input className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
+                      <label className="text-xs text-[#686868] font-medium block mb-1">Modal (USDT)</label>
+                      <input className="w-full px-2 py-1.5 bg-white border border-[rgba(14,15,12,0.12)] rounded-[10px] text-sm text-[#0e0f0c]" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Validasi</label>
-                      <select className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" value={validationMode} onChange={e => { setValidationMode(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                      <label className="text-xs text-[#686868] font-medium block mb-1">Validasi</label>
+                      <select className="w-full px-2 py-1.5 bg-white border border-[rgba(14,15,12,0.12)] rounded-[10px] text-sm text-[#0e0f0c]" value={validationMode} onChange={e => { setValidationMode(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
                         <option value="grid_steps">Step Grid</option>
                         <option value="percent">Persentase</option>
                       </select>
                     </div>
                     <div className="flex items-end">
-                      <button type="button" onClick={fetchRecommendation} className="w-full px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">
-                        🔄 Rekomendasi
+                      <button type="button" onClick={fetchRecommendation} className="w-full px-3 py-1.5 bg-[#9fe870] text-[#163300] font-semibold hover:bg-[#cdffad] rounded-full text-sm transition">
+                        Rekomendasi
                       </button>
                     </div>
                   </div>
 
                   {/* Recommendation Preview */}
                   {recommendation && (
-                    <div className="bg-gray-700 rounded p-3 text-xs space-y-1">
-                      <p className="text-blue-400 font-medium">Rekomendasi untuk {symbol}</p>
-                      <p>Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
-                      <p>Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
-                      <p>Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
-                      <p>Validasi: {recommendation.ValidationTargetValue} ({validationMode === 'grid_steps' ? 'step' : '%'}) dalam {recommendation.ValidationWindowMinutes} menit</p>
-                      <p className="text-gray-400 italic">{recommendation.Reason}</p>
+                    <div className="bg-white border border-[rgba(14,15,12,0.08)] rounded-[10px] p-3 text-xs space-y-1">
+                      <p className="text-[#054d28] font-semibold">Rekomendasi untuk {symbol}</p>
+                      <p className="text-[#0e0f0c]">Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
+                      <p className="text-[#0e0f0c]">Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
+                      <p className="text-[#0e0f0c]">Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
+                      <p className="text-[#0e0f0c]">Validasi: {recommendation.ValidationTargetValue} ({validationMode === 'grid_steps' ? 'step' : '%'}) dalam {recommendation.ValidationWindowMinutes} menit</p>
+                      <p className="text-[#686868] italic">{recommendation.Reason}</p>
                     </div>
                   )}
                 </div>
@@ -400,72 +408,72 @@ export default function SessionsPage() {
 
               {/* Grid Explanation (shown in both modes) */}
               {!isBeginner && (
-                <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
-                  <p><strong>Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
-                  <p><strong>Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
+                <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+                  <p><strong className="text-[#0e0f0c]">Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
+                  <p><strong className="text-[#0e0f0c]">Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
                 </div>
               )}
               <div>
-                <label className="text-sm text-gray-400 block mb-2">Konfigurasi Grid</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi Grid</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Jumlah Grid</span>{renderConfigHelp('grid_count')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="10" value={gridCount} onChange={e => setGridCount(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Jumlah Grid</span>{renderConfigHelp('grid_count')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={gridCount} onChange={e => setGridCount(e.target.value)} />
                   </div>
                 </div>
               </div>
               <div>
-                <label className="text-sm text-gray-400 block mb-1">Quantity per Order {renderConfigHelp('quantity')}</label>
-                <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Quantity per Order {renderConfigHelp('quantity')}</label>
+                <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
               </div>
             </>
           ) : strategy === 'trend' ? (
             <>
-              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+              <div className="bg-[#f0f1ee] rounded-lg p-3 text-xs text-[#686868] space-y-1">
                 <p><strong>Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
                 <p><strong>Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
                 <p><strong>Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
                 <p><strong>Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10, slow=30). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
               </div>
               <div>
-                <label className="text-sm text-gray-400 block mb-2">Konfigurasi SMA</label>
+                <label className="text-sm text-[#686868] block mb-2">Konfigurasi SMA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
+                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
+                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Qty per Order</span>{renderConfigHelp('quantity')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
+                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
                   </div>
                 </div>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+              <div className="bg-[#f0f1ee] rounded-lg p-3 text-xs text-[#686868] space-y-1">
                 <p><strong>Apa itu DCA?</strong> Dollar Cost Averaging — strategi membeli aset dalam jumlah tetap secara rutin, tanpa peduli harga sedang naik atau turun. Tujuannya adalah meratakan harga beli rata-rata.</p>
                 <p><strong>Contoh:</strong> Beli $10 BTC setiap 1 jam. Saat harga turun, $10 dapat BTC lebih banyak. Saat harga naik, $10 dapat BTC lebih sedikit. Rata-rata harga beli jadi lebih stabil.</p>
                 <p><strong>Take Profit:</strong> Jika diaktifkan, bot akan menjual semua posisi saat harga naik X% dari rata-rata harga beli. Contoh: 5% = jual saat harga naik 5%.</p>
               </div>
               <div>
-                <label className="text-sm text-gray-400 block mb-2">Konfigurasi DCA</label>
+                <label className="text-sm text-[#686868] block mb-2">Konfigurasi DCA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
-                    <select className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
+                    <select className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
                       <option value="3600">Setiap 1 Jam</option>
                       <option value="7200">Setiap 2 Jam</option>
                       <option value="21600">Setiap 6 Jam</option>
@@ -475,30 +483,30 @@ export default function SessionsPage() {
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
+                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-gray-500">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
-                    <input className="w-full px-3 py-2 bg-gray-800 rounded border border-gray-700" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
+                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
                   </div>
                 </div>
               </div>
             </>
           )}
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">Buat Session</button>
+          <button className="px-4 py-2 bg-[#9fe870] hover:bg-[#8ad05e] rounded-lg transition">Buat Session</button>
         </form>
       )}
 
       {isLoading ? (
-        <p className="text-gray-400">Loading...</p>
+        <p className="text-[#686868]">Loading...</p>
       ) : !sessions?.length ? (
         <div className="text-center py-12">
           <div className="mb-6 max-w-md mx-auto">
             <PriceBadge symbol="BTC_USDT" />
           </div>
-          <p className="text-gray-400 text-lg">Belum ada session trading</p>
-          <p className="text-gray-500 text-sm mt-2">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
+          <p className="text-[#686868] text-lg">Belum ada session trading</p>
+          <p className="text-[#5a5b58] text-sm mt-2">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -521,33 +529,33 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   onDetail: (id: number) => void
 }) {
   return (
-    <div className="bg-gray-900 p-4 rounded-xl flex items-center justify-between">
+    <div className="bg-white p-4 rounded-xl flex items-center justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3 flex-wrap">
           <h3 className="font-semibold">{session.name}</h3>
           <PriceBadge symbol={session.symbol} compact />
         </div>
-        <p className="text-sm text-gray-400 mt-0.5">
+        <p className="text-sm text-[#686868] mt-0.5">
           {session.symbol} · {session.strategy === 'grid' ? 'Grid' : session.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
-          <span className={session.mode === 'live' ? 'text-yellow-400' : session.mode === 'paper' ? 'text-blue-400' : 'text-gray-400'}>
+          <span className={session.mode === 'live' ? 'text-[#e6bc00]' : session.mode === 'paper' ? 'text-[#2d7a1a]' : 'text-[#686868]'}>
             {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
           </span> ·{' '}
-          <span className={session.status === 'running' ? 'text-green-400' : 'text-gray-500'}>
+          <span className={session.status === 'running' ? 'text-[#054d28]' : 'text-[#5a5b58]'}>
             {session.status}
             {session.status === 'running' && (
-              <span className={`ml-1 inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
+              <span className={`ml-1 inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
             )}
           </span>
         </p>
       </div>
       <div className="space-x-2 shrink-0 ml-4">
-        <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm" onClick={() => onDetail(session.id)}>Detail</button>
+        <button className="px-3 py-1 bg-[#e8ebe6] hover:bg-[#e8ebe6] rounded text-sm" onClick={() => onDetail(session.id)}>Detail</button>
         {session.status === 'running' ? (
-          <button className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm" onClick={() => onStop(session.id)}>Stop</button>
+          <button className="px-3 py-1 bg-[#d03238] hover:bg-[#b22a30] rounded text-sm" onClick={() => onStop(session.id)}>Stop</button>
         ) : (
-          <button className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm" onClick={() => onStart(session.id)}>Start</button>
+          <button className="px-3 py-1 bg-[#054d28] hover:bg-[#044020] rounded text-sm" onClick={() => onStart(session.id)}>Start</button>
         )}
-        <button className="px-2 py-1 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+        <button className="px-2 py-1 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.1)] rounded text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
       </div>
     </div>
   )
