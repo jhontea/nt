@@ -596,7 +596,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
     <div className="bg-white rounded-[24px] border border-[rgba(14,15,12,0.08)] hover:border-[rgba(14,15,12,0.16)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] transition-all p-5 cursor-pointer group" onClick={() => onDetail(session.id)}>
       <div className="flex items-center gap-4">
         {/* Strategy icon — lebih besar */}
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${strategyBg}`}>
+        <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl flex-shrink-0 ${strategyBg}`}>
           {strategyIcon}
         </div>
         {/* Content */}

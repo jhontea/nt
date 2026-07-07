@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
@@ -34,6 +35,7 @@ type gridLevel struct {
 type GridEngine struct {
 	client *tokocrypto.Client
 	db     *sqlx.DB
+	mu     sync.Mutex
 	states map[int64]*gridSessionState
 }
 
@@ -46,6 +48,8 @@ func NewGridEngine(client *tokocrypto.Client, db *sqlx.DB) *GridEngine {
 }
 
 func (g *GridEngine) Reset(sessionID int64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	delete(g.states, sessionID)
 }
 
@@ -76,6 +80,9 @@ func (g *GridEngine) Evaluate(session model.Session, configStr string) []Signal 
 }
 
 func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice float64) []Signal {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	step := (config.UpperPrice - config.LowerPrice) / float64(config.GridCount)
 	if step <= 0 {
 		return nil

@@ -224,7 +224,7 @@ export default function SessionDetailPage() {
           </div>
           <details className="mt-4 text-sm">
             <summary className="text-[#686868] cursor-pointer hover:text-[#0e0f0c] transition-colors text-xs font-medium">Lihat konfigurasi</summary>
-            <pre className="mt-2 bg-[#f0f1ee] p-3 rounded-2xl text-xs text-[#454745] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
+            <pre className="mt-2 bg-[#f0f1ee] p-3 rounded-[16px] text-xs text-[#454745] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
           </details>
         </div>
 
