@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const baseURL = "https://www.tokocrypto.com"
@@ -24,11 +26,12 @@ type cacheEntry struct {
 }
 
 type Client struct {
-	apiKey    string
-	secretKey string
-	http      *http.Client
-	mu        sync.Mutex
-	tickCache map[string]cacheEntry
+	apiKey      string
+	secretKey   string
+	http        *http.Client
+	mu          sync.Mutex
+	tickCache   map[string]cacheEntry
+	wsStarted   map[string]bool
 }
 
 func NewClient(apiKey, secretKey string) *Client {
@@ -37,6 +40,7 @@ func NewClient(apiKey, secretKey string) *Client {
 		secretKey: secretKey,
 		http:      &http.Client{Timeout: 10 * time.Second},
 		tickCache: make(map[string]cacheEntry),
+		wsStarted: make(map[string]bool),
 	}
 }
 
@@ -99,7 +103,78 @@ func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error
 	return body, nil
 }
 
+// SubscribeTicker starts a WebSocket stream for the given symbol (e.g. "BTC_USDT").
+// Updates the cache in real-time (~1s updates). Idempotent — safe to call multiple times.
+func (c *Client) SubscribeTicker(symbol string) {
+	c.mu.Lock()
+	if c.wsStarted[symbol] {
+		c.mu.Unlock()
+		return
+	}
+	c.wsStarted[symbol] = true
+	c.mu.Unlock()
+
+	go c.runTickerStream(symbol)
+}
+
+func (c *Client) runTickerStream(symbol string) {
+	wsSymbol := strings.ToLower(strings.ReplaceAll(symbol, "_", ""))
+	u := fmt.Sprintf("wss://stream-cloud.tokocrypto.site/stream/ws/%s@miniTicker", wsSymbol)
+	dialer := &websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+
+	for {
+		ws, _, err := dialer.Dial(u, nil)
+		if err != nil {
+			slog.Warn("ticker ws dial failed, retry in 5s", "symbol", symbol, "error", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		slog.Info("ticker ws connected", "symbol", symbol)
+
+		for {
+			_, msg, err := ws.ReadMessage()
+			if err != nil {
+				slog.Warn("ticker ws read error", "symbol", symbol, "error", err)
+				ws.Close()
+				break
+			}
+
+			var raw struct {
+				Close string `json:"c"`
+				Open  string `json:"o"`
+				High  string `json:"h"`
+				Low   string `json:"l"`
+				Vol   string `json:"v"`
+				QVol  string `json:"q"`
+			}
+			if err := json.Unmarshal(msg, &raw); err != nil {
+				continue
+			}
+
+			priceChange := parseFloat(raw.Close) - parseFloat(raw.Open)
+
+			ticker := &Ticker{
+				Symbol:      symbol,
+				LastPrice:   raw.Close,
+				Volume:      raw.Vol,
+				PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
+				High24h:     raw.High,
+				Low24h:      raw.Low,
+			}
+
+			c.mu.Lock()
+			c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(3 * time.Second)}
+			c.mu.Unlock()
+		}
+		time.Sleep(3 * time.Second)
+	}
+}
+
 func (c *Client) GetTicker(symbol string) (*Ticker, error) {
+	// Start WS stream if not already running (idempotent)
+	c.SubscribeTicker(symbol)
+
+	// Check cache (updated by WS in real-time)
 	c.mu.Lock()
 	if entry, ok := c.tickCache[symbol]; ok && time.Now().Before(entry.expiresAt) {
 		c.mu.Unlock()
@@ -107,8 +182,7 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 	}
 	c.mu.Unlock()
 
-	// Use daily kline as ticker source (ticker REST endpoint was removed by TokoCrypto)
-	// Convert BTC_USDT → BTCUSDT for tokocrypto.site API
+	// Fallback: fetch daily kline
 	altSymbol := strings.ReplaceAll(symbol, "_", "")
 	candles, err := c.getKlinesAlt(altSymbol, "1d", 1)
 	if err != nil {
@@ -118,10 +192,11 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 		return nil, fmt.Errorf("no kline data for %s", symbol)
 	}
 
-	// kline: [openTime, open, high, low, close, volume, closeTime, quoteVol, trades, takerBuyBase, takerBuyQuote, ignore]
 	k := candles[0]
 	open := fmt.Sprint(k[1])
 	close_ := fmt.Sprint(k[4])
+	high := fmt.Sprint(k[2])
+	low := fmt.Sprint(k[3])
 	volume := fmt.Sprint(k[5])
 	priceChange := parseFloat(close_) - parseFloat(open)
 
@@ -130,17 +205,17 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 		LastPrice:   close_,
 		Volume:      volume,
 		PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
+		High24h:     high,
+		Low24h:      low,
 	}
 
 	c.mu.Lock()
-	c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(30 * time.Second)}
+	c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(10 * time.Second)}
 	c.mu.Unlock()
 
 	return ticker, nil
 }
 
-// getKlinesAlt fetches klines from the alternative tokocrypto.site API (type 1).
-// Symbol must use no underscore (e.g. BTCUSDT not BTC_USDT).
 func (c *Client) getKlinesAlt(symbol, interval string, limit int) ([][]any, error) {
 	u := "https://www.tokocrypto.site/api/v3/klines?" + url.Values{
 		"symbol":   {symbol},

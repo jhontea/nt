@@ -11,6 +11,8 @@ type Ticker struct {
 	LastPrice   string `json:"lastPrice"`
 	Volume      string `json:"volume"`
 	PriceChange string `json:"priceChange"`
+	High24h     string `json:"high24h"`
+	Low24h      string `json:"low24h"`
 }
 
 type CandleResponse struct {

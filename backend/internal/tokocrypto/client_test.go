@@ -30,6 +30,7 @@ func setupTickerServer(t *testing.T, handler func(w http.ResponseWriter, r *http
 		secretKey: "test-secret",
 		http:      &http.Client{Transport: rewriteTransport{target: srv.URL}},
 		tickCache: make(map[string]cacheEntry),
+		wsStarted: make(map[string]bool),
 	}
 	t.Cleanup(srv.Close)
 	return srv, c
