@@ -280,7 +280,7 @@ export default function SessionDetailPage() {
                     <td className="px-3 py-2 text-gray-400 text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
                     <td className={`px-3 py-2 font-medium ${s.signal_type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>{s.signal_type}</td>
                     <td className="px-3 py-2 text-gray-400">#{s.grid_level_index}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{parseFloat(s.grid_level_price).toLocaleString()}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{parseFloat(s.grid_level_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
                     <td className="px-3 py-2 text-xs">{s.quantity}</td>
                     <td className={`px-3 py-2 text-xs font-medium ${
                       s.validation_status === 'confirmed' ? 'text-green-400' :
