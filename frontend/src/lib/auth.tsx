@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 
 interface AuthContextType {
   token: string | null
-  login: (token: string) => void
+  login: (token: string, remember?: boolean) => void
   logout: () => void
   isAuthenticated: boolean
 }
@@ -21,17 +21,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    setToken(localStorage.getItem('token'))
+    // Check localStorage first (persistent), then sessionStorage (session-only)
+    const stored = localStorage.getItem('token') || sessionStorage.getItem('token')
+    setToken(stored)
   }, [])
 
-  const login = useCallback((newToken: string) => {
-    localStorage.setItem('token', newToken)
+  const login = useCallback((newToken: string, remember: boolean = true) => {
+    if (remember) {
+      localStorage.setItem('token', newToken)
+    } else {
+      sessionStorage.setItem('token', newToken)
+    }
     setToken(newToken)
     router.push('/sessions')
   }, [router])
 
   const logout = useCallback(() => {
     localStorage.removeItem('token')
+    sessionStorage.removeItem('token')
     setToken(null)
     router.push('/login')
   }, [router])

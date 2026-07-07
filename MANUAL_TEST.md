@@ -59,7 +59,38 @@ echo $TOKEN
 3. Enter username `test1`, password `secret123` → click Register
 4. Auto-login, redirected to session list (empty)
 
-**Verify:** JWT stored in localStorage under key `token`. Token expires in 3 hours.
+**Verify:** JWT stored in localStorage under key `token`. Token expires in 24 hours (configurable via `TOKEN_EXPIRY_HOURS` env).
+
+---
+
+## 2.5. Auth — Ingat Saya & Browser Password Manager
+
+### Test "Ingat Saya" Checkbox
+
+1. Open http://localhost:3100/login
+2. Enter username and password
+3. **Default state:** "Ingat Saya" checkbox should be **checked** by default
+4. Login with checkbox **checked**:
+   - Verify: Token stored in `localStorage` (persistent across browser restarts)
+   - Close browser tab, reopen → should still be logged in
+5. Logout
+6. Login with checkbox **unchecked**:
+   - Verify: Token stored in `sessionStorage` (session-only)
+   - Close browser tab, reopen → should be logged out (redirected to /login)
+7. Logout clears both `localStorage` and `sessionStorage`
+
+### Test Browser Password Manager
+
+1. Open http://localhost:3100/login in **Chrome/Edge/Firefox**
+2. Enter username and password → click Login
+3. **Expected:** Browser shows "Save password?" prompt (or keychain notification on macOS)
+4. Click "Save" / "Yes"
+5. Logout
+6. Return to login page
+7. **Expected:** Browser auto-fills username and password from saved credentials
+8. Click Login → should authenticate successfully
+
+**Note:** The form uses proper `name="username"` and `name="password"` attributes with `autoComplete` hints, enabling browsers to detect and save credentials.
 
 ---
 
