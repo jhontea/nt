@@ -213,6 +213,16 @@ export default function SessionsPage() {
         </div>
       </div>
 
+      {/* Market Ticker */}
+      <div className="mb-6">
+        <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Harga Pasar Real-time</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <PriceBadge symbol="BTC_USDT" />
+          <PriceBadge symbol="ETH_USDT" />
+          <PriceBadge symbol="BNB_USDT" />
+        </div>
+      </div>
+
       {/* Rekomendasi */}
       {!showCreate && (
         <div className="mb-8">
@@ -388,6 +398,9 @@ export default function SessionsPage() {
         <p className="text-gray-400">Loading...</p>
       ) : !sessions?.length ? (
         <div className="text-center py-12">
+          <div className="mb-6 max-w-md mx-auto">
+            <PriceBadge symbol="BTC_USDT" />
+          </div>
           <p className="text-gray-400 text-lg">Belum ada session trading</p>
           <p className="text-gray-500 text-sm mt-2">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
         </div>
