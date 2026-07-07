@@ -167,8 +167,7 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 		err := g.db.Select(&triggeredLevels,
 			g.db.Rebind(`SELECT DISTINCT grid_level_index FROM strategy_signals
 				WHERE session_id = ?
-				  AND created_at >= NOW() - INTERVAL '1 hour'
-				  AND validation_status IN ('pending', 'confirmed')`), sessionID)
+				  AND created_at >= NOW() - INTERVAL '4 hours'`), sessionID)
 		if err == nil && len(triggeredLevels) > 0 {
 			for _, idx := range triggeredLevels {
 				if idx >= 0 && idx < len(state.levels) {

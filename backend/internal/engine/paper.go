@@ -11,17 +11,20 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 )
 
 type PaperEngine struct {
-	db     *sqlx.DB
-	client *tokocrypto.Client
-	mu     sync.Mutex
+	db       *sqlx.DB
+	client   *tokocrypto.Client
+	mu       sync.Mutex
+	hub      *WSHub
+	notifier *service.Notifier
 }
 
-func NewPaperEngine(db *sqlx.DB, client *tokocrypto.Client) *PaperEngine {
-	return &PaperEngine{db: db, client: client}
+func NewPaperEngine(db *sqlx.DB, client *tokocrypto.Client, hub *WSHub, notifier *service.Notifier) *PaperEngine {
+	return &PaperEngine{db: db, client: client, hub: hub, notifier: notifier}
 }
 
 func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
@@ -65,6 +68,15 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 	}
 	if balance < notional {
 		slog.Warn("insufficient paper balance", "session", session.ID, "balance", balance, "needed", notional)
+		if p.hub != nil {
+			p.hub.Broadcast(session.ID, WSPaperAlert{
+				Type: "paper_alert", SessionID: session.ID,
+				Reason: "insufficient_balance", Needed: notional, Available: balance,
+			})
+		}
+		if p.notifier != nil {
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Saldo tidak cukup untuk beli", notional, balance)
+		}
 		return nil
 	}
 
@@ -97,6 +109,15 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	)
 	if err != nil {
 		slog.Warn("no open buy to match", "session", session.ID, "price", matchPrice, "error", err)
+		if p.hub != nil {
+			p.hub.Broadcast(session.ID, WSPaperAlert{
+				Type: "paper_alert", SessionID: session.ID,
+				Reason: "no_asset_to_sell", Needed: 0, Available: 0,
+			})
+		}
+		if p.notifier != nil {
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Tidak ada aset untuk dijual", 0, 0)
+		}
 		return nil
 	}
 

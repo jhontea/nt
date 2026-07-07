@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/model"
@@ -15,18 +16,20 @@ import (
 type SessionHandler struct {
 	svc    *service.SessionService
 	engine *engine.Manager
+	db     *sqlx.DB
 }
 
-func NewSessionHandler(svc *service.SessionService, engine *engine.Manager) *SessionHandler {
-	return &SessionHandler{svc: svc, engine: engine}
+func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB) *SessionHandler {
+	return &SessionHandler{svc: svc, engine: engine, db: db}
 }
 
 type createSessionRequest struct {
-	Name     string `json:"name"`
-	Strategy string `json:"strategy"`
-	Mode     string `json:"mode"`
-	Symbol   string `json:"symbol"`
-	Config   string `json:"config"`
+	Name           string   `json:"name"`
+	Strategy       string   `json:"strategy"`
+	Mode           string   `json:"mode"`
+	Symbol         string   `json:"symbol"`
+	Config         string   `json:"config"`
+	InitialBalance *float64 `json:"initial_balance,omitempty"`
 }
 
 func (h *SessionHandler) userID(c echo.Context) int64 {
@@ -68,7 +71,7 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid symbol: "+err.Error()))
 	}
 
-	session, err := h.svc.Create(h.reqContext(c), h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config)
+	session, err := h.svc.Create(h.reqContext(c), h.userID(c), req.Name, req.Strategy, req.Mode, req.Symbol, req.Config, req.InitialBalance)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
@@ -194,4 +197,42 @@ func (h *SessionHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *SessionHandler) GetPortfolio(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	session, err := h.checkOwnership(c, id)
+	if err != nil {
+		return err
+	}
+	if session.Mode != string(model.ModePaper) {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("portfolio only available for paper sessions"))
+	}
+
+	balance := 0.0
+	if session.VirtualBalance != nil {
+		balance = *session.VirtualBalance
+	}
+	var initialBalance *float64
+	if session.InitialBalance != nil {
+		initialBalance = session.InitialBalance
+	}
+
+	type holding struct {
+		Price    string `db:"price"    json:"avg_price"`
+		Quantity string `db:"quantity" json:"qty"`
+	}
+	var holdings []holding
+	if err := h.db.SelectContext(h.reqContext(c), &holdings,
+		h.db.Rebind(`SELECT price, quantity FROM orders WHERE session_id=? AND side='buy' AND status='filled' ORDER BY id ASC`),
+		id,
+	); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"virtual_balance": balance,
+		"initial_balance": initialBalance,
+		"holdings":        holdings,
+	})
 }

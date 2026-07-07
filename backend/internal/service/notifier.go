@@ -86,8 +86,21 @@ func (n *Notifier) SendSignal(symbol, side, price, reason string) {
 	}
 }
 
-func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {
-	emoji := "🟢"
+func (n *Notifier) SendPaperAlert(sessionName, symbol, reason string, needed, available float64) {
+	msg := fmt.Sprintf(
+		"⚠️ <b>Paper Alert</b>\n"+
+			"📊 Session: <b>%s</b> (%s)\n"+
+			"❌ %s\n"+
+			"💰 Dibutuhkan: <code>%.2f</code> · Tersedia: <code>%.2f</code>\n"+
+			"🕐 %s",
+		sessionName, symbol, reason, needed, available, time.Now().Format("15:04:05"),
+	)
+	if err := n.sendHTML(msg); err != nil {
+		slog.Warn("telegram paper alert", "error", err)
+	}
+}
+
+func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {	emoji := "🟢"
 	label := "BELI"
 	if side == string(model.SideSell) {
 		emoji = "🔴"

@@ -34,7 +34,7 @@ func setupPaperDB(t *testing.T) *PaperEngine {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewPaperEngine(db, nil)
+	return NewPaperEngine(db, nil, nil, nil)
 }
 
 func TestPaperEngine_Buy_DeductsBalance(t *testing.T) {

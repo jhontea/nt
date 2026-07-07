@@ -36,6 +36,10 @@ func Migrate(db *sqlx.DB) error {
 	if driver == "pgx" || driver == "postgres" {
 		db.Exec("ALTER TABLE strategy_signals ALTER COLUMN validation_note SET DEFAULT ''")
 		db.Exec("UPDATE strategy_signals SET validation_note = '' WHERE validation_note IS NULL")
+		db.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS initial_balance REAL DEFAULT NULL")
+	} else {
+		// SQLite: ignore error if column already exists
+		db.Exec("ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL")
 	}
 	return nil
 }
@@ -67,6 +71,7 @@ const pgSchema = `
 		config TEXT NOT NULL DEFAULT '{}',
 		status VARCHAR(20) NOT NULL DEFAULT 'stopped',
 		virtual_balance REAL DEFAULT 0,
+		initial_balance REAL DEFAULT NULL,
 		started_at TIMESTAMP,
 		stopped_at TIMESTAMP,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -173,6 +178,7 @@ const sqliteSchema = `
 		config TEXT NOT NULL DEFAULT '{}',
 		status TEXT NOT NULL DEFAULT 'stopped',
 		virtual_balance REAL DEFAULT 0,
+		initial_balance REAL DEFAULT NULL,
 		started_at DATETIME,
 		stopped_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP

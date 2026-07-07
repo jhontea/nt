@@ -14,6 +14,8 @@ export interface Session {
   config: string
   status: 'stopped' | 'running' | 'paused'
   is_alive?: boolean
+  virtual_balance?: number
+  initial_balance?: number
   started_at: string | null
   stopped_at: string | null
   created_at: string

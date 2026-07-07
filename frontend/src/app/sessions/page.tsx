@@ -116,6 +116,7 @@ export default function SessionsPage() {
   const [dcaInterval, setDcaInterval] = useState('3600')
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
+  const [initialBalance, setInitialBalance] = useState('1000')
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [priceLoading, setPriceLoading] = useState(false)
   const [priceError, setPriceError] = useState('')
@@ -217,7 +218,7 @@ export default function SessionsPage() {
     } else {
       config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
     }
-    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config) })
+    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
     setShowCreate(false)
     setNameEdited(false)
     refetch()
@@ -344,11 +345,18 @@ export default function SessionsPage() {
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Mode <HelpIcon text={modeHelp[mode]} /></label>
                   <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={mode} onChange={e => setMode(e.target.value as any)}>
                     <option value="signal">📊 Signal — sinyal saja, tanpa eksekusi</option>
-                    <option value="paper">📝 Paper — trading simulasi (uang virtual $1000)</option>
+                  <option value="paper">📝 Paper — trading simulasi (uang virtual)</option>
                     <option value="live">⚡ Live — trading sungguhan (RISIKO TINGGI)</option>
                   </select>
                 </div>
               </div>
+
+              {mode === 'paper' && (
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
+                  <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                </div>
+              )}
 
               {/* Strategy-specific config */}
               {strategy === 'grid' ? (

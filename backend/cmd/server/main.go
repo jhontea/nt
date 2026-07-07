@@ -110,7 +110,7 @@ func main() {
 	// Auto-restart sessions that were running before shutdown
 	recoverRunningSessions(db, engMgr)
 
-	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
+	sessionH := handler.NewSessionHandler(sessionSvc, engMgr, db)
 
 	v1.GET("/ticker/:symbol", func(c echo.Context) error {
 		ticker, err := tokoClient.GetTicker(c.Param("symbol"))
@@ -146,6 +146,7 @@ func main() {
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
+	v1.GET("/sessions/:id/portfolio", sessionH.GetPortfolio)
 	v1.DELETE("/sessions/:id", sessionH.Delete)
 	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)

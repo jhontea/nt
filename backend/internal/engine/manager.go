@@ -46,7 +46,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 			string(model.StratTrend): NewTrendEngine(client),
 			string(model.StratDCA):   NewDCAEngine(client, db),
 		},
-		paper:      NewPaperEngine(db, client),
+		paper:      NewPaperEngine(db, client, hub, notifier),
 		live:       NewLiveEngine(client, db),
 		notifier:   notifier,
 		Hub:        hub,

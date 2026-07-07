@@ -31,9 +31,9 @@ func NewSessionRepo(db *sqlx.DB) *SessionRepo {
 func (r *SessionRepo) Create(ctx context.Context, s *model.Session) (*model.Session, error) {
 	var id int64
 	err := r.db.GetContext(ctx, &id,
-		r.db.Rebind(`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
-		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status, s.VirtualBalance,
+		r.db.Rebind(`INSERT INTO sessions (user_id, name, strategy, mode, symbol, config, status, virtual_balance, initial_balance)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
+		s.UserID, s.Name, s.Strategy, s.Mode, s.Symbol, s.Config, s.Status, s.VirtualBalance, s.InitialBalance,
 	)
 	if err != nil {
 		return nil, err

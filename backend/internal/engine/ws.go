@@ -116,7 +116,15 @@ type WSSignal struct {
 }
 
 type WSUpdate struct {
-	Type      string `json:"type"`
-	SessionID int64  `json:"session_id"`
-	PnL       any    `json:"pnl,omitempty"`
+	Type      string  `json:"type"`
+	SessionID int64   `json:"session_id"`
+	PnL       any     `json:"pnl,omitempty"`
+}
+
+type WSPaperAlert struct {
+	Type      string  `json:"type"`
+	SessionID int64   `json:"session_id"`
+	Reason    string  `json:"reason"`
+	Needed    float64 `json:"needed"`
+	Available float64 `json:"available"`
 }

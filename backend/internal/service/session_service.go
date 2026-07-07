@@ -22,7 +22,7 @@ func NewSessionServiceWithPnL(repo repository.SessionRepository, pnl *PnLService
 	return &SessionService{repo: repo, PnL: pnl}
 }
 
-func (s *SessionService) Create(ctx context.Context, userID int64, name, strategy, mode, symbol, config string) (*model.Session, error) {
+func (s *SessionService) Create(ctx context.Context, userID int64, name, strategy, mode, symbol, config string, initialBalance *float64) (*model.Session, error) {
 	session := &model.Session{
 		UserID:   userID,
 		Name:     name,
@@ -34,7 +34,11 @@ func (s *SessionService) Create(ctx context.Context, userID int64, name, strateg
 	}
 	if mode == string(model.ModePaper) {
 		bal := DefaultPaperBalance
+		if initialBalance != nil && *initialBalance > 0 {
+			bal = *initialBalance
+		}
 		session.VirtualBalance = &bal
+		session.InitialBalance = &bal
 	}
 	return s.repo.Create(ctx, session)
 }

@@ -28,6 +28,7 @@ type Session struct {
 	Config         string     `db:"config" json:"config"`
 	Status         string     `db:"status" json:"status"`
 	VirtualBalance *float64   `db:"virtual_balance" json:"virtual_balance,omitempty"`
+	InitialBalance *float64   `db:"initial_balance" json:"initial_balance,omitempty"`
 	StartedAt      *time.Time `db:"started_at" json:"started_at,omitempty"`
 	StoppedAt      *time.Time `db:"stopped_at" json:"stopped_at,omitempty"`
 	CreatedAt      time.Time  `db:"created_at" json:"created_at"`
