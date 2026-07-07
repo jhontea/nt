@@ -96,10 +96,15 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 		}
 
 		if targetHit {
+			// Use favorablePct so confirmed always shows positive (up for buy, down for sell)
+			resultPct := favPct
+			if sig.SignalType == "sell" {
+				resultPct = math.Abs(movePct) // sell confirmed = price went down = show as positive
+			}
 			results = append(results, validationResult{
 				signalID:        sig.ID,
 				status:          "confirmed",
-				resultPct:       movePct,
+				resultPct:       resultPct,
 				resultGridSteps: moveGridSteps,
 				maxFavPct:       favPct,
 				maxAdvPct:       advPct,
