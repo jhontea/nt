@@ -118,6 +118,11 @@ export default function SessionsPage() {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [priceLoading, setPriceLoading] = useState(false)
   const [priceError, setPriceError] = useState('')
+  const [isBeginner, setIsBeginner] = useState(true)
+  const [horizon, setHorizon] = useState<'short' | 'medium' | 'long'>('medium')
+  const [capital, setCapital] = useState('100')
+  const [validationMode, setValidationMode] = useState<'grid_steps' | 'percent'>('grid_steps')
+  const [recommendation, setRecommendation] = useState<any>(null)
 
   async function fetchPriceAndApply(sym: string) {
     if (!sym) return
@@ -140,14 +145,28 @@ export default function SessionsPage() {
     setPriceLoading(false)
   }
 
+  async function fetchRecommendation() {
+    if (strategy !== 'grid') return
+    try {
+      const rec = await api.grid.recommend({ symbol, horizon, capital: parseFloat(capital) || 100, validation_mode: validationMode })
+      setRecommendation(rec)
+      setUpperPrice(String(rec.UpperPrice))
+      setLowerPrice(String(rec.LowerPrice))
+      setGridCount(String(rec.GridCount))
+      setQuantity(rec.Quantity)
+    } catch { /* ignore */ }
+  }
+
   // Fetch price when form opens or pair changes
   useEffect(() => {
     if (!showCreate) {
       setCurrentPrice(null)
       setPriceError('')
+      setRecommendation(null)
       return
     }
     fetchPriceAndApply(symbol)
+    if (strategy === 'grid') setTimeout(fetchRecommendation, 300)
   }, [showCreate, symbol])
 
   function applyPreset(p: Preset) {
@@ -171,6 +190,12 @@ export default function SessionsPage() {
     let config: any
     if (strategy === 'grid') {
       config = { upper_price: parseFloat(upperPrice), lower_price: parseFloat(lowerPrice), grid_count: parseInt(gridCount), quantity }
+      if (isBeginner) {
+        config.validation_mode = validationMode
+        config.validation_target_value = recommendation?.ValidationTargetValue || 2
+        config.validation_invalid_value = recommendation?.ValidationInvalidValue || 1
+        config.validation_window_minutes = recommendation?.ValidationWindowMinutes || 120
+      }
     } else if (strategy === 'trend') {
       config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), quantity }
     } else {
@@ -306,10 +331,74 @@ export default function SessionsPage() {
 
           {strategy === 'grid' ? (
             <>
-              <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
-                <p><strong>Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
-                <p><strong>Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
+              {/* Beginner / Advanced Toggle */}
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-gray-500">Mode:</label>
+                <button type="button"
+                  onClick={() => { setIsBeginner(true); fetchRecommendation() }}
+                  className={`px-3 py-1 rounded text-xs transition ${isBeginner ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
+                  🎓 Pemula
+                </button>
+                <button type="button"
+                  onClick={() => setIsBeginner(false)}
+                  className={`px-3 py-1 rounded text-xs transition ${!isBeginner ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
+                  ⚙️ Manual
+                </button>
               </div>
+
+              {/* Beginner Controls */}
+              {isBeginner && (
+                <div className="bg-gray-800 rounded-lg p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Horizon</label>
+                      <select className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                        <option value="short">Pendek (±5-10%)</option>
+                        <option value="medium">Menengah (±10-18%)</option>
+                        <option value="long">Panjang (±15-25%)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Modal (USDT)</label>
+                      <input className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Validasi</label>
+                      <select className="w-full px-2 py-1.5 bg-gray-700 rounded text-sm" value={validationMode} onChange={e => { setValidationMode(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                        <option value="grid_steps">Step Grid</option>
+                        <option value="percent">Persentase</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button type="button" onClick={fetchRecommendation} className="w-full px-2 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">
+                        🔄 Rekomendasi
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Recommendation Preview */}
+                  {recommendation && (
+                    <div className="bg-gray-700 rounded p-3 text-xs space-y-1">
+                      <p className="text-blue-400 font-medium">Rekomendasi untuk {symbol}</p>
+                      <p>Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
+                      <p>Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
+                      <p>Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
+                      <p>Validasi: {recommendation.ValidationTargetValue} ({validationMode === 'grid_steps' ? 'step' : '%'}) dalam {recommendation.ValidationWindowMinutes} menit</p>
+                      <p className="text-gray-400 italic">{recommendation.Reason}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Grid Explanation (shown in both modes) */}
+              {!isBeginner && (
+                <div className="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+                  <p><strong>Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
+                  <p><strong>Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Konfigurasi Grid</label>
                 <div className="grid grid-cols-3 gap-3">
