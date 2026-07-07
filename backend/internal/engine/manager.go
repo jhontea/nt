@@ -313,6 +313,7 @@ func (m *Manager) validatePendingSignals(session model.Session) {
 
 	results := m.validator.ValidatePending(pending, currentPrice, gridStep)
 	for _, r := range results {
+		slog.Info("signal validated", "signal", r.signalID, "status", r.status, "result_pct", r.resultPct, "note", r.note)
 		err := m.signalRepo.UpdateValidation(context.Background(), r.signalID, r.status,
 			r.resultPct, r.resultGridSteps, r.maxFavPct, r.maxAdvPct, r.maxFavGrid, r.maxAdvGrid, r.note)
 		if err != nil {
