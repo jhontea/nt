@@ -2,13 +2,16 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/repository"
 	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 )
@@ -24,6 +27,8 @@ type Manager struct {
 	live       *LiveEngine
 	notifier   *service.Notifier
 	Hub        *WSHub
+	signalRepo repository.StrategySignalRepository
+	validator  *SignalValidator
 }
 
 type RunningSession struct {
@@ -31,7 +36,7 @@ type RunningSession struct {
 	Cancel  context.CancelFunc
 }
 
-func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub) *Manager {
+func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub, signalRepo repository.StrategySignalRepository) *Manager {
 	return &Manager{
 		sessions: make(map[int64]*RunningSession),
 		client:   client,
@@ -41,10 +46,12 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 			string(model.StratTrend): NewTrendEngine(client),
 			string(model.StratDCA):   NewDCAEngine(client, db),
 		},
-		paper:    NewPaperEngine(db, client),
-		live:     NewLiveEngine(client, db),
-		notifier: notifier,
-		Hub:      hub,
+		paper:      NewPaperEngine(db, client),
+		live:       NewLiveEngine(client, db),
+		notifier:   notifier,
+		Hub:        hub,
+		signalRepo: signalRepo,
+		validator:  NewSignalValidator(),
 	}
 }
 
@@ -59,6 +66,10 @@ func (m *Manager) Start(session model.Session) error {
 	// Reset DCA state on restart (clear old buy timestamps and average prices)
 	if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
 		dca.Reset(session.ID)
+	}
+	// Reset Grid state on restart (clear level triggers)
+	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
+		grid.Reset(session.ID)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -140,7 +151,13 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 
 	switch session.Mode {
 	case string(model.ModeSignal):
-		m.saveSignals(session.ID, signals)
+		// For grid strategy: save to strategy_signals table and run validator
+		if session.Strategy == string(model.StratGrid) && m.signalRepo != nil {
+			m.saveGridSignals(session, signals)
+			m.validatePendingSignals(session)
+		} else {
+			m.saveSignals(session.ID, signals)
+		}
 		m.broadcast(session.ID, signals)
 	case string(model.ModePaper):
 		for _, sig := range signals {
@@ -186,5 +203,112 @@ func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 	_, err := m.db.Exec(query, vals...)
 	if err != nil {
 		slog.Error("save signals batch", "session", sessionID, "error", err)
+	}
+}
+
+func (m *Manager) saveGridSignals(session model.Session, signals []Signal) {
+	if len(signals) == 0 || m.signalRepo == nil {
+		return
+	}
+
+	// Parse grid config for validation settings
+	var cfg GridConfig
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		slog.Error("parse grid config for signals", "session", session.ID, "error", err)
+		return
+	}
+
+	gridStep := (cfg.UpperPrice - cfg.LowerPrice) / float64(cfg.GridCount)
+
+	for _, sig := range signals {
+		// Extract level index from reason (e.g., "grid_buy_level_3")
+		levelIdx := 0
+		_, _ = fmt.Sscanf(sig.Reason, "grid_%*s_level_%d", &levelIdx)
+
+		signal := &model.StrategySignal{
+			SessionID:             session.ID,
+			Symbol:                session.Symbol,
+			Strategy:              "grid",
+			SignalType:            sig.Side,
+			GridLevelIndex:        levelIdx,
+			GridLevelPrice:        sig.Price,
+			MarketPriceAtSignal:   sig.Price,
+			Quantity:              sig.Quantity,
+			Reason:                sig.Reason,
+			ValidationMode:         "grid_steps",
+			ValidationTargetValue: 2,
+			ValidationInvalidValue: 1,
+			ValidationWindowMinutes: 120,
+		}
+
+		// Override with config values if present in the JSON config
+		// (the engine config JSON may include validation fields)
+		var extCfg struct {
+			ValidationMode           string  `json:"validation_mode"`
+			ValidationTargetValue    float64 `json:"validation_target_value"`
+			ValidationInvalidValue   float64 `json:"validation_invalid_value"`
+			ValidationWindowMinutes  int     `json:"validation_window_minutes"`
+		}
+		if json.Unmarshal([]byte(session.Config), &extCfg) == nil {
+			if extCfg.ValidationMode != "" {
+				signal.ValidationMode = extCfg.ValidationMode
+			}
+			if extCfg.ValidationTargetValue > 0 {
+				signal.ValidationTargetValue = extCfg.ValidationTargetValue
+			}
+			if extCfg.ValidationInvalidValue > 0 {
+				signal.ValidationInvalidValue = extCfg.ValidationInvalidValue
+			}
+			if extCfg.ValidationWindowMinutes > 0 {
+				signal.ValidationWindowMinutes = extCfg.ValidationWindowMinutes
+			}
+		}
+
+		_, err := m.signalRepo.Create(context.Background(), signal)
+		if err != nil {
+			slog.Error("save grid signal", "session", session.ID, "error", err)
+		} else {
+			slog.Info("grid signal saved", "session", session.ID, "side", sig.Side, "level", levelIdx, "price", sig.Price)
+		}
+
+		_ = gridStep
+	}
+
+	// Also save to orders table for backward compat with existing UI
+	m.saveSignals(session.ID, signals)
+}
+
+func (m *Manager) validatePendingSignals(session model.Session) {
+	if m.signalRepo == nil || m.validator == nil {
+		return
+	}
+
+	pending, err := m.signalRepo.ListPending(context.Background(), session.ID)
+	if err != nil || len(pending) == 0 {
+		return
+	}
+
+	// Get current price for validation
+	ticker, err := m.client.GetTicker(session.Symbol)
+	if err != nil {
+		slog.Error("validator fetch ticker", "session", session.ID, "error", err)
+		return
+	}
+	currentPrice, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+
+	// Parse grid config for step size
+	var cfg GridConfig
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		return
+	}
+	gridStep := (cfg.UpperPrice - cfg.LowerPrice) / float64(cfg.GridCount)
+
+	results := m.validator.ValidatePending(pending, currentPrice, gridStep)
+	for _, r := range results {
+		err := m.signalRepo.UpdateValidation(context.Background(), r.signalID, r.status,
+			r.resultPct, r.resultGridSteps, r.maxFavPct, r.maxAdvPct, r.maxFavGrid, r.maxAdvGrid, r.note)
+		if err != nil {
+			slog.Error("update signal validation", "signal", r.signalID, "status", r.status, "error", err)
+		}
 	}
 }

@@ -12,7 +12,7 @@ import (
 
 func setupManager(t *testing.T) *Manager {
 	t.Helper()
-	return NewManager(nil, nil, service.NewNotifier("", ""), NewWSHub("test"))
+	return NewManager(nil, nil, service.NewNotifier("", ""), NewWSHub("test"), nil)
 }
 
 func setupManagerWithDB(t *testing.T) (*Manager, *sqlx.DB) {
@@ -26,7 +26,7 @@ func setupManagerWithDB(t *testing.T) (*Manager, *sqlx.DB) {
 	db.Exec(`CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER, order_id TEXT,
 		symbol TEXT, side TEXT, type TEXT, price TEXT, quantity TEXT, status TEXT,
 		executed_qty TEXT DEFAULT '0', executed_price TEXT DEFAULT '0', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`)
-	m := NewManager(nil, db, service.NewNotifier("", ""), NewWSHub("test"))
+	m := NewManager(nil, db, service.NewNotifier("", ""), NewWSHub("test"), nil)
 	return m, db
 }
 

@@ -29,7 +29,7 @@ func setupSessionTest(t *testing.T) (*SessionHandler, *mockrepo.MockSessionRepos
 	client := tokocrypto.NewClient("", "")
 	wsHub := engine.NewWSHub("test")
 	notifier := service.NewNotifier("", "")
-	mgr := engine.NewManager(client, nil, notifier, wsHub)
+	mgr := engine.NewManager(client, nil, notifier, wsHub, nil)
 	h := NewSessionHandler(svc, mgr)
 
 	e := echo.New()
@@ -70,7 +70,7 @@ func setupSessionTestWithPnL(t *testing.T) (*SessionHandler, *mockrepo.MockSessi
 	client := tokocrypto.NewClient("", "")
 	wsHub := engine.NewWSHub("test")
 	notifier := service.NewNotifier("", "")
-	mgr := engine.NewManager(client, nil, notifier, wsHub)
+	mgr := engine.NewManager(client, nil, notifier, wsHub, nil)
 	h := NewSessionHandler(svc, mgr)
 
 	e := echo.New()

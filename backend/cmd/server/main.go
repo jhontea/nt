@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -96,11 +97,12 @@ func main() {
 	v1 := e.Group("/v1", authmw.Auth(cfg.JWTSecret))
 
 	sessionRepo := repository.NewSessionRepo(db)
+	signalRepo := repository.NewStrategySignalRepo(db)
 	sessionSvc := service.NewSessionServiceWithPnL(sessionRepo, service.NewPnLService(db))
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
 	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
 	wsHub := engine.NewWSHub(cfg.JWTSecret)
-	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub)
+	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub, signalRepo)
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
 	v1.GET("/ticker/:symbol", func(c echo.Context) error {
@@ -119,6 +121,51 @@ func main() {
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
+	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		signals, err := signalRepo.ListBySession(c.Request().Context(), id, 100)
+		if err != nil {
+			return c.JSON(500, ErrorResponse{Error: "failed to fetch signals: " + err.Error()})
+		}
+		return c.JSON(200, signals)
+	})
+	v1.GET("/sessions/:id/signals/summary", func(c echo.Context) error {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		summary, err := signalRepo.GetSummary(c.Request().Context(), id)
+		if err != nil {
+			return c.JSON(500, ErrorResponse{Error: "failed to fetch summary: " + err.Error()})
+		}
+		return c.JSON(200, summary)
+	})
+	v1.GET("/grid/recommend", func(c echo.Context) error {
+		symbol := c.QueryParam("symbol")
+		if symbol == "" {
+			return c.JSON(400, ErrorResponse{Error: "symbol is required"})
+		}
+		horizon := engine.Horizon(c.QueryParam("horizon"))
+		if horizon == "" {
+			horizon = engine.HorizonMedium
+		}
+		capitalStr := c.QueryParam("capital")
+		capital, _ := strconv.ParseFloat(capitalStr, 64)
+		if capital <= 0 {
+			capital = 100
+		}
+		vMode := engine.ValidationGridSteps
+		if c.QueryParam("validation_mode") == "percent" {
+			vMode = engine.ValidationPercent
+		}
+		ticker, err := tokoClient.GetTicker(symbol)
+		if err != nil {
+			return c.JSON(502, ErrorResponse{Error: "failed to fetch ticker: " + err.Error()})
+		}
+		price, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+		rec, err := engine.RecommendGrid(symbol, price, horizon, capital, vMode)
+		if err != nil {
+			return c.JSON(400, ErrorResponse{Error: err.Error()})
+		}
+		return c.JSON(200, rec)
+	})
 
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
