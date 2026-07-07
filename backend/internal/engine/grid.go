@@ -157,12 +157,13 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 		var triggeredLevels []int
 		err := g.db.Select(&triggeredLevels,
 			g.db.Rebind("SELECT DISTINCT grid_level_index FROM strategy_signals WHERE session_id = ?"), sessionID)
-		if err == nil {
+		if err == nil && len(triggeredLevels) > 0 {
 			for _, idx := range triggeredLevels {
 				if idx >= 0 && idx < len(state.levels) {
 					state.levels[idx].state = levelTriggered
 				}
 			}
+			slog.Info("grid pre-marked levels from DB", "session", sessionID, "levels", triggeredLevels)
 		}
 	}
 

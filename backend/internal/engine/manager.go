@@ -223,7 +223,12 @@ func (m *Manager) saveGridSignals(session model.Session, signals []Signal) {
 	for _, sig := range signals {
 		// Extract level index from reason (e.g., "grid_buy_level_3")
 		levelIdx := 0
-		_, _ = fmt.Sscanf(sig.Reason, "grid_%*s_level_%d", &levelIdx)
+		for i := len(sig.Reason) - 1; i >= 0; i-- {
+			if sig.Reason[i] == '_' {
+				levelIdx, _ = strconv.Atoi(sig.Reason[i+1:])
+				break
+			}
+		}
 
 		signal := &model.StrategySignal{
 			SessionID:             session.ID,
