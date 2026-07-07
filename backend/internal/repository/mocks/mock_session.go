@@ -56,6 +56,20 @@ func (mr *MockSessionRepositoryMockRecorder) Create(ctx, s any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionRepository)(nil).Create), ctx, s)
 }
 
+// Delete mocks base method.
+func (m *MockSessionRepository) Delete(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockSessionRepositoryMockRecorder) Delete(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockSessionRepository)(nil).Delete), ctx, id)
+}
+
 // FindByID mocks base method.
 func (m *MockSessionRepository) FindByID(ctx context.Context, id int64) (*model.Session, error) {
 	m.ctrl.T.Helper()

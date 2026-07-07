@@ -121,6 +121,7 @@ func main() {
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
+	v1.DELETE("/sessions/:id", sessionH.Delete)
 	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 		signals, err := signalRepo.ListBySession(c.Request().Context(), id, 100)

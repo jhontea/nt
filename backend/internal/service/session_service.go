@@ -62,3 +62,7 @@ func (s *SessionService) UpdateStartedAt(ctx context.Context, id int64) error {
 func (s *SessionService) UpdateStoppedAt(ctx context.Context, id int64) error {
 	return s.repo.UpdateStoppedAt(ctx, id)
 }
+
+func (s *SessionService) Delete(ctx context.Context, id int64) error {
+	return s.repo.Delete(ctx, id)
+}

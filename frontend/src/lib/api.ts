@@ -42,6 +42,7 @@ export const api = {
       request<import('@/types').Session>(`/v1/sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     start: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/start`, { method: 'POST' }),
     stop: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/stop`, { method: 'POST' }),
+    delete: (id: number) => request<{ status: string }>(`/v1/sessions/${id}`, { method: 'DELETE' }),
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
     getOrders: (id: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),

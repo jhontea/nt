@@ -170,3 +170,17 @@ func (h *SessionHandler) Stop(c echo.Context) error {
 	h.svc.UpdateStoppedAt(h.reqContext(c), id)
 	return c.JSON(http.StatusOK, map[string]string{"status": "stopped"})
 }
+
+func (h *SessionHandler) Delete(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	_, err := h.checkOwnership(c, id)
+	if err != nil {
+		return err
+	}
+	// Stop if running
+	h.engine.Stop(id)
+	if err := h.svc.Delete(h.reqContext(c), id); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+}

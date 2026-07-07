@@ -216,6 +216,12 @@ export default function SessionsPage() {
     refetch()
   }
 
+  async function handleDelete(id: number) {
+    if (!confirm('Hapus session ini? Data sinyal dan order akan hilang permanen.')) return
+    await api.sessions.delete(id)
+    refetch()
+  }
+
   function renderConfigHelp(key: string) {
     const h = fieldHelp[key]
     if (!h) return null
@@ -497,7 +503,7 @@ export default function SessionsPage() {
       ) : (
         <div className="space-y-3">
           {sessions.map(s => (
-            <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDetail={(id) => router.push(`/sessions/${id}`)} />
+            <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={(id) => router.push(`/sessions/${id}`)} />
           ))}
         </div>
       )}
@@ -507,10 +513,11 @@ export default function SessionsPage() {
 
 // ---
 
-function SessionCard({ session, onStart, onStop, onDetail }: {
+function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   session: import('@/types').Session
   onStart: (id: number) => void
   onStop: (id: number) => void
+  onDelete: (id: number) => void
   onDetail: (id: number) => void
 }) {
   return (
@@ -535,6 +542,7 @@ function SessionCard({ session, onStart, onStop, onDetail }: {
         ) : (
           <button className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm" onClick={() => onStart(session.id)}>Start</button>
         )}
+        <button className="px-2 py-1 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
       </div>
     </div>
   )

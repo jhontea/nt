@@ -17,6 +17,7 @@ type SessionRepository interface {
 	UpdateStartedAt(ctx context.Context, id int64) error
 	UpdateStoppedAt(ctx context.Context, id int64) error
 	Update(ctx context.Context, s *model.Session) error
+	Delete(ctx context.Context, id int64) error
 }
 
 type SessionRepo struct {
@@ -78,6 +79,11 @@ func (r *SessionRepo) Update(ctx context.Context, s *model.Session) error {
 		r.db.Rebind(`UPDATE sessions SET name=?, config=?, symbol=?, strategy=? WHERE id=?`),
 		s.Name, s.Config, s.Symbol, s.Strategy, s.ID,
 	)
+	return err
+}
+
+func (r *SessionRepo) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind("DELETE FROM sessions WHERE id = ?"), id)
 	return err
 }
 
