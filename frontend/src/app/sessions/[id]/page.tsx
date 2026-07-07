@@ -36,6 +36,8 @@ export default function SessionDetailPage() {
       qc.invalidateQueries({ queryKey: ['session', id] })
       qc.invalidateQueries({ queryKey: ['pnl', id] })
       qc.invalidateQueries({ queryKey: ['orders', id] })
+      qc.invalidateQueries({ queryKey: ['signals', id] })
+      qc.invalidateQueries({ queryKey: ['signalSummary', id] })
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -60,10 +62,29 @@ export default function SessionDetailPage() {
     refetchInterval: 10000,
   })
 
+  // Grid Signal specific queries
+  const isGridSignal = session?.strategy === 'grid' && session?.mode === 'signal'
+
+  const { data: strategySignals } = useQuery({
+    queryKey: ['signals', id],
+    queryFn: () => api.sessions.getSignals(Number(id)),
+    enabled: isAuthenticated && isGridSignal,
+    refetchInterval: 15000,
+  })
+
+  const { data: signalSummary } = useQuery({
+    queryKey: ['signalSummary', id],
+    queryFn: () => api.sessions.getSignalSummary(Number(id)),
+    enabled: isAuthenticated && isGridSignal,
+    refetchInterval: 15000,
+  })
+
   useSessionWS(Number(id), (data) => {
     if (data.type === 'signal') {
       qc.invalidateQueries({ queryKey: ['pnl', id] })
       qc.invalidateQueries({ queryKey: ['orders', id] })
+      qc.invalidateQueries({ queryKey: ['signals', id] })
+      qc.invalidateQueries({ queryKey: ['signalSummary', id] })
     }
   })
 
@@ -198,6 +219,89 @@ export default function SessionDetailPage() {
       ) : pnlLoading ? (
         <p className="text-gray-400 mb-6">Loading P&L...</p>
       ) : null}
+
+      {/* Grid Signal Summary */}
+      {isGridSignal && signalSummary && signalSummary.total_count > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Ringkasan Sinyal Grid</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-gray-900 p-3 rounded-lg">
+              <p className="text-xs text-gray-500">Total Sinyal</p>
+              <p className="text-lg font-bold">{signalSummary.total_count}</p>
+            </div>
+            <div className="bg-gray-900 p-3 rounded-lg">
+              <p className="text-xs text-gray-500">Success Rate</p>
+              <p className={`text-lg font-bold ${signalSummary.success_rate >= 50 ? 'text-green-400' : signalSummary.success_rate > 0 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                {signalSummary.success_rate.toFixed(1)}%
+              </p>
+            </div>
+            <div className="bg-gray-900 p-3 rounded-lg">
+              <p className="text-xs text-gray-500">Confirmed / Invalid / Expired</p>
+              <p className="text-lg font-bold">
+                <span className="text-green-400">{signalSummary.confirmed_count}</span>
+                <span className="text-gray-500 mx-1">/</span>
+                <span className="text-red-400">{signalSummary.invalidated_count}</span>
+                <span className="text-gray-500 mx-1">/</span>
+                <span className="text-gray-400">{signalSummary.expired_count}</span>
+              </p>
+            </div>
+            <div className="bg-gray-900 p-3 rounded-lg">
+              <p className="text-xs text-gray-500">Buy / Sell</p>
+              <p className="text-lg font-bold">
+                <span className="text-green-400">{signalSummary.buy_count}</span>
+                <span className="text-gray-500 mx-1">/</span>
+                <span className="text-red-400">{signalSummary.sell_count}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grid Signal History */}
+      {isGridSignal && strategySignals && strategySignals.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Histori Sinyal Grid</h2>
+          <div className="bg-gray-900 rounded-xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-gray-400 text-xs uppercase border-b border-gray-800">
+                <tr>
+                  <th className="px-3 py-2 text-left">Waktu</th>
+                  <th className="px-3 py-2 text-left">Sisi</th>
+                  <th className="px-3 py-2 text-left">Level</th>
+                  <th className="px-3 py-2 text-left">Harga</th>
+                  <th className="px-3 py-2 text-left">Qty</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-left">Hasil</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {strategySignals.slice(0, 30).map(s => (
+                  <tr key={s.id} className="hover:bg-gray-800/50">
+                    <td className="px-3 py-2 text-gray-400 text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
+                    <td className={`px-3 py-2 font-medium ${s.signal_type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>{s.signal_type}</td>
+                    <td className="px-3 py-2 text-gray-400">#{s.grid_level_index}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{parseFloat(s.grid_level_price).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-xs">{s.quantity}</td>
+                    <td className={`px-3 py-2 text-xs font-medium ${
+                      s.validation_status === 'confirmed' ? 'text-green-400' :
+                      s.validation_status === 'invalidated' ? 'text-red-400' :
+                      s.validation_status === 'expired' ? 'text-gray-500' : 'text-yellow-400'
+                    }`}>{s.validation_status}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {s.validation_status === 'confirmed' && s.result_pct != null && (
+                        <span className={s.result_pct >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
+                        </span>
+                      )}
+                      {s.validation_status === 'pending' && <span className="text-yellow-400">menunggu</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Orders Table */}
       <h2 className="text-lg font-semibold mb-3">Riwayat Signal & Order</h2>

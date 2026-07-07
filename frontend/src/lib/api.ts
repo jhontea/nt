@@ -45,5 +45,11 @@ export const api = {
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
     getOrders: (id: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),
+    getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
+    getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
+  },
+  grid: {
+    recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
+      request<import('@/types').GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || 'grid_steps'}`),
   },
 }

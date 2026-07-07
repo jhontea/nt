@@ -46,6 +46,61 @@ export interface Ticker {
   low24h: string
 }
 
+export interface StrategySignal {
+  id: number
+  session_id: number
+  symbol: string
+  strategy: string
+  signal_type: 'buy' | 'sell'
+  grid_level_index: number
+  grid_level_price: string
+  market_price_at_signal: string
+  quantity: string
+  reason: string
+  validation_mode: string
+  validation_target_value: number
+  validation_invalid_value: number
+  validation_window_minutes: number
+  validation_status: 'pending' | 'confirmed' | 'invalidated' | 'expired'
+  created_at: string
+  validation_started_at?: string
+  validation_finished_at?: string
+  result_pct?: number
+  result_grid_steps?: number
+  max_favorable_move_pct?: number
+  max_adverse_move_pct?: number
+  max_favorable_grid_steps?: number
+  max_adverse_grid_steps?: number
+  validation_note?: string
+}
+
+export interface SignalSummary {
+  session_id: number
+  total_count: number
+  buy_count: number
+  sell_count: number
+  pending_count: number
+  confirmed_count: number
+  invalidated_count: number
+  expired_count: number
+  success_rate: number
+}
+
+export interface GridRecommendation {
+  Symbol: string
+  CurrentPrice: number
+  UpperPrice: number
+  LowerPrice: number
+  GridCount: number
+  StepSize: number
+  Quantity: string
+  ValidationMode: string
+  ValidationTargetValue: number
+  ValidationInvalidValue: number
+  ValidationWindowMinutes: number
+  Reason: string
+}
+
 export interface Order {
   id: number
   session_id: number
