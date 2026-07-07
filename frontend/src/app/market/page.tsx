@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { useMarketTicker } from '@/lib/useMarketTicker'
+import { Navbar } from '@/components/Navbar'
 
 const MARKET_SYMBOLS = [
   { label: 'Ethereum', symbol: 'ETH_USDT' },
@@ -35,7 +36,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
 
   if (!data) {
     return (
-      <div className="bg-white rounded-xl p-5 border border-[rgba(14,15,12,0.08)]">
+      <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] animate-pulse">
         <p className="text-sm text-[#686868]">{label}</p>
         <p className="text-xs text-[#5a5b58] mt-1">{symbol}</p>
         <p className="text-sm text-[#5a5b58] mt-4">Mengambil harga...</p>
@@ -50,7 +51,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
   const approxIDR = !isIDRPair && usdtIdrRate ? last * usdtIdrRate : null
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-[rgba(14,15,12,0.08)] hover:border-[rgba(14,15,12,0.12)] transition">
+    <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] hover:border-[rgba(14,15,12,0.16)] hover:shadow-[0_4px_20px_rgba(14,15,12,0.06)] transition-all">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-[#686868]">{label}</p>
@@ -70,18 +71,18 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[rgba(14,15,12,0.08)] text-xs text-[#5a5b58]">
+      <div className="grid grid-cols-3 gap-3 border-t border-[rgba(14,15,12,0.06)] mt-3 pt-3 text-xs text-[#5a5b58]">
         <div>
           <p>24h High</p>
-          <p className="text-[#2a2b27] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
+          <p className="text-[#0e0f0c] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
         </div>
         <div>
           <p>24h Low</p>
-          <p className="text-[#2a2b27] mt-1">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
+          <p className="text-[#0e0f0c] mt-1">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
         </div>
         <div>
           <p>Volume</p>
-          <p className="text-[#2a2b27] mt-1">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <p className="text-[#0e0f0c] mt-1">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
         </div>
       </div>
     </div>
@@ -101,26 +102,21 @@ export default function MarketPage() {
   if (!initialized || !isAuthenticated) return null
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <button onClick={() => router.push('/sessions')} className="text-[#686868] hover:text-[#0e0f0c] mb-3 block">&larr; Back to Dashboard</button>
-          <h1 className="text-2xl font-bold">Market Price</h1>
-          <p className="text-sm text-[#5a5b58]">Harga pasar aktual untuk pair utama di TokoCrypto</p>
-        </div>
-        <div className="space-x-3">
-          <button onClick={() => router.push('/glossary')} className="px-4 py-2 bg-[#e8ebe6] hover:bg-[#f0f1ee] rounded-lg transition text-sm">📖 Glosarium</button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#fafafa]">
+      <Navbar active="market" />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <h1 className="text-3xl font-black text-[#0e0f0c] tracking-tight">Market Price</h1>
+        <p className="text-sm text-[#686868] mt-1">Harga pasar aktual untuk pair utama di TokoCrypto</p>
 
-      <div className="bg-white rounded-xl p-4 mb-6 text-sm text-[#686868]">
-        Halaman ini menampilkan harga pair utama di TokoCrypto. Untuk pair USDT, harga juga dikonversi kira-kira ke rupiah memakai kurs <span className="text-[#2a2b27] font-medium">USDT/IDR</span>{usdtIdrRate ? ` (${formatIDR(usdtIdrRate)})` : ''}.
-      </div>
+        <div className="bg-[rgba(14,15,12,0.02)] rounded-[16px] p-4 border border-[rgba(14,15,12,0.06)] mb-8 mt-4 text-sm text-[#686868]">
+          Halaman ini menampilkan harga pair utama di TokoCrypto. Untuk pair USDT, harga juga dikonversi kira-kira ke rupiah memakai kurs <span className="text-[#0e0f0c] font-medium">USDT/IDR</span>{usdtIdrRate ? ` (${formatIDR(usdtIdrRate)})` : ''}.
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {MARKET_SYMBOLS.map(item => (
-          <MarketPriceCard key={item.symbol} label={item.label} symbol={item.symbol} usdtIdrRate={usdtIdrRate} />
-        ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {MARKET_SYMBOLS.map(item => (
+            <MarketPriceCard key={item.symbol} label={item.label} symbol={item.symbol} usdtIdrRate={usdtIdrRate} />
+          ))}
+        </div>
       </div>
     </div>
   )

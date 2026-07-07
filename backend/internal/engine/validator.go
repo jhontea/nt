@@ -58,7 +58,8 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 			}
 		}
 
-		favGrid := math.Abs(currentPrice-signalPrice) / gridStep
+		// distance in grid steps (used for both fav and adv depending on direction)
+		distGrid := math.Abs(currentPrice-signalPrice) / gridStep
 
 		// Check expiry
 		windowDuration := time.Duration(sig.ValidationWindowMinutes) * time.Minute
@@ -70,7 +71,7 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				resultGridSteps:  moveGridSteps,
 				maxFavPct:        favPct,
 				maxAdvPct:        advPct,
-				maxFavGrid:       favGrid,
+				maxFavGrid:       distGrid,
 				maxAdvGrid:       0,
 				note:             "validation window expired",
 			})
@@ -89,13 +90,12 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				invalidHit = true
 			}
 		} else {
-			// grid_steps mode
-			if favGrid >= sig.ValidationTargetValue {
+			// grid_steps mode: use distGrid directly (consistent with favGrid calculation)
+			if distGrid >= sig.ValidationTargetValue {
 				targetHit = true
 			}
-			// adverse in grid steps = (adverse pct / 100) * signalPrice / gridStep
-			advGrid := advPct / 100 * signalPrice / gridStep
-			if advGrid >= sig.ValidationInvalidValue {
+			advGrid := distGrid // same distance, direction already encoded in favPct/advPct
+			if advPct > 0 && advGrid >= sig.ValidationInvalidValue {
 				invalidHit = true
 			}
 		}
@@ -113,7 +113,7 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				resultGridSteps: moveGridSteps,
 				maxFavPct:       favPct,
 				maxAdvPct:       advPct,
-				maxFavGrid:      favGrid,
+				maxFavGrid:      distGrid,
 				note:            "target reached",
 			})
 		} else if invalidHit {
@@ -124,7 +124,7 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				resultGridSteps: moveGridSteps,
 				maxFavPct:       favPct,
 				maxAdvPct:       advPct,
-				maxFavGrid:      favGrid,
+				maxFavGrid:      distGrid,
 				note:            "invalid threshold reached",
 			})
 		}

@@ -1,5 +1,5 @@
 'use client'
-import { useRouter } from 'next/navigation'
+import { Navbar } from '@/components/Navbar'
 
 const terms = [
   {
@@ -117,25 +117,26 @@ const terms = [
 ]
 
 export default function GlossaryPage() {
-  const router = useRouter()
-
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <button onClick={() => router.back()} className="text-gray-400 hover:text-white mb-4 block">&larr; Kembali</button>
-      <h1 className="text-2xl font-bold mb-2">Glosarium</h1>
-      <p className="text-sm text-gray-400 mb-6">Istilah-istilah yang digunakan di aplikasi Trading Bot, dijelaskan dalam bahasa sederhana.</p>
+    <div className="min-h-screen bg-[#fafafa]">
+      <Navbar active="glossary" />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <h1 className="text-3xl font-black text-[#0e0f0c] tracking-tight mb-1">Glosarium</h1>
+        <p className="text-sm text-[#686868] mb-8">Istilah-istilah yang digunakan di aplikasi Trading Bot, dijelaskan dalam bahasa sederhana.</p>
 
-      <div className="space-y-3">
-        {terms.map(t => (
-          <details key={t.term} className="bg-gray-900 rounded-xl overflow-hidden">
-            <summary className="px-4 py-3 cursor-pointer hover:bg-gray-800 transition font-medium">
-              {t.term}
-            </summary>
-            <div className="px-4 pb-3 text-sm text-gray-300 leading-relaxed">
-              {t.desc}
-            </div>
-          </details>
-        ))}
+        <div className="space-y-2">
+          {terms.map(t => (
+            <details key={t.term} className="bg-white rounded-[16px] border border-[rgba(14,15,12,0.08)] overflow-hidden group">
+              <summary className="px-5 py-4 cursor-pointer hover:bg-[#f5f6f4] transition font-semibold text-[#0e0f0c] text-sm flex items-center justify-between list-none">
+                {t.term}
+                <span className="text-[#686868] group-open:rotate-180 transition-transform text-xs">▼</span>
+              </summary>
+              <div className="px-5 pt-1 pb-4 text-sm text-[#686868] leading-relaxed border-t border-[rgba(14,15,12,0.06)]">
+                {t.desc}
+              </div>
+            </details>
+          ))}
+        </div>
       </div>
     </div>
   )

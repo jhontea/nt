@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { useState, useEffect } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
+import { Navbar } from '@/components/Navbar'
 
 const PAIRS = [
   'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT',
@@ -124,6 +125,17 @@ export default function SessionsPage() {
   const [validationMode, setValidationMode] = useState<'grid_steps' | 'percent'>('grid_steps')
   const [recommendation, setRecommendation] = useState<any>(null)
   const [insights, setInsights] = useState<any[]>([])
+  const [nameEdited, setNameEdited] = useState(false)
+
+  // Auto-generate session name when strategy/mode/symbol changes
+  useEffect(() => {
+    if (nameEdited) return
+    const date = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    const stratLabel = strategy === 'grid' ? 'Grid' : strategy === 'trend' ? 'Trend' : 'DCA'
+    const modeLabel = mode === 'signal' ? 'Signal' : mode === 'paper' ? 'Paper' : 'Live'
+    const sym = symbol.replace('_', '/')
+    setName(`${stratLabel} ${modeLabel} ${sym} ${date}`)
+  }, [strategy, mode, symbol, nameEdited])
 
   async function fetchPriceAndApply(sym: string) {
     if (!sym) return
@@ -207,6 +219,7 @@ export default function SessionsPage() {
     }
     await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config) })
     setShowCreate(false)
+    setNameEdited(false)
     refetch()
   }
 
@@ -234,122 +247,114 @@ export default function SessionsPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
-      {/* Topbar */}
-      <header className="sticky top-0 z-10 bg-white border-b border-[rgba(14,15,12,0.08)]">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <span className="font-bold text-[#0e0f0c] tracking-tight">NeuralTrade</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => router.push('/market')} className="px-4 py-1.5 text-sm font-medium bg-transparent text-[#0e0f0c] border-2 border-[rgba(14,15,12,0.48)] hover:bg-[#f5f6f4] hover:border-[#9fe870] hover:text-[#163300] rounded-full transition">Market</button>
-            <button onClick={() => router.push('/glossary')} className="px-4 py-1.5 text-sm font-medium bg-transparent text-[#0e0f0c] border-2 border-[rgba(14,15,12,0.48)] hover:bg-[#f5f6f4] hover:border-[#9fe870] hover:text-[#163300] rounded-full transition">Glosarium</button>
-            <button onClick={logout} className="px-4 py-1.5 text-sm font-medium bg-[#f0f1ee] text-[#0e0f0c] border border-transparent hover:bg-[#e8ebe6] rounded-full transition">Logout</button>
-          </div>
-        </div>
-      </header>
+      <Navbar active="sessions" />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0e0f0c]">Trading Sessions</h1>
-          <p className="text-sm text-[#686868] mt-0.5">Kelola session trading bot Anda</p>
-        </div>
-        <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-2 bg-[#9fe870] text-[#163300] font-semibold border border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.05] active:scale-[0.95] rounded-full transition-all text-sm">
-          {showCreate ? 'Cancel' : '+ New Session'}
-        </button>
-      </div>
 
-      {/* Market Ticker */}
-      <div className="mb-8">
-        <p className="text-xs text-[#686868] uppercase tracking-widest font-semibold mb-3">Harga Pasar Real-time</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <PriceBadge symbol="BTC_USDT" />
-          <PriceBadge symbol="ETH_USDT" />
-          <PriceBadge symbol="BNB_USDT" />
-        </div>
-      </div>
-
-      {/* Rekomendasi */}
-      {!showCreate && (
-        <div className="mb-8">
-          <h2 className="text-xs text-[#686868] uppercase tracking-widest font-semibold mb-3">Rekomendasi Cepat</h2>
-          <div className="grid md:grid-cols-4 gap-3">
-            {presets.map(p => (
-              <button key={p.label} onClick={() => applyPreset(p)}
-                className="bg-white hover:bg-[#f0f1ee] rounded-[30px] p-5 text-left transition border border-[rgba(14,15,12,0.08)] hover:border-[#9fe870] hover:shadow-[rgba(14,15,12,0.06)_0px_4px_12px]">
-                <p className="font-semibold text-sm text-[#0e0f0c] mb-1">{p.label}</p>
-                <p className="text-xs text-[#686868] leading-snug">{p.desc}</p>
-              </button>
-            ))}
+        {/* Page header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-black text-[#0e0f0c] tracking-tight">Sessions</h1>
+            <p className="text-sm text-[#686868] mt-1">Bot trading otomatis Anda</p>
           </div>
-          <p className="text-xs text-[#686868] mt-3">Atau klik &quot;+ New Session&quot; untuk konfigurasi manual.</p>
+          <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-2.5 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
+            {showCreate ? '✕ Tutup' : '+ New Session'}
+          </button>
         </div>
-      )}
 
-      {showCreate && (
-        <form onSubmit={handleCreate} className="bg-white shadow-[rgba(14,15,12,0.12)_0px_0px_0px_1px,rgba(14,15,12,0.06)_0px_4px_12px] rounded-[30px] p-8 mb-8 space-y-5">
-          <h2 className="font-bold text-lg text-[#0e0f0c]">New Trading Session</h2>
+        {/* Market Ticker */}
+        <div className="flex items-center gap-3 bg-white rounded-[24px] px-5 py-3 border border-[rgba(14,15,12,0.06)] mb-8 overflow-x-auto shadow-[0_1px_4px_rgba(14,15,12,0.04)]">
+          <span className="text-[10px] font-bold text-[#9fe870] tracking-widest uppercase flex-shrink-0">Live</span>
+          <div className="w-px h-4 bg-[rgba(14,15,12,0.1)] flex-shrink-0" />
+          <div className="flex gap-5">
+            <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c]">BTC</span><PriceBadge symbol="BTC_USDT" compact /></div>
+            <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] self-center" />
+            <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c]">ETH</span><PriceBadge symbol="ETH_USDT" compact /></div>
+            <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] self-center" />
+            <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c]">BNB</span><PriceBadge symbol="BNB_USDT" compact /></div>
+          </div>
+        </div>
 
-          {/* Info harga saat ini */}
-          {priceLoading && (
-            <div className="bg-[#f0f1ee] rounded-[10px] p-3 text-sm flex items-center gap-2">
-              <span className="text-[#686868]">Mengambil harga {symbol}...</span>
-            </div>
-          )}
-          {currentPrice && !priceLoading && (
-            <div className="bg-[#f0f1ee] rounded-[10px] p-3 text-sm flex items-center gap-2">
-              <span className="text-[#686868]">Harga {symbol}:</span>
-              <span className="font-semibold text-[#054d28]">{currentPrice.toLocaleString()}</span>
-              {strategy === 'grid' && (
-                <span className="text-xs text-[#5a5b58]">
-                  → Grid otomatis: <span className="text-[#e6bc00]">${parseInt(lowerPrice).toLocaleString()}</span> — <span className="text-[#054d28]">${parseInt(upperPrice).toLocaleString()}</span>
-                  <span className="text-[#686868]"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
-                </span>
+        {/* Form panel — slide-down, full width, max-w-3xl */}
+        {showCreate && (
+          <div className="mb-8 rounded-[24px] bg-white shadow-[0_0_0_1px_rgba(14,15,12,0.08),0_8px_32px_rgba(14,15,12,0.06)] overflow-hidden" style={{borderTop: '3px solid #9fe870'}}>
+            <form onSubmit={handleCreate} className="p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-black text-xl text-[#0e0f0c] tracking-tight">New Session</h2>
+                  <p className="text-xs text-[#686868] mt-0.5">Konfigurasi bot trading baru</p>
+                </div>
+                <button type="button" onClick={() => { setShowCreate(false); setNameEdited(false) }} className="w-8 h-8 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full transition">✕</button>
+              </div>
+
+              {/* Info harga saat ini */}
+              {priceLoading && (
+                <div className="bg-[#f0f1ee] rounded-[10px] px-4 py-3 text-sm flex items-center gap-2.5 animate-pulse">
+                  <span className="w-3 h-3 rounded-full bg-[#9fe870] flex-shrink-0" />
+                  <span className="text-[#686868]">Mengambil harga {symbol}...</span>
+                </div>
               )}
-            </div>
-          )}
-          {priceError && (
-            <div className="bg-[rgba(208,50,56,0.06)] border border-[rgba(208,50,56,0.15)] rounded-[10px] p-3 text-sm text-[#d03238]">
-              {priceError} <span className="text-[#5a5b58]">— isi manual atau coba pair lain</span>
-            </div>
-          )}
+              {currentPrice && !priceLoading && (
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-[rgba(159,232,112,0.06)] border border-[rgba(159,232,112,0.2)] rounded-[10px] text-sm flex-wrap">
+                  <span className="text-xs font-bold text-[#9fe870] uppercase tracking-widest flex-shrink-0">Live</span>
+                  <span className="text-[#0e0f0c] font-semibold">{currentPrice.toLocaleString()}</span>
+                  <span className="text-xs text-[#5a5b58]">{symbol}</span>
+                  {strategy === 'grid' && lowerPrice && upperPrice && (
+                    <span className="text-xs text-[#686868] ml-auto">
+                      Grid: <span className="text-[#163300] font-medium">{parseInt(lowerPrice).toLocaleString()}</span>
+                      {' — '}
+                      <span className="text-[#163300] font-medium">{parseInt(upperPrice).toLocaleString()}</span>
+                      <span className="text-[#686868]"> (±{DEFAULT_BOUNDARY_PCT}%)</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {priceError && (
+                <div className="bg-[rgba(208,50,56,0.06)] border border-[rgba(208,50,56,0.15)] rounded-[10px] p-3 text-sm text-[#d03238]">
+                  {priceError} <span className="text-[#5a5b58]">— isi manual atau coba pair lain</span>
+                </div>
+              )}
 
-          <div>
-            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
-            <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="Nama session" value={name} onChange={e => setName(e.target.value)} />
-          </div>
+              {/* Main fields — 2 column grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
+                  <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="mis. Grid Signal BTC/USDT 07 Jul" value={name} onChange={e => { setNameEdited(true); setName(e.target.value) }} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
+                  <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={symbol} onChange={e => setSymbol(e.target.value)}>
+                    <optgroup label="USDT Pairs">
+                      {PAIRS.filter(p => p.endsWith('_USDT')).map(p => <option key={p} value={p}>{p}</option>)}
+                    </optgroup>
+                    <optgroup label="IDR Pairs">
+                      {PAIRS.filter(p => p.endsWith('_IDR')).map(p => <option key={p} value={p}>{p}</option>)}
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
+                  <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
+                    <option value="grid">📐 Grid Trading — beli & jual di level harga</option>
+                    <option value="trend">📈 Trend Following — SMA crossover</option>
+                    <option value="dca">🪙 DCA — beli rutin berkala (Dollar Cost Average)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Mode <HelpIcon text={modeHelp[mode]} /></label>
+                  <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={mode} onChange={e => setMode(e.target.value as any)}>
+                    <option value="signal">📊 Signal — sinyal saja, tanpa eksekusi</option>
+                    <option value="paper">📝 Paper — trading simulasi (uang virtual $1000)</option>
+                    <option value="live">⚡ Live — trading sungguhan (RISIKO TINGGI)</option>
+                  </select>
+                </div>
+              </div>
 
-          <div>
-            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
-            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
-              <option value="grid">📐 Grid Trading — beli & jual di level harga</option>
-              <option value="trend">📈 Trend Following — SMA crossover</option>
-              <option value="dca">🪙 DCA — beli rutin berkala (Dollar Cost Average)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Mode <HelpIcon text={modeHelp[mode]} /></label>
-            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={mode} onChange={e => setMode(e.target.value as any)}>
-              <option value="signal">📊 Signal — sinyal saja, tanpa eksekusi</option>
-              <option value="paper">📝 Paper — trading simulasi (uang virtual $1000)</option>
-              <option value="live">⚡ Live — trading sungguhan (RISIKO TINGGI)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
-            <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={symbol} onChange={e => setSymbol(e.target.value)}>
-              <optgroup label="USDT Pairs">
-                {PAIRS.filter(p => p.endsWith('_USDT')).map(p => <option key={p} value={p}>{p}</option>)}
-              </optgroup>
-              <optgroup label="IDR Pairs">
-                {PAIRS.filter(p => p.endsWith('_IDR')).map(p => <option key={p} value={p}>{p}</option>)}
-              </optgroup>
-            </select>
-          </div>
-
-          {strategy === 'grid' ? (
+              {/* Strategy-specific config */}
+              {strategy === 'grid' ? (
             <>
               {/* Beginner / Advanced Toggle */}
+
               <div className="flex items-center gap-2">
                 <label className="text-xs text-[#686868] font-medium">Mode:</label>
                 <button type="button"
@@ -366,7 +371,7 @@ export default function SessionsPage() {
 
               {/* Beginner Controls */}
               {isBeginner && (
-                <div className="bg-[#f0f1ee] rounded-[10px] p-4 space-y-3">
+                <div className="bg-[#fafafa] rounded-[16px] p-4 space-y-3 border border-[rgba(14,15,12,0.06)]">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-[#686868] font-medium block mb-1">Horizon</label>
@@ -398,7 +403,7 @@ export default function SessionsPage() {
 
                   {/* Recommendation Preview */}
                   {recommendation && (
-                    <div className="bg-white border border-[rgba(14,15,12,0.08)] rounded-[10px] p-3 text-xs space-y-1">
+                    <div className="bg-white border-l-4 border-[#9fe870] rounded-[12px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)]">
                       <p className="text-[#054d28] font-semibold">Rekomendasi untuk {symbol}</p>
                       <p className="text-[#0e0f0c]">Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
                       <p className="text-[#0e0f0c]">Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
@@ -434,13 +439,13 @@ export default function SessionsPage() {
 
               {/* Grid Explanation (shown in both modes) */}
               {!isBeginner && (
-                <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+                <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.04)] rounded-r-[12px] p-4 text-xs text-[#686868] space-y-1.5">
                   <p><strong className="text-[#0e0f0c]">Apa itu Grid Trading?</strong> Bot memasang order beli di harga rendah dan order jual di harga tinggi secara berjenjang. Setiap kali harga turun ke level beli, bot akan membeli. Saat harga naik ke level jual, bot akan menjual. Profit diambil dari selisih harga beli dan jual.</p>
                   <p><strong className="text-[#0e0f0c]">Batas Atas & Bawah:</strong> Menentukan rentang harga yang ingin Anda tradingkan. Bot akan memasang grid secara merata di antara kedua batas ini. Disarankan ±15% dari harga pasar saat ini ({currentPrice ? `~$${(currentPrice * 0.85).toLocaleString()} — $${(currentPrice * 1.15).toLocaleString()}` : 'contoh: BTC 60000-70000'}).</p>
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi Grid</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Konfigurasi Grid</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
@@ -463,14 +468,14 @@ export default function SessionsPage() {
             </>
           ) : strategy === 'trend' ? (
             <>
-              <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+              <div className="border-l-4 border-[rgba(56,200,255,0.5)] bg-[rgba(56,200,255,0.03)] rounded-r-[12px] p-4 text-xs text-[#686868] space-y-1.5">
                 <p><strong className="text-[#0e0f0c]">Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
                 <p><strong className="text-[#0e0f0c]">Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
                 <p><strong className="text-[#0e0f0c]">Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
                 <p><strong className="text-[#0e0f0c]">Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10, slow=30). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi SMA</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Konfigurasi SMA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
@@ -489,13 +494,13 @@ export default function SessionsPage() {
             </>
           ) : (
             <>
-              <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+              <div className="border-l-4 border-[rgba(255,209,26,0.5)] bg-[rgba(255,209,26,0.03)] rounded-r-[12px] p-4 text-xs text-[#686868] space-y-1.5">
                 <p><strong className="text-[#0e0f0c]">Apa itu DCA?</strong> Dollar Cost Averaging — strategi membeli aset dalam jumlah tetap secara rutin, tanpa peduli harga sedang naik atau turun. Tujuannya adalah meratakan harga beli rata-rata.</p>
                 <p><strong className="text-[#0e0f0c]">Contoh:</strong> Beli $10 BTC setiap 1 jam. Saat harga turun, $10 dapat BTC lebih banyak. Saat harga naik, $10 dapat BTC lebih sedikit. Rata-rata harga beli jadi lebih stabil.</p>
                 <p><strong className="text-[#0e0f0c]">Take Profit:</strong> Jika diaktifkan, bot akan menjual semua posisi saat harga naik X% dari rata-rata harga beli. Contoh: 5% = jual saat harga naik 5%.</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi DCA</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-1.5">Konfigurasi DCA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
@@ -520,27 +525,51 @@ export default function SessionsPage() {
               </div>
             </>
           )}
-          <button className="px-6 py-2.5 bg-[#9fe870] text-[#163300] font-semibold border border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.05] active:scale-[0.95] rounded-full transition-all text-sm">Buat Session</button>
-        </form>
-      )}
-
-      {isLoading ? (
-        <p className="text-[#686868] text-sm">Loading...</p>
-      ) : !sessions?.length ? (
-        <div className="text-center py-16">
-          <div className="mb-6 max-w-xs mx-auto">
-            <PriceBadge symbol="BTC_USDT" />
+              <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-6 border-t border-[rgba(14,15,12,0.06)] pt-6">Buat Session</button>
+            </form>
           </div>
-          <p className="text-[#0e0f0c] text-lg font-semibold">Belum ada session trading</p>
-          <p className="text-[#686868] text-sm mt-1">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {sessions.map(s => (
-            <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={(id) => router.push(`/sessions/${id}`)} />
-          ))}
-        </div>
-      )}
+        )}
+
+        {/* Presets — hidden when form is open */}
+        {!showCreate && (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Mulai Cepat</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {presets.map(p => (
+                <button key={p.label} onClick={() => applyPreset(p)}
+                  className="bg-white hover:bg-[rgba(159,232,112,0.04)] rounded-[24px] p-4 text-left transition-all border border-[rgba(14,15,12,0.08)] hover:border-[rgba(159,232,112,0.5)] hover:shadow-[0_4px_16px_rgba(159,232,112,0.12)] group">
+                  <p className="font-bold text-sm text-[#0e0f0c] mb-1 group-hover:text-[#163300]">{p.label}</p>
+                  <p className="text-xs text-[#686868] leading-snug">{p.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Session list or empty state */}
+        {isLoading ? (
+          <div className="py-8 flex items-center gap-2 animate-pulse">
+            <div className="w-4 h-4 rounded-full bg-[#e8ebe6]" />
+            <span className="text-[#686868] text-sm">Memuat sessions...</span>
+          </div>
+        ) : sessions?.length ? (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions aktif · {sessions.length}</h2>
+            </div>
+            <div className="space-y-3">
+              {sessions.map(s => (
+                <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={(id) => router.push(`/sessions/${id}`)} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-16">
+            <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] flex items-center justify-center text-2xl mx-auto mb-4">🤖</div>
+            <p className="text-[#0e0f0c] text-lg font-bold">Belum ada session</p>
+            <p className="text-[#686868] text-sm mt-1">Pilih preset di atas atau klik "+ New Session"</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -555,44 +584,58 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   onDelete: (id: number) => void
   onDetail: (id: number) => void
 }) {
+  const strategyIcon = session.strategy === 'grid' ? '📐' : session.strategy === 'trend' ? '📈' : '🪙'
+  const strategyBg = session.strategy === 'grid'
+    ? 'bg-[rgba(159,232,112,0.15)]'
+    : session.strategy === 'trend'
+    ? 'bg-[rgba(56,200,255,0.1)]'
+    : 'bg-[rgba(255,209,26,0.1)]'
+  const strategyLabel = session.strategy === 'grid' ? 'Grid Trading' : session.strategy === 'trend' ? 'Trend Following' : 'DCA'
+
   return (
-    <div className="bg-white shadow-[rgba(14,15,12,0.12)_0px_0px_0px_1px,rgba(14,15,12,0.06)_0px_4px_12px] rounded-[30px] px-6 py-4 flex items-center justify-between">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="font-semibold text-[#0e0f0c]">{session.name}</h3>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            session.mode === 'live'
-              ? 'bg-[rgba(255,209,26,0.1)] text-[#0e0f0c]'
-              : session.mode === 'paper'
-              ? 'bg-[rgba(159,232,112,0.1)] text-[#163300]'
-              : 'bg-[rgba(56,200,255,0.1)] text-[#0e8ab3]'
-          }`}>
-            {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
-          </span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            session.status === 'running'
-              ? 'bg-[rgba(5,77,40,0.06)] text-[#054d28]'
-              : 'bg-[rgba(14,15,12,0.06)] text-[#5a5b58]'
-          }`}>
-            {session.status}
-            {session.status === 'running' && (
-              <span className={`ml-1 inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
-            )}
-          </span>
-          <PriceBadge symbol={session.symbol} compact />
+    <div className="bg-white rounded-[24px] border border-[rgba(14,15,12,0.08)] hover:border-[rgba(14,15,12,0.16)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] transition-all p-5 cursor-pointer group" onClick={() => onDetail(session.id)}>
+      <div className="flex items-center gap-4">
+        {/* Strategy icon — lebih besar */}
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${strategyBg}`}>
+          {strategyIcon}
         </div>
-        <p className="text-xs text-[#686868] mt-1.5">
-          {session.symbol} · {session.strategy === 'grid' ? 'Grid Trading' : session.strategy === 'trend' ? 'Trend Following' : 'DCA'}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0 ml-4">
-        <button className="px-4 py-1.5 text-sm font-medium bg-[#f0f1ee] text-[#0e0f0c] border border-transparent hover:bg-[#e8ebe6] rounded-full transition" onClick={() => onDetail(session.id)}>Detail</button>
-        {session.status === 'running' ? (
-          <button className="px-4 py-1.5 text-sm font-medium bg-[#d03238] text-white border border-[#d03238] hover:bg-[#d94a4f] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
-        ) : (
-          <button className="px-4 py-1.5 text-sm font-medium bg-[#054d28] text-white border border-[#054d28] hover:bg-[#066633] rounded-full transition" onClick={() => onStart(session.id)}>Start</button>
-        )}
-        <button className="px-2.5 py-1.5 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="font-bold text-[#0e0f0c] text-base leading-tight">{session.name}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              session.mode === 'live'
+                ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00]'
+                : session.mode === 'paper'
+                ? 'bg-[rgba(159,232,112,0.15)] text-[#163300]'
+                : 'bg-[rgba(56,200,255,0.12)] text-[#0994b3]'
+            }`}>
+              {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : '⚡ Live'}
+            </span>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              session.status === 'running'
+                ? 'bg-[rgba(159,232,112,0.15)] text-[#163300]'
+                : 'bg-[rgba(14,15,12,0.06)] text-[#5a5b58]'
+            }`}>
+              {session.status === 'running' && (
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
+              )}
+              {session.status === 'running' ? 'Running' : 'Stopped'}
+            </span>
+          </div>
+          <p className="text-xs text-[#686868]">
+            <span className="font-medium text-[#454745]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
+          </p>
+        </div>
+        {/* Actions — stop propagation agar tidak trigger onDetail */}
+        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {session.status === 'running' ? (
+            <button className="px-4 py-2 text-xs font-semibold bg-[#d03238] text-white hover:bg-[#d94a4f] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
+          ) : (
+            <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
+          )}
+          <button className="w-8 h-8 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+        </div>
       </div>
     </div>
   )

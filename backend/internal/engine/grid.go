@@ -99,8 +99,8 @@ func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice f
 			}
 		}
 
-		// Check if price touches this level (within half a step tolerance)
-		tolerance := step / 2
+		// Check if price touches this level (within step/3 tolerance — tighter than step/2 to reduce false triggers on volatile pairs)
+		tolerance := step / 3
 		touched := math.Abs(currentPrice-levelPrice) <= tolerance
 
 		if touched && lvl.state == levelInactive {
@@ -152,11 +152,16 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 		}
 	}
 
-	// Pre-mark levels that already have signals in the DB (prevents duplicates on restart)
+	// Pre-mark levels with recent signals (prevents duplicates on restart).
+	// Only consider most recent signal per level — avoids marking re-armed levels
+	// that have fired multiple times.
 	if g.db != nil {
 		var triggeredLevels []int
 		err := g.db.Select(&triggeredLevels,
-			g.db.Rebind("SELECT DISTINCT grid_level_index FROM strategy_signals WHERE session_id = ?"), sessionID)
+			g.db.Rebind(`SELECT DISTINCT grid_level_index FROM strategy_signals
+				WHERE session_id = ?
+				  AND created_at >= NOW() - INTERVAL '1 hour'
+				  AND validation_status IN ('pending', 'confirmed')`), sessionID)
 		if err == nil && len(triggeredLevels) > 0 {
 			for _, idx := range triggeredLevels {
 				if idx >= 0 && idx < len(state.levels) {

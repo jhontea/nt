@@ -7,6 +7,7 @@ import { useSessionWS } from '@/lib/useWS'
 import { useEffect, useState } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
+import { Navbar } from '@/components/Navbar'
 
 const modeInfo: Record<string, string> = {
   signal: 'Bot hanya mencatat sinyal. Tidak ada eksekusi order.',
@@ -112,20 +113,38 @@ export default function SessionDetailPage() {
     setLoading('')
   }
 
-  if (sessionLoading) return <div className="min-h-screen bg-[#fafafa] p-6 text-[#686868]">Loading...</div>
-  if (!session) return <div className="min-h-screen bg-[#fafafa] p-6 text-[#686868]">Session not found</div>
+  if (sessionLoading) return (
+    <div className="min-h-screen bg-[#fafafa]">
+      <Navbar />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="flex items-center gap-2 text-[#686868] animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
+          <span className="text-sm">Memuat session...</span>
+        </div>
+      </div>
+    </div>
+  )
+  if (!session) return (
+    <div className="min-h-screen bg-[#fafafa]">
+      <Navbar />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <p className="text-sm text-[#686868]">Session not found</p>
+      </div>
+    </div>
+  )
 
   let configDisplay: any = {}
   try { configDisplay = JSON.parse(session.config) } catch {}
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
-      <div className="max-w-4xl mx-auto p-6">
+      <Navbar />
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
         {/* Back navigation */}
         <button
           onClick={() => router.push('/sessions')}
-          className="text-[#686868] hover:text-[#0e0f0c] text-sm flex items-center gap-1 mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-[#686868] hover:text-[#0e0f0c] mb-6 transition-colors w-fit"
         >
           &larr; Kembali ke Sessions
         </button>
@@ -134,7 +153,7 @@ export default function SessionDetailPage() {
         <div className="flex justify-between items-start mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-2xl font-bold text-[#0e0f0c]">{session.name}</h1>
+              <h1 className="text-2xl font-black tracking-tight text-[#0e0f0c]">{session.name}</h1>
               {session.mode === 'signal' && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] text-[#0994b3]">Signal</span>
               )}
@@ -146,23 +165,17 @@ export default function SessionDetailPage() {
               )}
               {session.status === 'running' ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] text-[#054d28]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#054d28] inline-block"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
                   Running
                 </span>
               ) : (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] text-[#5a5b58]">Stopped</span>
               )}
             </div>
-            <p className="text-sm text-[#686868]">Detail session trading</p>
+            <p className="text-sm text-[#686868] mt-1">{session.symbol} · {session.strategy} · {modeInfo[session.mode]}</p>
           </div>
           <div className="flex items-center gap-2">
             {error && <span className="text-[#d03238] text-sm">{error}</span>}
-            <button
-              onClick={() => router.push('/glossary')}
-              className="bg-[#f0f1ee] text-[#0e0f0c] border-transparent hover:bg-[#e8ebe6] rounded-full px-3 py-1.5 text-sm font-medium transition-all"
-            >
-              Glosarium
-            </button>
             {session.status === 'running' ? (
               <button
                 onClick={handleStop}
@@ -184,7 +197,7 @@ export default function SessionDetailPage() {
         </div>
 
         {/* Session Info Card */}
-        <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)] mb-6">
+        <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] mb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-[#686868] text-xs font-semibold uppercase tracking-wider">Pair</span>
@@ -247,27 +260,27 @@ export default function SessionDetailPage() {
           <div className="mb-6">
             <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Ringkasan Performa</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
                 <p className="text-xl font-bold text-[#0e0f0c] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Realized P&L <HelpIcon text={pnlHelp.realized} /></p>
                 <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
                   {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
                 </p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Total P&L</p>
                 <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28]' : 'text-[#d03238]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
                 </p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider flex items-center gap-1">Win Rate <HelpIcon text={pnlHelp.winRate} /></p>
                 <p className="text-xl font-bold text-[#0e0f0c] mt-1">{pnl.win_rate?.toFixed(1) || '0'}%</p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Trades</p>
                 <p className="text-xl font-bold text-[#0e0f0c] mt-1">{pnl.trade_count || 0}</p>
               </div>
@@ -282,17 +295,17 @@ export default function SessionDetailPage() {
           <div className="mb-6">
             <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Ringkasan Sinyal Grid</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Total Sinyal</p>
                 <p className="text-lg font-bold text-[#0e0f0c] mt-1">{signalSummary.total_count}</p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Success Rate</p>
                 <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00]' : 'text-[#686868]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Confirmed / Invalid / Expired</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28]">{signalSummary.confirmed_count}</span>
@@ -302,7 +315,7 @@ export default function SessionDetailPage() {
                   <span className="text-[#686868]">{signalSummary.expired_count}</span>
                 </p>
               </div>
-              <div className="bg-white rounded-[30px] p-5 border border-[rgba(14,15,12,0.08)]">
+              <div className="bg-white rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)]">
                 <p className="text-xs text-[#686868] font-semibold uppercase tracking-wider">Buy / Sell</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28]">{signalSummary.buy_count}</span>
@@ -318,7 +331,7 @@ export default function SessionDetailPage() {
         {isGridSignal && strategySignals && strategySignals.length > 0 && (
           <div className="mb-6">
             <h2 className="text-base font-semibold text-[#0e0f0c] mb-3">Histori Sinyal Grid</h2>
-            <div className="bg-white rounded-[30px] overflow-hidden border border-[rgba(14,15,12,0.08)]">
+            <div className="bg-white rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)]">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-[#686868] text-xs font-semibold uppercase tracking-wider bg-[#fafafa]">
@@ -371,7 +384,7 @@ export default function SessionDetailPage() {
             ) : !orders?.length ? (
               <p className="text-[#686868] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
             ) : (
-              <div className="bg-white rounded-[30px] overflow-hidden border border-[rgba(14,15,12,0.08)] mb-6">
+              <div className="bg-white rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] mb-6">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="text-[#686868] text-xs font-semibold uppercase tracking-wider bg-[#fafafa]">

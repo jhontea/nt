@@ -27,11 +27,11 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
   }
 
   return (
-    <div className="bg-[#f0f1ee] rounded-xl p-4">
+    <div className="bg-[#f0f1ee] rounded-[16px] p-4">
       {!connected && !data ? (
         <p className="text-sm text-[#5a5b58]">⏳ Menghubungkan ke TokoCrypto untuk harga {symbol}...</p>
       ) : timeout && !data ? (
-        <p className="text-sm text-[#e6bc00]">
+        <p className="text-sm text-[#7a5f00]">
           ⚠️ Tidak dapat terhubung ke TokoCrypto. Harga real-time tidak tersedia.{' '}
           <span className="text-[#5a5b58]">Coba refresh halaman.</span>
         </p>
