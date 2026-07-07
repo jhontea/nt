@@ -201,32 +201,17 @@ func TestSessionRepo_UpdateStoppedAt(t *testing.T) {
 	}
 }
 
-func TestNewDB_DefaultSQLite(t *testing.T) {
-	// Reset env for test
-	oldDriver := os.Getenv("DB_DRIVER")
-	os.Setenv("DB_DRIVER", "")
-	defer os.Setenv("DB_DRIVER", oldDriver)
-
-	db, err := NewDB(":memory:")
-	if err != nil {
-		t.Fatalf("NewDB failed: %v", err)
-	}
-	defer db.Close()
-
-	if db.DriverName() != "sqlite" {
-		t.Errorf("expected sqlite driver, got %s", db.DriverName())
-	}
-}
-
 func TestMigrate_SQLite(t *testing.T) {
-	db, _ := NewDB(":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
 	if err := Migrate(db); err != nil {
 		t.Fatalf("Migrate failed: %v", err)
 	}
 
-	// Verify tables exist
 	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	if err != nil {
 		t.Fatal(err)
@@ -239,7 +224,7 @@ func TestMigrate_SQLite(t *testing.T) {
 		rows.Scan(&name)
 		tables = append(tables, name)
 	}
-	expected := []string{"api_keys", "candles", "orders", "sessions", "trades", "users"}
+	expected := []string{"api_keys", "candles", "orders", "sessions", "strategy_signals", "trades", "users"}
 	for _, e := range expected {
 		found := false
 		for _, t := range tables {
@@ -255,13 +240,15 @@ func TestMigrate_SQLite(t *testing.T) {
 }
 
 func TestMigrate_Idempotent(t *testing.T) {
-	db, _ := NewDB(":memory:")
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
 	if err := Migrate(db); err != nil {
 		t.Fatal(err)
 	}
-	// Running twice should not fail
 	if err := Migrate(db); err != nil {
 		t.Fatalf("second migrate failed: %v", err)
 	}

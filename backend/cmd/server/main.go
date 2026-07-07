@@ -47,11 +47,7 @@ func main() {
 		slog.Warn("JWT_SECRET is still default. Change it in .env for security.")
 	}
 
-	dsn := cfg.DatabaseDSN
-	if cfg.DatabaseDriver == "" || cfg.DatabaseDriver == "sqlite" {
-		dsn = cfg.DatabasePath
-	}
-	db, err := repository.NewDB(dsn)
+	db, err := repository.NewDB(cfg)
 	if err != nil {
 		slog.Error("database", "error", err)
 		os.Exit(1)
