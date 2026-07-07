@@ -303,8 +303,10 @@ export default function SessionDetailPage() {
         </div>
       )}
 
-      {/* Orders Table */}
-      <h2 className="text-lg font-semibold mb-3">Riwayat Signal & Order</h2>
+      {/* Orders Table — hidden when grid signal history is shown */}
+      {!isGridSignal && (
+        <>
+          <h2 className="text-lg font-semibold mb-3">Riwayat Signal & Order</h2>
       {ordersLoading ? (
         <p className="text-gray-400 mb-6">Loading orders...</p>
       ) : !orders?.length ? (
@@ -336,6 +338,8 @@ export default function SessionDetailPage() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
 
       {/* Info untuk pengguna baru */}
