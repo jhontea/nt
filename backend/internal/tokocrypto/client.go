@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -106,23 +107,72 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 	}
 	c.mu.Unlock()
 
-	body, err := c.doPublic("/open/v1/market/ticker", url.Values{"symbol": {symbol}})
+	// Use daily kline as ticker source (ticker REST endpoint was removed by TokoCrypto)
+	// Convert BTC_USDT → BTCUSDT for tokocrypto.site API
+	altSymbol := strings.ReplaceAll(symbol, "_", "")
+	candles, err := c.getKlinesAlt(altSymbol, "1d", 1)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get ticker from klines: %w", err)
 	}
-	var res TickerResponse
-	if err := json.Unmarshal(body, &res); err != nil {
-		return nil, err
+	if len(candles) == 0 {
+		return nil, fmt.Errorf("no kline data for %s", symbol)
 	}
-	if res.Code != 0 {
-		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
+
+	// kline: [openTime, open, high, low, close, volume, closeTime, quoteVol, trades, takerBuyBase, takerBuyQuote, ignore]
+	k := candles[0]
+	open := fmt.Sprint(k[1])
+	close_ := fmt.Sprint(k[4])
+	volume := fmt.Sprint(k[5])
+	priceChange := parseFloat(close_) - parseFloat(open)
+
+	ticker := &Ticker{
+		Symbol:      symbol,
+		LastPrice:   close_,
+		Volume:      volume,
+		PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
 	}
 
 	c.mu.Lock()
-	c.tickCache[symbol] = cacheEntry{data: &res.Data, expiresAt: time.Now().Add(30 * time.Second)}
+	c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(30 * time.Second)}
 	c.mu.Unlock()
 
-	return &res.Data, nil
+	return ticker, nil
+}
+
+// getKlinesAlt fetches klines from the alternative tokocrypto.site API (type 1).
+// Symbol must use no underscore (e.g. BTCUSDT not BTC_USDT).
+func (c *Client) getKlinesAlt(symbol, interval string, limit int) ([][]any, error) {
+	u := "https://www.tokocrypto.site/api/v3/klines?" + url.Values{
+		"symbol":   {symbol},
+		"interval": {interval},
+		"limit":    {strconv.Itoa(limit)},
+	}.Encode()
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("tokocrypto.site API error: %s %s", resp.Status, string(body))
+	}
+	var data [][]any
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func parseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
 }
 
 func (c *Client) GetCandles(symbol, interval string, limit int) ([][]any, error) {

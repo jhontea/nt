@@ -37,16 +37,15 @@ func setupTickerServer(t *testing.T, handler func(w http.ResponseWriter, r *http
 
 func TestGetTicker_Success(t *testing.T) {
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/open/v1/market/ticker" {
+		if r.URL.Path != "/api/v3/klines" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		if r.URL.Query().Get("symbol") != "BTC_USDT" {
+		if r.URL.Query().Get("symbol") != "BTCUSDT" {
 			t.Errorf("unexpected symbol: %s", r.URL.Query().Get("symbol"))
 		}
-		json.NewEncoder(w).Encode(TickerResponse{
-			Code:    0,
-			Message: "success",
-			Data:    Ticker{LastPrice: "50000.00", Volume: "100.5"},
+		// kline: [openTime, open, high, low, close, volume, ...]
+		json.NewEncoder(w).Encode([][]any{
+			{int64(1700000000000), "49000.00", "51000.00", "49000.00", "50000.00", "100.5", int64(1700000000000), "5000000", 100, "50", "2500000", "0"},
 		})
 	})
 
@@ -66,18 +65,16 @@ func TestGetTicker_CacheHit(t *testing.T) {
 	callCount := 0
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		json.NewEncoder(w).Encode(TickerResponse{
-			Code: 0, Data: Ticker{LastPrice: "50000.00", Volume: "100.5"},
+		json.NewEncoder(w).Encode([][]any{
+			{int64(1700000000000), "49000.00", "51000.00", "49000.00", "50000.00", "100.5", int64(1700000000000), "5000000", 100, "50", "2500000", "0"},
 		})
 	})
 
-	// First call — should hit API
 	c.GetTicker("BTC_USDT")
 	if callCount != 1 {
 		t.Fatalf("expected 1 API call, got %d", callCount)
 	}
 
-	// Second call — should use cache
 	c.GetTicker("BTC_USDT")
 	if callCount != 1 {
 		t.Errorf("expected cache hit (still 1 API call), got %d", callCount)
@@ -88,8 +85,9 @@ func TestGetTicker_CacheExpiry(t *testing.T) {
 	callCount := 0
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		json.NewEncoder(w).Encode(TickerResponse{
-			Code: 0, Data: Ticker{LastPrice: fmt.Sprintf("%d", callCount*50000), Volume: "100"},
+		closePrice := fmt.Sprintf("%d.00", callCount*50000)
+		json.NewEncoder(w).Encode([][]any{
+			{int64(1700000000000), "49000.00", "51000.00", "49000.00", closePrice, "100.5", int64(1700000000000), "5000000", 100, "50", "2500000", "0"},
 		})
 	})
 
@@ -99,7 +97,6 @@ func TestGetTicker_CacheExpiry(t *testing.T) {
 		t.Fatalf("expected 1 call before expiry, got %d", callCount)
 	}
 
-	// Expire the cache entry
 	c.mu.Lock()
 	c.tickCache["BTC_USDT"] = cacheEntry{data: &Ticker{LastPrice: "old", Volume: "0"}, expiresAt: time.Now().Add(-time.Second)}
 	c.mu.Unlock()
@@ -124,14 +121,13 @@ func TestGetTicker_APIError(t *testing.T) {
 
 func TestGetTicker_ErrorCode(t *testing.T) {
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(TickerResponse{
-			Code: -1001, Message: "invalid symbol",
-		})
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"code": "-1001", "msg": "invalid symbol"})
 	})
 
 	_, err := c.GetTicker("INVALID")
 	if err == nil {
-		t.Fatal("expected error for non-zero code")
+		t.Fatal("expected error for invalid symbol")
 	}
 }
 
