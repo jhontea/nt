@@ -52,7 +52,7 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="bg-gray-900 p-8 rounded-xl w-full max-w-sm space-y-4 flex-shrink-0">
+        <form action="#" method="post" onSubmit={handleSubmit} className="bg-gray-900 p-8 rounded-xl w-full max-w-sm space-y-4 flex-shrink-0">
           <h2 className="text-xl font-semibold text-center">{isRegister ? 'Register' : 'Login'}</h2>
           {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -61,6 +61,7 @@ export default function LoginPage() {
             <input
               id="username"
               name="username"
+              type="text"
               className="w-full px-4 py-2 bg-gray-800 rounded-lg border border-gray-700 focus:border-blue-500 outline-none"
               placeholder="Username"
               value={username}
