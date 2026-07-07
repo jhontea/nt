@@ -46,6 +46,7 @@ export const api = {
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
     getOrders: (id: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),
+    getTickersBulk: (symbols: string[]) => request<Record<string, import('@/types').Ticker>>(`/v1/tickers?symbols=${symbols.join(',')}`),
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
     getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
   },

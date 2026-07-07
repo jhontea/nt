@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -117,6 +118,24 @@ func main() {
 			return c.JSON(502, ErrorResponse{Error: "failed to fetch ticker: " + err.Error()})
 		}
 		return c.JSON(200, ticker)
+	})
+
+	v1.GET("/tickers", func(c echo.Context) error {
+		symbols := strings.Split(c.QueryParam("symbols"), ",")
+		result := make(map[string]any, len(symbols))
+		for _, sym := range symbols {
+			sym = strings.TrimSpace(sym)
+			if sym == "" {
+				continue
+			}
+			t, err := tokoClient.GetTicker(sym)
+			if err != nil {
+				result[sym] = map[string]string{"error": err.Error()}
+			} else {
+				result[sym] = t
+			}
+		}
+		return c.JSON(200, result)
 	})
 
 	v1.POST("/sessions", sessionH.Create)

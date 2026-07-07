@@ -19,10 +19,10 @@ interface MarketTickerState {
   connected: boolean
 }
 
-// ponytail: module-level shared store — one interval drives all symbols, N hooks read from cache
+// ponytail: one interval drives all symbols, subscribers read from shared cache
 const cache = new Map<string, MarketTickerData>()
 const subscribers = new Map<string, Set<() => void>>()
-const intervals = new Map<string, ReturnType<typeof setInterval>>()
+let bulkInterval: ReturnType<typeof setInterval> | null = null
 
 function notify(symbol: string) {
   subscribers.get(symbol)?.forEach(cb => cb())
@@ -43,29 +43,44 @@ function restToData(t: { lastPrice: string; volume: string; priceChange: string;
   }
 }
 
+function fetchAll() {
+  const symbols = Array.from(subscribers.keys())
+  if (!symbols.length) return
+  api.sessions.getTickersBulk(symbols).then(result => {
+    for (const [sym, t] of Object.entries(result)) {
+      if ((t as any).error) continue
+      cache.set(sym, restToData(t as any))
+      notify(sym)
+    }
+  }).catch(() => {})
+}
+
+function ensureInterval() {
+  if (!bulkInterval) {
+    fetchAll()
+    bulkInterval = setInterval(fetchAll, POLL_INTERVAL)
+  }
+}
+
+function stopIntervalIfIdle() {
+  if (subscribers.size === 0 && bulkInterval) {
+    clearInterval(bulkInterval)
+    bulkInterval = null
+  }
+}
+
 function subscribe(symbol: string, cb: () => void) {
   if (!subscribers.has(symbol)) subscribers.set(symbol, new Set())
   subscribers.get(symbol)!.add(cb)
-
-  if (!intervals.has(symbol)) {
-    const fetch = () =>
-      api.sessions.getTicker(symbol).then(t => {
-        cache.set(symbol, restToData(t))
-        notify(symbol)
-      }).catch(() => {})
-
-    fetch()
-    intervals.set(symbol, setInterval(fetch, POLL_INTERVAL))
-  }
+  ensureInterval()
 
   return () => {
     subscribers.get(symbol)?.delete(cb)
     if (subscribers.get(symbol)?.size === 0) {
-      clearInterval(intervals.get(symbol))
-      intervals.delete(symbol)
       subscribers.delete(symbol)
       cache.delete(symbol)
     }
+    stopIntervalIfIdle()
   }
 }
 
