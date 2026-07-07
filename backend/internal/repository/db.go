@@ -28,7 +28,16 @@ func Migrate(db *sqlx.DB) error {
 	}
 
 	_, err := db.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Fix existing tables: ensure validation_note has a default value
+	if driver == "pgx" || driver == "postgres" {
+		db.Exec("ALTER TABLE strategy_signals ALTER COLUMN validation_note SET DEFAULT ''")
+		db.Exec("UPDATE strategy_signals SET validation_note = '' WHERE validation_note IS NULL")
+	}
+	return nil
 }
 
 const pgSchema = `
@@ -130,7 +139,7 @@ const pgSchema = `
 		max_adverse_move_pct REAL,
 		max_favorable_grid_steps REAL,
 		max_adverse_grid_steps REAL,
-		validation_note TEXT
+		validation_note TEXT DEFAULT ''
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_session ON strategy_signals(session_id);
@@ -236,7 +245,7 @@ const sqliteSchema = `
 		max_adverse_move_pct REAL,
 		max_favorable_grid_steps REAL,
 		max_adverse_grid_steps REAL,
-		validation_note TEXT
+		validation_note TEXT DEFAULT ''
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_session ON strategy_signals(session_id);
