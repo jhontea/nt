@@ -123,6 +123,7 @@ export default function SessionsPage() {
   const [capital, setCapital] = useState('100')
   const [validationMode, setValidationMode] = useState<'grid_steps' | 'percent'>('grid_steps')
   const [recommendation, setRecommendation] = useState<any>(null)
+  const [insights, setInsights] = useState<any[]>([])
 
   async function fetchPriceAndApply(sym: string) {
     if (!sym) return
@@ -154,6 +155,9 @@ export default function SessionsPage() {
       setLowerPrice(String(rec.LowerPrice))
       setGridCount(String(rec.GridCount))
       setQuantity(rec.Quantity)
+      // Also fetch historical insights
+      const hist = await api.grid.insights(symbol)
+      setInsights(hist || [])
     } catch { /* ignore */ }
   }
 
@@ -403,6 +407,28 @@ export default function SessionsPage() {
                       <p className="text-[#686868] italic">{recommendation.Reason}</p>
                     </div>
                   )}
+
+                  {/* Historical Insights */}
+                  {insights.length > 0 && (
+                    <div className="bg-white border border-[rgba(14,15,12,0.08)] rounded-[10px] p-3 text-xs space-y-1">
+                      <p className="text-[#0e0f0c] font-semibold">📈 Hasil Sebelumnya untuk {symbol}</p>
+                      {insights.slice(0, 3).map((h: any) => {
+                        try {
+                          const cfg = JSON.parse(h.config)
+                          return (
+                            <div key={h.session_id} className="flex justify-between items-center border-t border-[rgba(14,15,12,0.06)] pt-1.5 mt-1.5">
+                              <span className="text-[#686868]">
+                                {h.name} · grid {cfg.grid_count || '?'}
+                              </span>
+                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28]' : h.success_rate >= 30 ? 'text-[#b0630f]' : 'text-[#991b1b]'}`}>
+                                {h.success_rate.toFixed(0)}% ({h.confirmed}/{h.total})
+                              </span>
+                            </div>
+                          )
+                        } catch { return null }
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -437,43 +463,43 @@ export default function SessionsPage() {
             </>
           ) : strategy === 'trend' ? (
             <>
-              <div className="bg-[#f0f1ee] rounded-lg p-3 text-xs text-[#686868] space-y-1">
-                <p><strong>Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
-                <p><strong>Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
-                <p><strong>Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
-                <p><strong>Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10, slow=30). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
+              <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+                <p><strong className="text-[#0e0f0c]">Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
+                <p><strong className="text-[#0e0f0c]">Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
+                <p><strong className="text-[#0e0f0c]">Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
+                <p><strong className="text-[#0e0f0c]">Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10, slow=30). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
               </div>
               <div>
-                <label className="text-sm text-[#686868] block mb-2">Konfigurasi SMA</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi SMA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
-                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
-                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
-                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
                   </div>
                 </div>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-[#f0f1ee] rounded-lg p-3 text-xs text-[#686868] space-y-1">
-                <p><strong>Apa itu DCA?</strong> Dollar Cost Averaging — strategi membeli aset dalam jumlah tetap secara rutin, tanpa peduli harga sedang naik atau turun. Tujuannya adalah meratakan harga beli rata-rata.</p>
-                <p><strong>Contoh:</strong> Beli $10 BTC setiap 1 jam. Saat harga turun, $10 dapat BTC lebih banyak. Saat harga naik, $10 dapat BTC lebih sedikit. Rata-rata harga beli jadi lebih stabil.</p>
-                <p><strong>Take Profit:</strong> Jika diaktifkan, bot akan menjual semua posisi saat harga naik X% dari rata-rata harga beli. Contoh: 5% = jual saat harga naik 5%.</p>
+              <div className="bg-[#f0f1ee] rounded-[10px] p-4 text-xs text-[#686868] space-y-1.5">
+                <p><strong className="text-[#0e0f0c]">Apa itu DCA?</strong> Dollar Cost Averaging — strategi membeli aset dalam jumlah tetap secara rutin, tanpa peduli harga sedang naik atau turun. Tujuannya adalah meratakan harga beli rata-rata.</p>
+                <p><strong className="text-[#0e0f0c]">Contoh:</strong> Beli $10 BTC setiap 1 jam. Saat harga turun, $10 dapat BTC lebih banyak. Saat harga naik, $10 dapat BTC lebih sedikit. Rata-rata harga beli jadi lebih stabil.</p>
+                <p><strong className="text-[#0e0f0c]">Take Profit:</strong> Jika diaktifkan, bot akan menjual semua posisi saat harga naik X% dari rata-rata harga beli. Contoh: 5% = jual saat harga naik 5%.</p>
               </div>
               <div>
-                <label className="text-sm text-[#686868] block mb-2">Konfigurasi DCA</label>
+                <label className="text-sm font-medium text-[#0e0f0c] block mb-2">Konfigurasi DCA</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
-                    <select className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
+                    <select className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
                       <option value="3600">Setiap 1 Jam</option>
                       <option value="7200">Setiap 2 Jam</option>
                       <option value="21600">Setiap 6 Jam</option>
@@ -483,30 +509,30 @@ export default function SessionsPage() {
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
-                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1"><span className="text-xs text-[#5a5b58]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
-                    <input className="w-full px-3 py-2 bg-[#f0f1ee] rounded border border-[rgba(14,15,12,0.12)]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] border border-[rgba(14,15,12,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
                   </div>
                 </div>
               </div>
             </>
           )}
-          <button className="px-4 py-2 bg-[#9fe870] hover:bg-[#8ad05e] rounded-lg transition">Buat Session</button>
+          <button className="px-6 py-2.5 bg-[#9fe870] text-[#163300] font-semibold border border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.05] active:scale-[0.95] rounded-full transition-all text-sm">Buat Session</button>
         </form>
       )}
 
       {isLoading ? (
-        <p className="text-[#686868]">Loading...</p>
+        <p className="text-[#686868] text-sm">Loading...</p>
       ) : !sessions?.length ? (
-        <div className="text-center py-12">
-          <div className="mb-6 max-w-md mx-auto">
+        <div className="text-center py-16">
+          <div className="mb-6 max-w-xs mx-auto">
             <PriceBadge symbol="BTC_USDT" />
           </div>
-          <p className="text-[#686868] text-lg">Belum ada session trading</p>
-          <p className="text-[#5a5b58] text-sm mt-2">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
+          <p className="text-[#0e0f0c] text-lg font-semibold">Belum ada session trading</p>
+          <p className="text-[#686868] text-sm mt-1">Pilih rekomendasi di atas atau klik &quot;+ New Session&quot;</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -515,6 +541,7 @@ export default function SessionsPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -529,33 +556,43 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   onDetail: (id: number) => void
 }) {
   return (
-    <div className="bg-white p-4 rounded-xl flex items-center justify-between">
+    <div className="bg-white shadow-[rgba(14,15,12,0.12)_0px_0px_0px_1px,rgba(14,15,12,0.06)_0px_4px_12px] rounded-[30px] px-6 py-4 flex items-center justify-between">
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-3 flex-wrap">
-          <h3 className="font-semibold">{session.name}</h3>
-          <PriceBadge symbol={session.symbol} compact />
-        </div>
-        <p className="text-sm text-[#686868] mt-0.5">
-          {session.symbol} · {session.strategy === 'grid' ? 'Grid' : session.strategy === 'trend' ? 'Trend' : 'DCA'} ·{' '}
-          <span className={session.mode === 'live' ? 'text-[#e6bc00]' : session.mode === 'paper' ? 'text-[#2d7a1a]' : 'text-[#686868]'}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="font-semibold text-[#0e0f0c]">{session.name}</h3>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            session.mode === 'live'
+              ? 'bg-[rgba(255,209,26,0.1)] text-[#0e0f0c]'
+              : session.mode === 'paper'
+              ? 'bg-[rgba(159,232,112,0.1)] text-[#163300]'
+              : 'bg-[rgba(56,200,255,0.1)] text-[#0e8ab3]'
+          }`}>
             {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
-          </span> ·{' '}
-          <span className={session.status === 'running' ? 'text-[#054d28]' : 'text-[#5a5b58]'}>
+          </span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            session.status === 'running'
+              ? 'bg-[rgba(5,77,40,0.06)] text-[#054d28]'
+              : 'bg-[rgba(14,15,12,0.06)] text-[#5a5b58]'
+          }`}>
             {session.status}
             {session.status === 'running' && (
               <span className={`ml-1 inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
             )}
           </span>
+          <PriceBadge symbol={session.symbol} compact />
+        </div>
+        <p className="text-xs text-[#686868] mt-1.5">
+          {session.symbol} · {session.strategy === 'grid' ? 'Grid Trading' : session.strategy === 'trend' ? 'Trend Following' : 'DCA'}
         </p>
       </div>
-      <div className="space-x-2 shrink-0 ml-4">
-        <button className="px-3 py-1 bg-[#e8ebe6] hover:bg-[#e8ebe6] rounded text-sm" onClick={() => onDetail(session.id)}>Detail</button>
+      <div className="flex items-center gap-2 shrink-0 ml-4">
+        <button className="px-4 py-1.5 text-sm font-medium bg-[#f0f1ee] text-[#0e0f0c] border border-transparent hover:bg-[#e8ebe6] rounded-full transition" onClick={() => onDetail(session.id)}>Detail</button>
         {session.status === 'running' ? (
-          <button className="px-3 py-1 bg-[#d03238] hover:bg-[#b22a30] rounded text-sm" onClick={() => onStop(session.id)}>Stop</button>
+          <button className="px-4 py-1.5 text-sm font-medium bg-[#d03238] text-white border border-[#d03238] hover:bg-[#d94a4f] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
         ) : (
-          <button className="px-3 py-1 bg-[#054d28] hover:bg-[#044020] rounded text-sm" onClick={() => onStart(session.id)}>Start</button>
+          <button className="px-4 py-1.5 text-sm font-medium bg-[#054d28] text-white border border-[#054d28] hover:bg-[#066633] rounded-full transition" onClick={() => onStart(session.id)}>Start</button>
         )}
-        <button className="px-2 py-1 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.1)] rounded text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+        <button className="px-2.5 py-1.5 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-xs transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
       </div>
     </div>
   )

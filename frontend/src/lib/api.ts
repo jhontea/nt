@@ -52,5 +52,7 @@ export const api = {
   grid: {
     recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
       request<import('@/types').GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || 'grid_steps'}`),
+    insights: (symbol: string) =>
+      request<import('@/types').GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
   },
 }

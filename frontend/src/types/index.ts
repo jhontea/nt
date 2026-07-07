@@ -102,6 +102,16 @@ export interface GridRecommendation {
   Reason: string
 }
 
+export interface GridInsight {
+  session_id: number
+  name: string
+  config: string
+  total: number
+  confirmed: number
+  invalidated: number
+  success_rate: number
+}
+
 export interface Order {
   id: number
   session_id: number
