@@ -12,10 +12,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/config"
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/handler"
 	authmw "github.com/user/nt/internal/middleware"
+	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/repository"
 	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
@@ -56,11 +58,6 @@ func main() {
 	if err := repository.Migrate(db); err != nil {
 		slog.Error("migration", "error", err)
 		os.Exit(1)
-	}
-
-	// Reset sessions that were left "running" after a shutdown
-	if _, err := db.Exec(`UPDATE sessions SET status = 'stopped' WHERE status = 'running'`); err != nil {
-		slog.Warn("reset stalled sessions", "error", err)
 	}
 
 	userRepo := repository.NewUserRepo(db)
@@ -108,6 +105,10 @@ func main() {
 	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
 	wsHub := engine.NewWSHub(cfg.JWTSecret)
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub, signalRepo)
+
+	// Auto-restart sessions that were running before shutdown
+	recoverRunningSessions(db, engMgr)
+
 	sessionH := handler.NewSessionHandler(sessionSvc, engMgr)
 
 	v1.GET("/ticker/:symbol", func(c echo.Context) error {
@@ -190,4 +191,19 @@ func main() {
 	slog.Info("shutting down gracefully...")
 	engMgr.StopAll()
 	e.Shutdown(context.Background())
+}
+
+func recoverRunningSessions(db *sqlx.DB, mgr *engine.Manager) {
+	var sessions []model.Session
+	if err := db.Select(&sessions, "SELECT * FROM sessions WHERE status = 'running'"); err != nil {
+		slog.Warn("recover sessions query", "error", err)
+		return
+	}
+	for _, s := range sessions {
+		if err := mgr.Start(s); err != nil {
+			slog.Warn("recover session failed", "id", s.ID, "name", s.Name, "error", err)
+		} else {
+			slog.Info("session auto-restarted", "id", s.ID, "name", s.Name)
+		}
+	}
 }
