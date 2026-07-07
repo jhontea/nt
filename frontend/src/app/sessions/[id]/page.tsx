@@ -21,13 +21,13 @@ const pnlHelp: Record<string, string> = {
 
 export default function SessionDetailPage() {
   const { id } = useParams()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
 
-  useEffect(() => { if (!isAuthenticated) router.push('/login') }, [isAuthenticated, router])
+  useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
   // Auto-refresh on page focus
   useEffect(() => {

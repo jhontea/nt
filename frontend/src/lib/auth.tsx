@@ -7,6 +7,7 @@ interface AuthContextType {
   login: (token: string, remember?: boolean) => void
   logout: () => void
   isAuthenticated: boolean
+  initialized: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -14,16 +15,18 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isAuthenticated: false,
+  initialized: false,
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
+  const [initialized, setInitialized] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    // Check localStorage first (persistent), then sessionStorage (session-only)
     const stored = localStorage.getItem('token') || sessionStorage.getItem('token')
     setToken(stored)
+    setInitialized(true)
   }, [])
 
   const login = useCallback((newToken: string, remember: boolean = true) => {
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem('token', newToken)
     }
     setToken(newToken)
+    setInitialized(true)
     router.push('/sessions')
   }, [router])
 
@@ -44,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   return (
-    <AuthContext.Provider value={{ token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ token, login, logout, isAuthenticated: !!token, initialized }}>
       {children}
     </AuthContext.Provider>
   )

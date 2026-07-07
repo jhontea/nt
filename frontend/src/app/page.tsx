@@ -24,17 +24,17 @@ const strategies = [
 ]
 
 export default function Home() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    if (mounted && isAuthenticated) router.push('/sessions')
-  }, [mounted, isAuthenticated, router])
+    if (mounted && initialized && isAuthenticated) router.push('/sessions')
+  }, [mounted, initialized, isAuthenticated, router])
 
-  if (!mounted || isAuthenticated) return null
+  if (!mounted || !initialized || isAuthenticated) return null
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">

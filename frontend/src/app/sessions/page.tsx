@@ -89,10 +89,10 @@ const presets: Preset[] = [
 ]
 
 export default function SessionsPage() {
-  const { logout, isAuthenticated } = useAuth()
+  const { logout, isAuthenticated, initialized } = useAuth()
   const router = useRouter()
 
-  useEffect(() => { if (!isAuthenticated) router.push('/login') }, [isAuthenticated, router])
+  useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['sessions'],
