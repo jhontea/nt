@@ -4,90 +4,123 @@ import (
 	"testing"
 )
 
-func TestGridEngine_Evaluate(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   GridConfig
-		price    float64
-		wantLen  int
-		wantSell int
-		wantBuy  int
-	}{
-		{
-			name:     "price above all levels — sell at highest level only",
-			config:   GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2},
-			price:    75000,
-			wantLen:  1,
-			wantSell: 1,
-			wantBuy:  0,
-		},
-		{
-			name:     "price below all levels — buy at lowest level only",
-			config:   GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2},
-			price:    55000,
-			wantLen:  1,
-			wantSell: 0,
-			wantBuy:  1,
-		},
-		{
-			name:    "price at midpoint — no signals",
-			config:  GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2},
-			price:   65000,
-			wantLen: 0,
-		},
-		{
-			name:     "price at upper level — sell above-mid levels",
-			config:   GridConfig{UpperPrice: 100, LowerPrice: 0, GridCount: 4},
-			price:    100,
-			wantLen:  2,
-			wantSell: 2,
-			wantBuy:  0,
-		},
-		{
-			name:    "invalid config — step=0",
-			config:  GridConfig{UpperPrice: 60000, LowerPrice: 60000, GridCount: 5},
-			price:   65000,
-			wantLen: 0,
-		},
+func TestGridEngine_Evaluate_FirstCall(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	sessionID := int64(1)
+	cfg := GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2}
+	// levels: 60000, 65000, 70000, step=5000, mid=65000
+	price := 71000.0 // within tolerance of level 70000 (tol=2500)
+
+	signals := g.evaluate(sessionID, cfg, price)
+	if len(signals) == 0 {
+		t.Fatal("expected at least 1 sell signal on first call")
+	}
+	for _, s := range signals {
+		if s.Side != "sell" {
+			t.Errorf("expected sell side, got %s", s.Side)
+		}
+	}
+}
+
+func TestGridEngine_Evaluate_BuySide(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	sessionID := int64(2)
+	cfg := GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2}
+	// levels: 60000, 65000, 70000, step=5000, mid=65000
+	price := 59000.0 // within tolerance of level 60000 (tol=2500)
+
+	signals := g.evaluate(sessionID, cfg, price)
+	if len(signals) == 0 {
+		t.Fatal("expected at least 1 buy signal on first call")
+	}
+	for _, s := range signals {
+		if s.Side != "buy" {
+			t.Errorf("expected buy side, got %s", s.Side)
+		}
+	}
+}
+
+func TestGridEngine_Evaluate_Midpoint(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	sessionID := int64(3)
+	cfg := GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2}
+	price := 65000.0 // at midpoint
+
+	signals := g.evaluate(sessionID, cfg, price)
+	if len(signals) != 0 {
+		t.Errorf("expected 0 signals at midpoint, got %d", len(signals))
+	}
+}
+
+func TestGridEngine_Evaluate_InvalidConfig(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	cfg := GridConfig{UpperPrice: 60000, LowerPrice: 60000, GridCount: 5}
+	signals := g.evaluate(1, cfg, 65000)
+	if len(signals) != 0 {
+		t.Errorf("expected 0 signals for invalid config, got %d", len(signals))
+	}
+}
+
+func TestGridEngine_OneSignalPerLevel(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	sessionID := int64(10)
+	cfg := GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2}
+	// levels: 60000, 65000, 70000, mid=65000
+
+	// First call at price 55000 → buy signals at levels below mid
+	signals1 := g.evaluate(sessionID, cfg, 55000)
+	// at 55000, tolerance = 2500. |55000-60000|=5000 > 2500, so 60000 not touched.
+	// Actually we need to be more careful: tolerance = step/2 = 2500
+	// |55000 - 60000| = 5000 > 2500, not touched. |55000 - 65000| = 10000, not touched.
+	// So no signals expected.
+	if len(signals1) != 0 {
+		t.Errorf("expected 0 signals at far-below price (no level touched), got %d", len(signals1))
 	}
 
-	g := &GridEngine{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := g.evaluate(tt.config, tt.price)
-			if len(got) != tt.wantLen {
-				t.Errorf("got %d signals, want %d", len(got), tt.wantLen)
-			}
-			buyCount, sellCount := 0, 0
-			for _, s := range got {
-				if s.Side == "buy" {
-					buyCount++
-				}
-				if s.Side == "sell" {
-					sellCount++
-				}
-				if s.Price == "" {
-					t.Error("signal has empty price")
-				}
-			}
-			if tt.wantBuy != 0 && buyCount != tt.wantBuy {
-				t.Errorf("got %d buy signals, want %d", buyCount, tt.wantBuy)
-			}
-			if tt.wantSell != 0 && sellCount != tt.wantSell {
-				t.Errorf("got %d sell signals, want %d", sellCount, tt.wantSell)
-			}
-		})
+	// Call at exactly lower level 60000
+	signals2 := g.evaluate(sessionID, cfg, 60000)
+	// |60000 - 60000| = 0 <= 2500, touched. 60000 < 65000 (mid) → buy
+	if len(signals2) != 1 {
+		t.Fatalf("expected 1 buy signal at level 60000, got %d", len(signals2))
+	}
+
+	// Same price again → level already triggered, should not re-emit
+	signals3 := g.evaluate(sessionID, cfg, 60000)
+	if len(signals3) != 0 {
+		t.Errorf("expected 0 signals (level already triggered), got %d", len(signals3))
+	}
+
+	// Price moves away (down to 55000) then back up
+	g.evaluate(sessionID, cfg, 55000) // price moves away
+	signals4 := g.evaluate(sessionID, cfg, 60000)
+	// |55000 - 60000| = 5000 >= step(5000) → rearm. Then at 60000 → touched again
+	if len(signals4) != 1 {
+		t.Errorf("expected 1 buy signal after re-arm, got %d", len(signals4))
+	}
+}
+
+func TestGridEngine_Reset(t *testing.T) {
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
+	sessionID := int64(20)
+	cfg := GridConfig{UpperPrice: 70000, LowerPrice: 60000, GridCount: 2}
+
+	g.evaluate(sessionID, cfg, 60000)
+	if _, ok := g.states[sessionID]; !ok {
+		t.Fatal("expected state to exist")
+	}
+
+	g.Reset(sessionID)
+	if _, ok := g.states[sessionID]; ok {
+		t.Error("expected state to be cleared after Reset")
 	}
 }
 
 func TestGridEngine_SignalPriceAccuracy(t *testing.T) {
-	g := &GridEngine{}
+	g := &GridEngine{states: make(map[int64]*gridSessionState)}
 	cfg := GridConfig{UpperPrice: 100, LowerPrice: 0, GridCount: 4}
-
 	// levels: 0, 25, 50, 75, 100, mid=50
-	// price=75 → sell at 75
-	signals := g.evaluate(cfg, 75)
 
+	signals := g.evaluate(1, cfg, 75)
 	found := false
 	for _, s := range signals {
 		if s.Price == "75.00000000" && s.Side == "sell" {
@@ -97,16 +130,5 @@ func TestGridEngine_SignalPriceAccuracy(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected sell signal at price 75.00000000")
-	}
-}
-
-func TestGridEngine_MultipleLevels(t *testing.T) {
-	g := &GridEngine{}
-	// levels: 0, 20, 40, 60, 80, 100, mid=50
-	// price=100 → sell at levels > mid: 60, 80, 100
-	cfg := GridConfig{UpperPrice: 100, LowerPrice: 0, GridCount: 5}
-	signals := g.evaluate(cfg, 100)
-	if len(signals) != 3 {
-		t.Errorf("expected 3 sell signals at levels 60,80,100, got %d", len(signals))
 	}
 }

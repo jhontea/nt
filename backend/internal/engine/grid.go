@@ -11,12 +11,40 @@ import (
 	"github.com/user/nt/internal/tokocrypto"
 )
 
+type levelState int
+
+const (
+	levelInactive levelState = iota
+	levelTriggered
+)
+
+type gridSessionState struct {
+	levels []gridLevel
+}
+
+type gridLevel struct {
+	index     int
+	price     float64
+	side      string // "buy" or "sell"
+	state     levelState
+	lastPrice float64 // last market price when this level was evaluated
+}
+
 type GridEngine struct {
-	client *tokocrypto.Client
+	client  *tokocrypto.Client
+	states  map[int64]*gridSessionState
 }
 
 func NewGridEngine(client *tokocrypto.Client) *GridEngine {
-	return &GridEngine{client: client}
+	return &GridEngine{
+		client: client,
+		states: make(map[int64]*gridSessionState),
+	}
+}
+
+// Reset clears state for a session (called when session is restarted).
+func (g *GridEngine) Reset(sessionID int64) {
+	delete(g.states, sessionID)
 }
 
 func (g *GridEngine) Evaluate(session model.Session, configStr string) []Signal {
@@ -37,7 +65,7 @@ func (g *GridEngine) Evaluate(session model.Session, configStr string) []Signal 
 		return nil
 	}
 
-	signals := g.evaluate(cfg, price)
+	signals := g.evaluate(session.ID, cfg, price)
 	for i := range signals {
 		signals[i].Symbol = session.Symbol
 		signals[i].Quantity = cfg.Quantity
@@ -45,26 +73,84 @@ func (g *GridEngine) Evaluate(session model.Session, configStr string) []Signal 
 	return signals
 }
 
-func (g *GridEngine) evaluate(config GridConfig, currentPrice float64) []Signal {
-	signals := []Signal{}
+func (g *GridEngine) evaluate(sessionID int64, config GridConfig, currentPrice float64) []Signal {
 	step := (config.UpperPrice - config.LowerPrice) / float64(config.GridCount)
 	if step <= 0 {
-		return signals
+		return nil
 	}
 
 	midPrice := (config.UpperPrice + config.LowerPrice) / 2
 
-	for i := 0; i <= config.GridCount; i++ {
-		level := config.LowerPrice + step*float64(i)
-		levelRounded := math.Round(level*1e8) / 1e8
-		priceStr := fmt.Sprintf("%.8f", levelRounded)
+	// Build or rebuild levels if needed
+	state := g.getOrCreateState(sessionID, config, step, midPrice)
 
-		if currentPrice >= levelRounded && levelRounded > midPrice {
-			signals = append(signals, Signal{Side: string(model.SideSell), Price: priceStr, Reason: "grid_level"})
+	signals := []Signal{}
+
+	for i := range state.levels {
+		lvl := &state.levels[i]
+		levelPrice := lvl.price
+
+		// Re-arm: if price has moved away from this level by at least 1 step, rearm
+		if lvl.state == levelTriggered {
+			distance := math.Abs(currentPrice - levelPrice)
+			if distance >= step {
+				lvl.state = levelInactive
+			}
 		}
-		if currentPrice <= levelRounded && levelRounded < midPrice {
-			signals = append(signals, Signal{Side: string(model.SideBuy), Price: priceStr, Reason: "grid_level"})
+
+		// Check if price touches this level (within half a step tolerance)
+		tolerance := step / 2
+		touched := math.Abs(currentPrice-levelPrice) <= tolerance
+
+		if touched && lvl.state == levelInactive {
+			var side string
+			if levelPrice < midPrice {
+				side = string(model.SideBuy)
+			} else if levelPrice > midPrice {
+				side = string(model.SideSell)
+			} else {
+				// skip the exact midpoint (neutral)
+				continue
+			}
+
+			signals = append(signals, Signal{
+				Side:   side,
+				Price:  fmt.Sprintf("%.8f", levelPrice),
+				Reason: fmt.Sprintf("grid_%s_level_%d", side, lvl.index),
+			})
+			lvl.state = levelTriggered
+		}
+
+		lvl.lastPrice = currentPrice
+	}
+
+	return signals
+}
+
+func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, midPrice float64) *gridSessionState {
+	state, ok := g.states[sessionID]
+	if ok && len(state.levels) == config.GridCount+1 {
+		return state
+	}
+
+	// Build fresh levels
+	state = &gridSessionState{levels: make([]gridLevel, config.GridCount+1)}
+	for i := 0; i <= config.GridCount; i++ {
+		levelPrice := config.LowerPrice + step*float64(i)
+		levelPrice = math.Round(levelPrice*1e8) / 1e8
+
+		side := string(model.SideBuy)
+		if levelPrice > midPrice {
+			side = string(model.SideSell)
+		}
+
+		state.levels[i] = gridLevel{
+			index: i,
+			price: levelPrice,
+			side:  side,
+			state: levelInactive,
 		}
 	}
-	return signals
+	g.states[sessionID] = state
+	return state
 }
