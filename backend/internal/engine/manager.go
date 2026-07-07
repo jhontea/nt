@@ -133,6 +133,10 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 				continue
 			}
 			m.evaluate(ctx, fresh)
+			// Run validator on every tick for grid+signal sessions
+			if fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal) {
+				m.validatePendingSignals(fresh)
+			}
 		}
 	}
 }
@@ -151,10 +155,9 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 
 	switch session.Mode {
 	case string(model.ModeSignal):
-		// For grid strategy: save to strategy_signals table and run validator
+		// For grid strategy: save to strategy_signals table
 		if session.Strategy == string(model.StratGrid) && m.signalRepo != nil {
 			m.saveGridSignals(session, signals)
-			m.validatePendingSignals(session)
 		} else {
 			m.saveSignals(session.ID, signals)
 		}
