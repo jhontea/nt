@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useSessionWS } from '@/lib/useWS'
 import { useEffect, useState } from 'react'
+import { useTheme } from '@/lib/theme'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
@@ -42,6 +43,8 @@ export default function SessionDetailPage() {
   const [notesSaved, setNotesSaved] = useState(false)
   const [reevalResult, setReevalResult] = useState<any>(null)
   const [reevalLoading, setReevalLoading] = useState(false)
+  const { theme } = useTheme()
+  const tooltipStyle = { background: theme === 'dark' ? '#1e201c' : '#fff', border: '1px solid ' + (theme === 'dark' ? 'rgba(232,235,230,0.12)' : 'rgba(14,15,12,0.08)'), borderRadius: 12, fontSize: 11, color: theme === 'dark' ? '#e8ebe6' : '#0e0f0c' }
 
   // Fetch all sessions for navigation
   const { data: allSessions } = useQuery({
@@ -459,10 +462,10 @@ export default function SessionDetailPage() {
             {/* Strategy icon */}
             <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center text-3xl flex-shrink-0 ${
               session.strategy === 'grid'
-                ? 'bg-[rgba(159,232,112,0.15)]'
+                ? 'bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870]'
                 : session.strategy === 'trend'
-                ? 'bg-[rgba(56,200,255,0.12)]'
-                : 'bg-[rgba(255,209,26,0.12)]'
+                ? 'bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]'
+                : 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
             }`}>
               {session.strategy === 'grid' ? <Grid2x2 size={28} /> : session.strategy === 'trend' ? <TrendingUp size={28} /> : <Coins size={28} />}
             </div>
@@ -699,13 +702,13 @@ export default function SessionDetailPage() {
             </div>
             <div className={`rounded-[24px] p-5 border-2 mb-4 ${reevalResult.in_range ? 'border-[rgba(159,232,112,0.4)] bg-[rgba(159,232,112,0.04)]' : 'border-[rgba(208,50,56,0.4)] bg-[rgba(208,50,56,0.04)]'}`}>
               <div className="flex items-center gap-2 mb-3">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${reevalResult.in_range ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.12)] text-[#d03238]'}`}>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${reevalResult.in_range ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {reevalResult.in_range ? '✓ Dalam Range' : '✗ Keluar Range'}
                 </span>
                 <span className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{reevalResult.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</span>
                 <span className="text-xs text-[#686868] dark:text-[#898989]">posisi {reevalResult.position_pct.toFixed(1)}% dalam range</span>
               </div>
-              <p className="text-sm text-[#454745] dark:text-[#8a8d88] mb-4">{reevalResult.suggestion}</p>
+              <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88] mb-4">{reevalResult.suggestion}</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-4">
                 <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-3">
                   <p className="text-[#686868] dark:text-[#898989] mb-1">Range Saat Ini</p>
@@ -804,7 +807,7 @@ export default function SessionDetailPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 10, fontSize: 11 }}
+                          contentStyle={{ ...tooltipStyle, borderRadius: 10 }}
                           formatter={(value: number) => [`$${fmt(value)}`, '']}
                         />
                       </PieChart>
@@ -873,10 +876,10 @@ export default function SessionDetailPage() {
               <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={pnlChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,100,100,0.15)" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgba(104,104,104,1)' }} tickLine={false} axisLine={false} stroke="none" />
-                  <YAxis tick={{ fontSize: 10, fill: 'rgba(104,104,104,1)' }} tickLine={false} axisLine={false} stroke="none" tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}%`} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme === 'dark' ? '#898989' : '#686868' }} tickLine={false} axisLine={false} stroke="none" />
+                  <YAxis tick={{ fontSize: 10, fill: theme === 'dark' ? '#898989' : '#686868' }} tickLine={false} axisLine={false} stroke="none" tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}%`} />
                   <Tooltip
-                    contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 12, fontSize: 11 }}
+                    contentStyle={tooltipStyle}
                     formatter={(value: number, name: string) => [`${value > 0 ? '+' : ''}${value}%`, (name as string) === 'cumulative' ? 'Kumulatif' : 'Sinyal'] as [string, string]}
                     labelFormatter={(label: string, payload: Array<{ payload?: { time?: string } }>) => payload?.[0]?.payload?.time ?? label}
                   />
@@ -1137,7 +1140,7 @@ export default function SessionDetailPage() {
                               {isBuy ? '▲ Beli' : '▼ Jual'}
                             </span>
                             {!isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">L{s.grid_level_index}</span>}
-                            {isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">{s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden Cross</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1" />Death Cross</> : s.reason}</span>}
+                            {isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">{s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden Cross</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1 text-[#d03238] dark:text-[#ff6b6f]" />Death Cross</> : s.reason}</span>}
                             <span className="text-xs font-mono text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</span>
                             {s.validation_status === 'confirmed' && s.result_pct != null && (
                               <span className={`text-xs font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
@@ -1184,7 +1187,7 @@ export default function SessionDetailPage() {
                           </td>
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
                             {isTrendSignal
-                              ? (s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1" />Death</> : s.reason)
+                              ? (s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1 text-[#d03238] dark:text-[#ff6b6f]" />Death</> : s.reason)
                               : `#${s.grid_level_index}`}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
