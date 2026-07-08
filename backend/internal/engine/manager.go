@@ -137,10 +137,13 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 				continue
 			}
 			m.evaluate(ctx, fresh)
-			// Run validator on every tick for grid+signal sessions
-			if fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal) {
-				m.validatePendingSignals(fresh)
-			}
+		// Run validator on every tick for grid+signal sessions
+		switch {
+		case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
+			m.validatePendingSignals(fresh)
+		case fresh.Strategy == string(model.StratTrend) && fresh.Mode == string(model.ModeSignal):
+			m.validatePendingTrendSignals(fresh)
+		}
 		}
 	}
 }
@@ -159,10 +162,12 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 
 	switch session.Mode {
 	case string(model.ModeSignal):
-		// For grid strategy: save to strategy_signals table
-		if session.Strategy == string(model.StratGrid) && m.signalRepo != nil {
+		switch {
+		case session.Strategy == string(model.StratGrid) && m.signalRepo != nil:
 			m.saveGridSignals(session, signals)
-		} else {
+		case session.Strategy == string(model.StratTrend) && m.signalRepo != nil:
+			m.saveTrendSignals(session, signals)
+		default:
 			m.saveSignals(session.ID, signals)
 		}
 		m.broadcast(session.ID, session.Name, signals)
@@ -322,6 +327,121 @@ func (m *Manager) validatePendingSignals(session model.Session) {
 			r.resultPct, r.resultGridSteps, r.maxFavPct, r.maxAdvPct, r.maxFavGrid, r.maxAdvGrid, r.note)
 		if err != nil {
 			slog.Error("update signal validation", "signal", r.signalID, "status", r.status, "error", err)
+		}
+	}
+}
+
+func (m *Manager) saveTrendSignals(session model.Session, signals []Signal) {
+	if len(signals) == 0 || m.signalRepo == nil {
+		return
+	}
+
+	var cfg TrendConfig
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		slog.Error("parse trend config for signals", "session", session.ID, "error", err)
+		return
+	}
+
+	// Apply defaults if validation fields were not set in config (legacy sessions)
+	targetVal := cfg.ValidationTargetValue
+	if targetVal == 0 {
+		targetVal = 2.0
+	}
+	invalidVal := cfg.ValidationInvalidValue
+	if invalidVal == 0 {
+		invalidVal = 1.0
+	}
+	windowMin := cfg.ValidationWindowMinutes
+	if windowMin == 0 {
+		windowMin = 120
+	}
+
+	for _, sig := range signals {
+		// ponytail: trend pakai kolom grid_* sebagai marker*, 0 untuk grid-only fields.
+		// Rename ke marker_* saat strategi ke-4 muncul.
+		signal := &model.StrategySignal{
+			SessionID:              session.ID,
+			Symbol:                 session.Symbol,
+			Strategy:               "trend",
+			SignalType:             sig.Side,
+			GridLevelIndex:         0,
+			GridLevelPrice:         sig.Price,
+			MarketPriceAtSignal:   sig.Price,
+			Quantity:               sig.Quantity,
+			Reason:                 sig.Reason,
+			ValidationMode:         "percent",
+			ValidationTargetValue:  targetVal,
+			ValidationInvalidValue: invalidVal,
+			ValidationWindowMinutes: windowMin,
+		}
+		if _, err := m.signalRepo.Create(context.Background(), signal); err != nil {
+			slog.Error("save trend signal", "session", session.ID, "error", err)
+		} else {
+			slog.Info("trend signal saved", "session", session.ID, "side", sig.Side, "reason", sig.Reason)
+		}
+	}
+	// Backward-compat: also save to orders table
+	m.saveSignals(session.ID, signals)
+}
+
+func (m *Manager) validatePendingTrendSignals(session model.Session) {
+	if m.signalRepo == nil {
+		return
+	}
+
+	pending, err := m.signalRepo.ListPending(context.Background(), session.ID)
+	if err != nil || len(pending) == 0 {
+		return
+	}
+
+	var cfg TrendConfig
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		slog.Error("parse trend config for validation", "session", session.ID, "error", err)
+		return
+	}
+	interval := cfg.Interval
+	if interval == "" {
+		interval = "5m"
+	}
+	limit := cfg.SlowPeriod + 5
+	if limit < 10 {
+		limit = 10
+	}
+
+	raw, err := m.client.GetCandles(session.Symbol, interval, limit)
+	if err != nil {
+		slog.Error("trend validator fetch candles", "session", session.ID, "error", err)
+		return
+	}
+	prices := make([]float64, 0, len(raw))
+	for _, c := range raw {
+		if len(c) < 5 {
+			continue
+		}
+		p, err := strconv.ParseFloat(fmt.Sprintf("%v", c[4]), 64)
+		if err != nil {
+			continue
+		}
+		prices = append(prices, p)
+	}
+	if len(prices) < cfg.SlowPeriod {
+		slog.Warn("trend validator insufficient candles", "session", session.ID, "got", len(prices), "need", cfg.SlowPeriod)
+		return
+	}
+
+	currentPrice := prices[len(prices)-1]
+	fastSMA := sma(prices, cfg.FastPeriod)
+	slowSMA := sma(prices, cfg.SlowPeriod)
+	fast := fastSMA[len(fastSMA)-1]
+	slow := slowSMA[len(slowSMA)-1]
+
+	validator := NewTrendValidator()
+	results := validator.ValidatePendingTrend(pending, currentPrice, fast, slow)
+	for _, r := range results {
+		slog.Info("trend signal validated", "signal", r.signalID, "status", r.status, "result_pct", r.resultPct, "note", r.note)
+		if err := m.signalRepo.UpdateValidation(context.Background(), r.signalID, r.status,
+			r.resultPct, r.resultGridSteps, r.maxFavPct, r.maxAdvPct, r.maxFavGrid, r.maxAdvGrid, r.note); err != nil {
+			slog.Error("update trend signal validation", "signal", r.signalID, "error", err)
 		}
 	}
 }
