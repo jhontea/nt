@@ -202,10 +202,9 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
   }
 
   return (
-    <div className="mb-8 rounded-[24px] bg-white dark:bg-[#1e201c] shadow-[0_0_0_1px_rgba(14,15,12,0.08),0_8px_32px_rgba(14,15,12,0.06)] dark:shadow-[0_0_0_1px_rgba(232,235,230,0.1),0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden border-t-[3px] border-t-[#9fe870]">
-      <form onSubmit={handleCreate} className="p-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
+    <form onSubmit={handleCreate} className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
             <h2 className="font-black text-xl text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">New Session</h2>
             <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">Konfigurasi bot trading baru</p>
           </div>
@@ -528,7 +527,6 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
             {creating ? 'Membuat...' : 'Buat Session'}
           </button>
         </div>
-      </form>
-    </div>
+    </form>
   )
 }
