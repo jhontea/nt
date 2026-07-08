@@ -14,8 +14,7 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import { HelpIcon } from '@/components/HelpIcon'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Plus } from 'lucide-react'
 
 export default function TrendPage() {
   const { isAuthenticated, initialized } = useAuth()
@@ -51,8 +50,8 @@ export default function TrendPage() {
               </p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap">
-            + New Session
+          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
+            <Plus size={16} /> New Session
           </button>
         </div>
         <StrategyTabs active="trend" />

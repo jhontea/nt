@@ -52,11 +52,11 @@ export default function GridPage() {
             <Plus size={16} /> New Session
           </button>
         </div>
-        <InfoStrip tone="grid" icon={<Grid2x2 size={16} />} text="Bot memasang order beli di harga rendah dan jual di harga tinggi secara berjenjang, lalu mengambil untung dari fluktuasi pasar." help="Grid cocok untuk pasar sideways (naik-turun) di mana harga bergerak dalam rentang tertentu." />
-        <StrategyBanner strategy="grid" sessions={sessions ?? []} />
         <StrategyTabs active="grid" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="grid" />}
+        <InfoStrip tone="grid" icon={<Grid2x2 size={16} />} text="Bot memasang order beli di harga rendah dan jual di harga tinggi secara berjenjang, lalu mengambil untung dari fluktuasi pasar." help="Grid cocok untuk pasar sideways (naik-turun) di mana harga bergerak dalam rentang tertentu." />
+        <StrategyBanner strategy="grid" sessions={sessions ?? []} />
         <SectionLabel>SESSION GRID · {sessions?.length ?? 0}</SectionLabel>
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse"><div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" /><span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span></div>

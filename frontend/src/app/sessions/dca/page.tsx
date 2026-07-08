@@ -14,8 +14,7 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import { HelpIcon } from '@/components/HelpIcon'
-import { Coins } from 'lucide-react'
+import { Coins, Plus } from 'lucide-react'
 
 export default function DcaPage() {
   const { isAuthenticated, initialized } = useAuth()
@@ -48,25 +47,21 @@ export default function DcaPage() {
               <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">DCA</h1>
               <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Beli aset secara berkala dalam jumlah tetap</p>
             </div>
-            <HelpIcon text="Bot membeli aset secara rutin dalam jumlah tetap untuk meratakan harga beli rata-rata, sehingga tidak perlu menebak waktu terbaik." />
-            <HelpIcon text="Bot membeli aset secara rutin dalam jumlah tetap untuk meratakan harga beli rata-rata, sehingga tidak perlu menebak waktu terbaik." />
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap">
-            + New Session
+          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
+            <Plus size={16} /> New Session
           </button>
         </div>
 
+        <StrategyTabs active="dca" />
+        <MarketTicker />
+        {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
         <InfoStrip
           tone="dca"
           icon={<Coins size={16} />}
           text="Bot membeli aset secara rutin dalam jumlah tetap untuk meratakan harga beli rata-rata — cocok untuk menabung aset tanpa menebak pasar."
         />
         <StrategyBanner strategy="dca" sessions={sessions ?? []} />
-
-        <StrategyTabs active="dca" />
-        <MarketTicker />
-        {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
-
         <SectionLabel>SESSION DCA · {sessions?.length ?? 0}</SectionLabel>
 
         {isLoading ? (
