@@ -150,3 +150,17 @@ export interface Order {
   executed_price: string
   created_at: string
 }
+
+export interface TrendSessionStatus {
+  session_id: number
+  session_name: string
+  symbol: string
+  mode: string
+  fast_sma?: number
+  slow_sma?: number
+  cross_status: 'golden' | 'death' | 'neutral' | 'unknown'
+  price_position_pct?: number
+  current_price?: number
+  last_signal_type?: string
+  last_signal_result?: number
+}

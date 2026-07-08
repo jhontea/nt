@@ -74,6 +74,7 @@ export const api = {
   trend: {
     sessions: {
       list: () => request<import('@/types').Session[]>('/v1/trend/sessions'),
+      status: () => request<import('@/types').TrendSessionStatus[]>('/v1/trend/sessions/status'),
       create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
         request<import('@/types').Session>('/v1/trend/sessions', { method: 'POST', body: JSON.stringify(data) }),
     },

@@ -284,6 +284,67 @@ func main() {
 		return c.JSON(200, insights)
 	})
 
+	// Trend session status: real-time SMA/cross monitoring for running trend sessions
+	v1.GET("/trend/sessions/status", func(c echo.Context) error {
+		userIDStr := c.Get("user_id").(string)
+		userID, _ := strconv.ParseInt(userIDStr, 10, 64)
+
+		var sessions []model.Session
+		err := db.Select(&sessions, db.Rebind(
+			`SELECT * FROM sessions WHERE user_id = ? AND strategy = 'trend' AND status = 'running' ORDER BY created_at DESC`), userID)
+		if err != nil {
+			return c.JSON(500, ErrorResponse{Error: err.Error()})
+		}
+
+		type sessionStatus struct {
+			SessionID        int64    `json:"session_id"`
+			SessionName      string   `json:"session_name"`
+			Symbol           string   `json:"symbol"`
+			Mode             string   `json:"mode"`
+			FastSMA          *float64 `json:"fast_sma,omitempty"`
+			SlowSMA          *float64 `json:"slow_sma,omitempty"`
+			CrossStatus      string   `json:"cross_status"`
+			PricePositionPct *float64 `json:"price_position_pct,omitempty"`
+			CurrentPrice     *float64 `json:"current_price,omitempty"`
+			LastSignalType   *string  `json:"last_signal_type,omitempty"`
+			LastSignalResult *float64 `json:"last_signal_result,omitempty"`
+		}
+
+		results := make([]sessionStatus, 0, len(sessions))
+		for _, s := range sessions {
+			status := engine.ComputeTrendStatus(tokoClient, s, s.Config)
+			entry := sessionStatus{
+				SessionID:   s.ID,
+				SessionName: s.Name,
+				Symbol:      s.Symbol,
+				Mode:        s.Mode,
+				CrossStatus: "unknown",
+			}
+			if status != nil {
+				entry.FastSMA = &status.FastSMA
+				entry.SlowSMA = &status.SlowSMA
+				entry.CrossStatus = status.CrossStatus
+				entry.PricePositionPct = &status.PricePositionPct
+				entry.CurrentPrice = &status.CurrentPrice
+			}
+
+			var sig struct {
+				SignalType string  `db:"signal_type"`
+				ResultPct  *float64 `db:"result_pct"`
+			}
+			err := db.Get(&sig, db.Rebind(
+				`SELECT signal_type, result_pct FROM strategy_signals WHERE session_id = ? AND validation_status = 'confirmed' ORDER BY created_at DESC LIMIT 1`), s.ID)
+			if err == nil {
+				entry.LastSignalType = &sig.SignalType
+				entry.LastSignalResult = sig.ResultPct
+			}
+
+			results = append(results, entry)
+		}
+
+		return c.JSON(200, results)
+	})
+
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
