@@ -172,6 +172,100 @@ func RecommendGrid(symbol string, currentPrice float64, horizon Horizon, capital
 	}, nil
 }
 
+var trendFastMap = map[PairClass]map[Horizon]int{
+	PairClassStable:    {HorizonShort: 10, HorizonMedium: 20, HorizonLong: 50},
+	PairClassVolatile:  {HorizonShort: 7, HorizonMedium: 10, HorizonLong: 20},
+	PairClassMicropPrice: {HorizonShort: 5, HorizonMedium: 7, HorizonLong: 10},
+}
+
+var trendSlowMap = map[PairClass]map[Horizon]int{
+	PairClassStable:    {HorizonShort: 30, HorizonMedium: 50, HorizonLong: 200},
+	PairClassVolatile:  {HorizonShort: 21, HorizonMedium: 30, HorizonLong: 50},
+	PairClassMicropPrice: {HorizonShort: 15, HorizonMedium: 21, HorizonLong: 30},
+}
+
+var trendIntervalMap = map[PairClass]map[Horizon]string{
+	PairClassStable:    {HorizonShort: "15m", HorizonMedium: "1h", HorizonLong: "4h"},
+	PairClassVolatile:  {HorizonShort: "5m", HorizonMedium: "15m", HorizonLong: "1h"},
+	PairClassMicropPrice: {HorizonShort: "5m", HorizonMedium: "15m", HorizonLong: "1h"},
+}
+
+var trendWindowMap = map[PairClass]map[Horizon]int{
+	PairClassStable:    {HorizonShort: 240, HorizonMedium: 720, HorizonLong: 2880},
+	PairClassVolatile:  {HorizonShort: 120, HorizonMedium: 360, HorizonLong: 1440},
+	PairClassMicropPrice: {HorizonShort: 60, HorizonMedium: 240, HorizonLong: 720},
+}
+
+var trendTargetPctMap = map[Horizon]float64{
+	HorizonShort:  1.0,
+	HorizonMedium: 2.0,
+	HorizonLong:   5.0,
+}
+
+type TrendRecommendation struct {
+	Symbol                  string         `json:"symbol"`
+	CurrentPrice            float64        `json:"current_price"`
+	FastPeriod              int            `json:"fast_period"`
+	SlowPeriod              int            `json:"slow_period"`
+	Interval                string         `json:"interval"`
+	Quantity                string         `json:"quantity"`
+	ValidationMode          ValidationMode `json:"validation_mode"`
+	ValidationTargetValue   float64        `json:"validation_target_value"`
+	ValidationInvalidValue  float64        `json:"validation_invalid_value"`
+	ValidationWindowMinutes int            `json:"validation_window_minutes"`
+	Reason                  string         `json:"reason"`
+}
+
+// horizonLabel maps Horizon ke label pendek Indonesia untuk string reason.
+var horizonLabelMap = map[Horizon]string{
+	HorizonShort:  "pendek",
+	HorizonMedium: "menengah",
+	HorizonLong:   "panjang",
+}
+
+func RecommendTrend(symbol string, currentPrice float64, horizon Horizon, capital float64) (*TrendRecommendation, error) {
+	if currentPrice <= 0 {
+		return nil, fmt.Errorf("invalid current price: %f", currentPrice)
+	}
+	if capital < 0 {
+		return nil, fmt.Errorf("invalid capital: %f", capital)
+	}
+	if horizon != HorizonShort && horizon != HorizonMedium && horizon != HorizonLong {
+		horizon = HorizonMedium
+	}
+
+	class := classForPair(symbol)
+	fast := trendFastMap[class][horizon]
+	slow := trendSlowMap[class][horizon]
+	interval := trendIntervalMap[class][horizon]
+	window := trendWindowMap[class][horizon]
+	target := trendTargetPctMap[horizon]
+	invalid := target * 0.5
+
+	quantity := "0"
+	if capital > 0 {
+		q := capital / currentPrice
+		quantity = strconv.FormatFloat(math.Round(q*1e8)/1e8, 'f', 8, 64)
+	}
+
+	reason := fmt.Sprintf("%s diklasifikasikan sebagai %s, horizon %s: SMA %d/%d pada interval %s, evaluasi %dm - cocok untuk trend following jangka %s",
+		symbol, pairClassName(class), horizon, fast, slow, interval, window, horizonLabelMap[horizon])
+
+	return &TrendRecommendation{
+		Symbol:                  symbol,
+		CurrentPrice:            currentPrice,
+		FastPeriod:              fast,
+		SlowPeriod:              slow,
+		Interval:                interval,
+		Quantity:                quantity,
+		ValidationMode:          ValidationPercent,
+		ValidationTargetValue:   target,
+		ValidationInvalidValue:  invalid,
+		ValidationWindowMinutes: window,
+		Reason:                  reason,
+	}, nil
+}
+
 func pairClassName(c PairClass) string {
 	switch c {
 	case PairClassStable:

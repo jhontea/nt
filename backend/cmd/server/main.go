@@ -194,6 +194,33 @@ func main() {
 		return c.JSON(200, rec)
 	})
 
+	// Trend Signal recommendation: returns recommended SMA fast/slow, interval, qty, and validation defaults per pair/horizon.
+	v1.GET("/trend/recommend", func(c echo.Context) error {
+		symbol := c.QueryParam("symbol")
+		if symbol == "" {
+			return c.JSON(400, ErrorResponse{Error: "symbol is required"})
+		}
+		horizon := engine.Horizon(c.QueryParam("horizon"))
+		if horizon == "" {
+			horizon = engine.HorizonMedium
+		}
+		capitalStr := c.QueryParam("capital")
+		capital, _ := strconv.ParseFloat(capitalStr, 64)
+		if capital <= 0 {
+			capital = 100
+		}
+		ticker, err := tokoClient.GetTicker(symbol)
+		if err != nil {
+			return c.JSON(502, ErrorResponse{Error: "failed to fetch ticker: " + err.Error()})
+		}
+		price, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+		rec, err := engine.RecommendTrend(symbol, price, horizon, capital)
+		if err != nil {
+			return c.JSON(400, ErrorResponse{Error: err.Error()})
+		}
+		return c.JSON(200, rec)
+	})
+
 	// Grid insights: analyze past signal data for recommendations
 	v1.GET("/grid/insights", func(c echo.Context) error {
 		symbol := c.QueryParam("symbol")
