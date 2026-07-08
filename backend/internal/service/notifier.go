@@ -150,26 +150,45 @@ func (n *Notifier) SendPaperAlert(sessionName, symbol, reason string, needed, av
 	}
 }
 
-func (n *Notifier) SendTrade(symbol, side, price, qty, pnl string) {	emoji := "🟢"
+func (n *Notifier) SendTrade(sessionName, strategy, mode, symbol, side, price, qty, pnl string) {
+	emoji := "🟢"
 	label := "BELI"
 	if side == string(model.SideSell) {
 		emoji = "🔴"
 		label = "JUAL"
 	}
+	strategyLabel := map[string]string{
+		"grid":  "📐 Grid",
+		"trend": "📈 Trend",
+		"dca":   "🪙 DCA",
+	}[strategy]
+	if strategyLabel == "" {
+		strategyLabel = strategy
+	}
+	modeLabel := map[string]string{
+		"signal": "📊 Signal",
+		"paper":  "📝 Paper",
+		"live":   "⚡ Live",
+	}[mode]
+	if modeLabel == "" {
+		modeLabel = mode
+	}
 	pnlSign := ""
-	if pnl != "" {
-		if pnl[0] != '-' {
-			pnlSign = "+"
-		}
+	if pnl != "" && pnl[0] != '-' {
+		pnlSign = "+"
 	}
 	msg := fmt.Sprintf(
 		"⚡ <b>TRADE %s</b> %s\n"+
+			"📋 <b>%s</b> · %s · %s\n"+
 			"📊 Pair: <b>%s</b>\n"+
 			"💵 Harga: <code>%s</code>\n"+
 			"📦 Qty: <code>%s</code>\n"+
 			"💰 PnL: <b>%s%s</b>\n"+
 			"🕐 %s",
-		label, emoji, symbol, price, qty, pnlSign, pnl, time.Now().Format("15:04:05"),
+		label, emoji,
+		sessionName, strategyLabel, modeLabel,
+		symbol, price, qty, pnlSign, pnl,
+		time.Now().Format("15:04:05"),
 	)
 	if err := n.sendHTML(msg); err != nil {
 		slog.Warn("telegram send trade", "error", err)

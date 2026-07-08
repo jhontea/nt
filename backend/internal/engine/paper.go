@@ -54,7 +54,7 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 
 	// Send notif outside lock to avoid holding mutex during network call
 	if err == nil && notifSide != "" && p.notifier != nil {
-		p.notifier.SendTrade(session.Symbol, notifSide, notifPrice, notifQty, "")
+		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, notifSide, notifPrice, notifQty, "")
 	}
 	return err
 }
@@ -181,7 +181,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 
 	slog.Info("paper sell", "session", session.ID, "symbol", session.Symbol, "qty", useQty, "price", execPrice, "pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
 	if p.notifier != nil {
-		p.notifier.SendTrade(session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr)
+		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr)
 	}
 	return nil
 }
