@@ -717,9 +717,21 @@ setFastPeriod(String(p.config.fast_period || 10))
           </>
         ) : (
           <div className="text-center py-16">
-            <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] flex items-center justify-center text-2xl mx-auto mb-4">🤖</div>
-            <p className="text-[#0e0f0c] dark:text-[#e8ebe6] text-lg font-bold">Belum ada session</p>
-            <p className="text-[#686868] dark:text-[#898989] text-sm mt-1">Pilih preset di atas atau klik "+ New Session"</p>
+            <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] flex items-center justify-center text-2xl mx-auto mb-4">
+              {activeFilter === 'all' ? '🤖' : activeFilter === 'grid' ? '📐' : activeFilter === 'trend' ? '📈' : '🪙'}
+            </div>
+            <p className="text-[#0e0f0c] dark:text-[#e8ebe6] text-lg font-bold">
+              {activeFilter === 'all'
+                ? 'Belum ada session'
+                : `Belum ada session ${activeFilter === 'grid' ? 'Grid' : activeFilter === 'trend' ? 'Trend' : 'DCA'}`
+              }
+            </p>
+            <p className="text-[#686868] dark:text-[#898989] text-sm mt-1">
+              {activeFilter === 'all'
+                ? 'Pilih preset di atas atau klik "+ New Session"'
+                : 'Klik "+ New Session" atau pilih preset di atas'
+              }
+            </p>
           </div>
         )}
       </div>
