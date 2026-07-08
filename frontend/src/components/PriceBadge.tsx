@@ -21,7 +21,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
     return (
       <span className={`text-xs font-mono ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
         {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
-        <span className="ml-1">{isUp ? '▲' : '▼'} {Math.abs(parseFloat(data.priceChangePct))}%</span>
+        <span className="ml-1">{isUp ? '▲' : '▼'} {Math.abs(parseFloat(data.priceChangePct)).toFixed(2)}%</span>
       </span>
     )
   }
@@ -47,7 +47,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
               </p>
             </div>
             <div className={`text-right ${parseFloat(data.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-              <p className="text-lg font-semibold">{parseFloat(data.priceChange) >= 0 ? '+' : ''}{data.priceChangePct}%</p>
+              <p className="text-lg font-semibold">{parseFloat(data.priceChange) >= 0 ? '+' : ''}{parseFloat(data.priceChangePct).toFixed(2)}%</p>
               <p className="text-xs">{parseFloat(data.priceChange) >= 0 ? '+' : ''}{data.priceChange}</p>
             </div>
           </div>
@@ -58,7 +58,6 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
           </div>
         </>
       )}
-      {connected && !data && <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-2">Terhubung, menunggu data...</p>}
     </div>
   )
 }
