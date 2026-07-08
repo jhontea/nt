@@ -3,6 +3,7 @@ package engine
 import (
 	"math"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -180,6 +181,88 @@ func TestTrendBuy_InsufficientBalance(t *testing.T) {
 	p.db.Get(&count, "SELECT COUNT(*) FROM orders WHERE session_id=1")
 	if count != 0 {
 		t.Errorf("want 0 orders, got %d", count)
+	}
+}
+
+func TestTrendSell_ClosesAllBuys(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	p.db.Exec(p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, 'buy', 'market', ?, ?, 'filled', ?, ?)`),
+		1, "paper_trend_buy_1", "BTC_USDT", "50000", "0.01", "0.01", "50000")
+	p.setBalance(1, 500)
+
+	sig := Signal{Side: "sell", Price: "55000", Quantity: "0.01"}
+	err := p.executeTrendSell(session, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bal, _ := p.getBalance(1)
+	expected := 500.0 + 55000*0.01
+	if math.Abs(bal-expected) > 0.01 {
+		t.Errorf("want %.2f got %.2f", expected, bal)
+	}
+
+	var status string
+	p.db.Get(&status, "SELECT status FROM orders WHERE order_id='paper_trend_buy_1'")
+	if status != "closed" {
+		t.Errorf("want closed, got %s", status)
+	}
+
+	var pnl string
+	p.db.Get(&pnl, "SELECT pnl FROM trades WHERE session_id=1")
+	pnlF, _ := strconv.ParseFloat(pnl, 64)
+	expectedPnl := (55000.0 - 50000.0) * 0.01
+	if math.Abs(pnlF-expectedPnl) > 0.0001 {
+		t.Errorf("want pnl %.4f got %s", expectedPnl, pnl)
+	}
+
+	var sellCount int
+	p.db.Get(&sellCount, "SELECT COUNT(*) FROM orders WHERE session_id=1 AND side='sell'")
+	if sellCount != 1 {
+		t.Errorf("want 1 sell order, got %d", sellCount)
+	}
+}
+
+func TestTrendSell_SkipsIfNoPosition(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	sig := Signal{Side: "sell", Price: "55000", Quantity: "0.01"}
+	err := p.executeTrendSell(session, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bal, _ := p.getBalance(1)
+	if math.Abs(bal-1000) > 0.01 {
+		t.Errorf("balance should be unchanged, got %.2f", bal)
+	}
+}
+
+func TestTrendSell_MultipleBuys_ClosesAll(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	p.db.Exec(p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, 'buy', 'market', ?, ?, 'filled', ?, ?)`),
+		1, "paper_trend_buy_1", "BTC_USDT", "50000", "0.01", "0.01", "50000")
+	p.db.Exec(p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, 'buy', 'market', ?, ?, 'filled', ?, ?)`),
+		1, "paper_trend_buy_2", "BTC_USDT", "48000", "0.01", "0.01", "48000")
+	p.setBalance(1, 20)
+
+	sig := Signal{Side: "sell", Price: "55000", Quantity: "0.01"}
+	err := p.executeTrendSell(session, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var openCount int
+	p.db.Get(&openCount, "SELECT COUNT(*) FROM orders WHERE session_id=1 AND side='buy' AND status='filled'")
+	if openCount != 0 {
+		t.Errorf("want 0 open buys, got %d", openCount)
+	}
+
+	var tradeCount int
+	p.db.Get(&tradeCount, "SELECT COUNT(*) FROM trades WHERE session_id=1")
+	if tradeCount != 2 {
+		t.Errorf("want 2 trades, got %d", tradeCount)
 	}
 }
 

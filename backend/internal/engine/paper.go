@@ -222,6 +222,70 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 	return nil
 }
 
+func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) error {
+	var buys []model.Order
+	if err := p.db.Select(&buys, p.db.Rebind("SELECT * FROM orders WHERE session_id=? AND side='buy' AND status='filled'"), session.ID); err != nil {
+		return fmt.Errorf("fetch open buys: %w", err)
+	}
+	if len(buys) == 0 {
+		slog.Warn("trend: no open position to sell", "session", session.ID)
+		if p.hub != nil {
+			p.hub.Broadcast(session.ID, WSPaperAlert{
+				Type: "paper_alert", SessionID: session.ID,
+				Reason: "no_asset_to_sell", Needed: 0, Available: 0,
+			})
+		}
+		if p.notifier != nil {
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Tidak ada posisi untuk dijual", 0, 0)
+		}
+		return nil
+	}
+
+	execPriceF, _ := strconv.ParseFloat(signal.Price, 64)
+	totalProceeds := 0.0
+	totalQty := 0.0
+
+	for _, buy := range buys {
+		buyPrice, _ := strconv.ParseFloat(buy.ExecutedPrice, 64)
+		qtyF, _ := strconv.ParseFloat(buy.Quantity, 64)
+		pnl := (execPriceF - buyPrice) * qtyF
+		pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
+		proceeds := execPriceF * qtyF
+		totalProceeds += proceeds
+		totalQty += qtyF
+
+		if _, err := p.db.Exec(p.db.Rebind("UPDATE orders SET status='closed' WHERE id=?"), buy.ID); err != nil {
+			return fmt.Errorf("close buy order: %w", err)
+		}
+		if _, err := p.db.Exec(
+			p.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
+			session.ID, buy.OrderID, session.Symbol, string(model.SideSell), signal.Price, buy.Quantity, pnlStr,
+		); err != nil {
+			return fmt.Errorf("save trade: %w", err)
+		}
+	}
+
+	totalQtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
+	if _, err := p.db.Exec(
+		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
+		session.ID, fmt.Sprintf("paper_trend_sell_%d", time.Now().UnixNano()),
+		session.Symbol, string(model.SideSell), signal.Price, totalQtyStr, totalQtyStr, signal.Price,
+	); err != nil {
+		return fmt.Errorf("save sell order: %w", err)
+	}
+
+	balance, err := p.getBalance(session.ID)
+	if err != nil {
+		return err
+	}
+	if err := p.setBalance(session.ID, balance+totalProceeds); err != nil {
+		return err
+	}
+
+	slog.Info("trend paper sell", "session", session.ID, "symbol", session.Symbol, "qty", totalQtyStr, "price", signal.Price, "proceeds", fmt.Sprintf("%.2f", totalProceeds))
+	return nil
+}
+
 func (p *PaperEngine) getBalance(sessionID int64) (float64, error) {
 	var balance sql.NullFloat64
 	err := p.db.Get(&balance, p.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID)
