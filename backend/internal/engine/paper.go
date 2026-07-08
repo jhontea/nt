@@ -286,6 +286,18 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 	return nil
 }
 
+func (p *PaperEngine) ExecuteTrend(session model.Session, signal Signal) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	switch signal.Side {
+	case string(model.SideBuy):
+		return p.executeTrendBuy(session, signal)
+	case string(model.SideSell):
+		return p.executeTrendSell(session, signal)
+	}
+	return nil
+}
+
 func (p *PaperEngine) getBalance(sessionID int64) (float64, error) {
 	var balance sql.NullFloat64
 	err := p.db.Get(&balance, p.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID)

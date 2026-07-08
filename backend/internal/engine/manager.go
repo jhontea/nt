@@ -173,8 +173,14 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		m.broadcast(session.ID, session.Name, session.Strategy, session.Mode, signals)
 	case string(model.ModePaper):
 		for _, sig := range signals {
-			if err := m.paper.Execute(session, sig); err != nil {
-				slog.Error("paper execute", "session", session.ID, "error", err)
+			var execErr error
+			if session.Strategy == string(model.StratTrend) {
+				execErr = m.paper.ExecuteTrend(session, sig)
+			} else {
+				execErr = m.paper.Execute(session, sig)
+			}
+			if execErr != nil {
+				slog.Error("paper execute", "session", session.ID, "error", execErr)
 			}
 			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
