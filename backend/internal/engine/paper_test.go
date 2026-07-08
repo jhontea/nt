@@ -126,6 +126,63 @@ func TestPaperEngine_BuySell_Profit(t *testing.T) {
 	}
 }
 
+func TestTrendBuy_Executes(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	sig := Signal{Side: "buy", Price: "50000", Quantity: "0.01"}
+	err := p.executeTrendBuy(session, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bal, _ := p.getBalance(1)
+	expected := 1000.0 - 50000*0.01
+	if math.Abs(bal-expected) > 0.01 {
+		t.Errorf("want %.2f got %.2f", expected, bal)
+	}
+	var count int
+	p.db.Get(&count, "SELECT COUNT(*) FROM orders WHERE session_id=1 AND side='buy' AND status='filled'")
+	if count != 1 {
+		t.Errorf("want 1 order, got %d", count)
+	}
+}
+
+func TestTrendBuy_SkipsIfOpenPosition(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	sig := Signal{Side: "buy", Price: "50000", Quantity: "0.01"}
+	p.executeTrendBuy(session, sig)
+	p.executeTrendBuy(session, sig) // second call should be skipped
+	bal, _ := p.getBalance(1)
+	expected := 1000.0 - 50000*0.01
+	if math.Abs(bal-expected) > 0.01 {
+		t.Errorf("balance should only deduct once, got %.2f", bal)
+	}
+	var count int
+	p.db.Get(&count, "SELECT COUNT(*) FROM orders WHERE session_id=1 AND side='buy'")
+	if count != 1 {
+		t.Errorf("want 1 order, got %d", count)
+	}
+}
+
+func TestTrendBuy_InsufficientBalance(t *testing.T) {
+	p := setupPaperDB(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+	sig := Signal{Side: "buy", Price: "50000", Quantity: "1.0"} // 50000 > 1000 balance
+	err := p.executeTrendBuy(session, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bal, _ := p.getBalance(1)
+	if math.Abs(bal-1000) > 0.01 {
+		t.Errorf("balance should be unchanged, got %.2f", bal)
+	}
+	var count int
+	p.db.Get(&count, "SELECT COUNT(*) FROM orders WHERE session_id=1")
+	if count != 0 {
+		t.Errorf("want 0 orders, got %d", count)
+	}
+}
+
 func TestPaperEngine_Sell_NoMatchingBuy(t *testing.T) {
 	p := setupPaperDB(t)
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}

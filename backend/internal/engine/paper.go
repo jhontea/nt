@@ -171,6 +171,57 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	return nil
 }
 
+func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) error {
+	var openCount int
+	if err := p.db.Get(&openCount, p.db.Rebind("SELECT COUNT(*) FROM orders WHERE session_id=? AND side='buy' AND status='filled'"), session.ID); err != nil {
+		slog.Warn("trend: check open position", "session", session.ID, "error", err)
+	}
+	if openCount > 0 {
+		slog.Debug("trend: open position exists, skip buy", "session", session.ID)
+		return nil
+	}
+
+	execPriceF, _ := strconv.ParseFloat(signal.Price, 64)
+	qtyF, _ := strconv.ParseFloat(signal.Quantity, 64)
+	notional := execPriceF * qtyF
+
+	balance, err := p.getBalance(session.ID)
+	if err != nil {
+		return err
+	}
+	if balance < notional {
+		slog.Warn("trend: insufficient paper balance", "session", session.ID, "balance", balance, "needed", notional)
+		if p.hub != nil {
+			p.hub.Broadcast(session.ID, WSPaperAlert{
+				Type: "paper_alert", SessionID: session.ID,
+				Reason: "insufficient_balance", Needed: notional, Available: balance,
+			})
+		}
+		if p.notifier != nil {
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Saldo tidak cukup untuk beli", notional, balance)
+		}
+		return nil
+	}
+
+	newBalance := balance - notional
+	if err := p.setBalance(session.ID, newBalance); err != nil {
+		return err
+	}
+
+	_, err = p.db.Exec(
+		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
+		session.ID, fmt.Sprintf("paper_trend_buy_%d", time.Now().UnixNano()),
+		session.Symbol, string(model.SideBuy), signal.Price, signal.Quantity, signal.Quantity, signal.Price,
+	)
+	if err != nil {
+		return fmt.Errorf("save trend buy order: %w", err)
+	}
+
+	slog.Info("trend paper buy", "session", session.ID, "symbol", session.Symbol, "qty", signal.Quantity, "price", signal.Price, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
+	return nil
+}
+
 func (p *PaperEngine) getBalance(sessionID int64) (float64, error) {
 	var balance sql.NullFloat64
 	err := p.db.Get(&balance, p.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID)

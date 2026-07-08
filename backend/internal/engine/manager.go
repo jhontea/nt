@@ -170,7 +170,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		default:
 			m.saveSignals(session.ID, signals)
 		}
-		m.broadcast(session.ID, session.Name, signals)
+		m.broadcast(session.ID, session.Name, session.Strategy, session.Mode, signals)
 	case string(model.ModePaper):
 		for _, sig := range signals {
 			if err := m.paper.Execute(session, sig); err != nil {
@@ -183,15 +183,15 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
 			}
-			m.notifier.SendSignal(session.Name, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
 			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
 	}
 }
 
-func (m *Manager) broadcast(sessionID int64, sessionName string, signals []Signal) {
+func (m *Manager) broadcast(sessionID int64, sessionName, strategy, mode string, signals []Signal) {
 	for _, sig := range signals {
-		m.notifier.SendSignal(sessionName, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+		m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
 		m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
 	}
 }
