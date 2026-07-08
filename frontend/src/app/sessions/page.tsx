@@ -128,6 +128,18 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
   const [recommendation, setRecommendation] = useState<any>(null)
   const [insights, setInsights] = useState<any[]>([])
   const [nameEdited, setNameEdited] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<'all' | 'grid' | 'trend' | 'dca'>('all')
+
+  const stats = sessions ? {
+    all: { total: sessions.length, running: sessions.filter(s => s.status === 'running').length },
+    grid: { total: sessions.filter(s => s.strategy === 'grid').length, running: sessions.filter(s => s.strategy === 'grid' && s.status === 'running').length },
+    trend: { total: sessions.filter(s => s.strategy === 'trend').length, running: sessions.filter(s => s.strategy === 'trend' && s.status === 'running').length },
+    dca: { total: sessions.filter(s => s.strategy === 'dca').length, running: sessions.filter(s => s.strategy === 'dca' && s.status === 'running').length },
+  } : { all: { total: 0, running: 0 }, grid: { total: 0, running: 0 }, trend: { total: 0, running: 0 }, dca: { total: 0, running: 0 } }
+
+  const filteredSessions = sessions?.filter(s =>
+    activeFilter === 'all' ? true : s.strategy === activeFilter
+  )
 
   // Auto-generate session name when strategy/mode/symbol changes
   useEffect(() => {
@@ -284,7 +296,7 @@ setFastPeriod(String(p.config.fast_period || 10))
         </div>
 
         {/* Market Ticker */}
-        <div className="flex items-center gap-3 bg-white dark:bg-[#1e201c] rounded-[24px] px-5 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-8 overflow-x-auto shadow-[0_1px_4px_rgba(14,15,12,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
+        <div className="relative flex items-center gap-3 bg-white dark:bg-[#1e201c] rounded-[24px] px-5 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-8 overflow-x-auto shadow-[0_1px_4px_rgba(14,15,12,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
           <span className="text-[10px] font-bold text-[#9fe870] tracking-widest uppercase flex-shrink-0">Live</span>
           <div className="w-px h-4 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)] flex-shrink-0" />
           <div className="flex gap-5">
@@ -294,6 +306,7 @@ setFastPeriod(String(p.config.fast_period || 10))
             <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)] self-center" />
             <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">BNB</span><PriceBadge symbol="BNB_USDT" compact /></div>
           </div>
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent rounded-r-[24px] pointer-events-none" />
         </div>
 
         {/* Form panel — slide-down, full width, max-w-3xl */}
@@ -643,10 +656,10 @@ setFastPeriod(String(p.config.fast_period || 10))
         ) : sessions?.length ? (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions aktif · {sessions.length}</h2>
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions aktif · {filteredSessions?.length || 0}</h2>
             </div>
             <div className="space-y-3">
-              {sessions.map(s => (
+              {filteredSessions?.map(s => (
                 <SessionCard key={s.id} session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={(id) => router.push(`/sessions/${id}`)} />
               ))}
             </div>
