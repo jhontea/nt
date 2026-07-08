@@ -14,7 +14,7 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import type { GridConfig, GridInsight, Session, Order, SignalSummary, Ticker } from '@/types'
+import type { GridConfig, Session, Order, SignalSummary, Ticker } from '@/types'
 import { Grid2x2, Plus, Trophy, RefreshCw, BarChart2, TrendingUp, TrendingDown, DollarSign, Target, Layers } from 'lucide-react'
 
 function parseGridConfig(config: string): GridConfig | null {
@@ -76,20 +76,6 @@ export default function GridPage() {
   const paperIds = useMemo(() => sessions?.filter(s => s.mode === 'paper').map(s => s.id) ?? [], [sessions])
 
   // === Parallel queries for enrichment data ===
-
-  // Insights per symbol
-  const insightQueries = useQueries({
-    queries: uniqueSymbols.map(symbol => ({
-      queryKey: ['grid-insights', symbol],
-      queryFn: () => api.grid.insights(symbol),
-      enabled: isAuthenticated && uniqueSymbols.length > 0,
-      staleTime: 60_000,
-    })),
-  })
-  const insightsBySymbol = useMemo(() =>
-    Object.fromEntries(uniqueSymbols.map((sym, i) => [sym, insightQueries[i]?.data ?? []])) as Record<string, GridInsight[]>,
-    [uniqueSymbols, insightQueries]
-  )
 
   // PnL for running sessions
   const pnlQueries = useQueries({
@@ -250,49 +236,6 @@ export default function GridPage() {
           </div>
         )}
 
-        {/* === INSIGHTS PER SYMBOL === */}
-        {uniqueSymbols.length > 0 && (
-          <div className="mb-6">
-            <SectionLabel>RIWAYAT SINYAL PER PAIR</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {uniqueSymbols.map(sym => {
-                const insights: GridInsight[] = insightsBySymbol[sym] ?? []
-                const avgSuccess = insights.length > 0 ? insights.reduce((s, i) => s + i.success_rate, 0) / insights.length : null
-                return (
-                  <div key={sym} className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{sym.replace('_', '/')}</span>
-                      {avgSuccess !== null && (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${avgSuccess >= 60 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : avgSuccess >= 30 ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]' : 'bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                          {avgSuccess.toFixed(0)}% sukses
-                        </span>
-                      )}
-                    </div>
-                    {insights.length === 0 ? (
-                      <p className="text-xs text-[#686868] dark:text-[#898989]">Belum ada riwayat sinyal</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {insights.slice(0, 3).map(h => {
-                          const cfg = parseGridConfig(h.config)
-                          return (
-                            <div key={h.session_id} className="flex items-center justify-between text-xs">
-                              <span className="text-[#686868] dark:text-[#898989] truncate max-w-[140px]">{h.name}</span>
-                              <span className="text-[#686868] dark:text-[#898989]">{cfg ? `${cfg.grid_count} grid` : ''}</span>
-                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28] dark:text-[#9fe870]' : h.success_rate >= 30 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                {h.confirmed}/{h.total}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
         {/* === BEST PERFORMER === */}
         {best && (
           <div className="mb-6 bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(159,232,112,0.25)] flex items-center gap-3">
@@ -393,6 +336,15 @@ export default function GridPage() {
                       {currentPrice > 0 && (
                         <div className="mb-3">
                           <GridBar lower={cfg.lower_price} upper={cfg.upper_price} current={currentPrice} gridCount={cfg.grid_count} />
+                        </div>
+                      )}
+
+                      {/* Row 3: unrealized P&L for paper sessions */}
+                      {s.mode === 'paper' && extra?.portfolio && (
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className={`font-semibold ${extra.portfolio.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                            Unrealized {extra.portfolio.unrealized_pnl >= 0 ? '+' : ''}${extra.portfolio.unrealized_pnl.toFixed(2)}
+                          </span>
                         </div>
                       )}
                     </div>
