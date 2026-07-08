@@ -697,13 +697,27 @@ setFastPeriod(String(p.config.fast_period || 10))
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Mulai Cepat</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {presets.map(p => (
-                <button key={p.label} onClick={() => applyPreset(p)}
-                  className="bg-white dark:bg-[#1e201c] hover:bg-[rgba(159,232,112,0.04)] dark:hover:bg-[rgba(159,232,112,0.08)] rounded-[24px] p-4 text-left transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(159,232,112,0.5)] hover:shadow-[0_4px_16px_rgba(159,232,112,0.12)] group">
-                  <p className="font-bold text-sm text-[#0e0f0c] dark:text-[#e8ebe6] mb-1 group-hover:text-[#163300] dark:group-hover:text-[#9fe870]">{p.label}</p>
-                  <p className="text-xs text-[#686868] dark:text-[#898989] leading-snug">{p.desc}</p>
-                </button>
-              ))}
+              {presets.map(p => {
+                const iconBg = p.strategy === 'grid'
+                  ? 'bg-[rgba(159,232,112,0.15)]'
+                  : p.strategy === 'trend'
+                  ? 'bg-[rgba(56,200,255,0.12)]'
+                  : 'bg-[rgba(255,209,26,0.12)]'
+                const icon = p.label.split(' ')[0]
+                const labelText = p.label.split(' ').slice(1).join(' ')
+                return (
+                  <button key={p.label} onClick={() => applyPreset(p)}
+                    className="bg-white dark:bg-[#1e201c] hover:bg-[rgba(159,232,112,0.04)] dark:hover:bg-[rgba(159,232,112,0.08)] rounded-[24px] p-4 text-left transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(159,232,112,0.5)] hover:shadow-[0_4px_16px_rgba(159,232,112,0.12)] group flex flex-col gap-2">
+                    <div className={`w-10 h-10 rounded-full ${iconBg} flex items-center justify-center text-xl flex-shrink-0`}>
+                      {icon}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-[#0e0f0c] dark:text-[#e8ebe6] mb-0.5 group-hover:text-[#163300] dark:group-hover:text-[#9fe870]">{labelText}</p>
+                      <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] leading-snug">{p.desc}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
