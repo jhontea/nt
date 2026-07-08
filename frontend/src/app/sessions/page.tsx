@@ -667,7 +667,7 @@ fetchPriceAndApply(symbol)
               </div>
             </>
           )}
-              <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-6 border-t border-[rgba(14,15,12,0.06)] pt-6">Buat Session</button>
+              <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-4 border-t border-[rgba(14,15,12,0.06)] pt-5">Buat Session</button>
             </form>
           </div>
         )}
@@ -683,7 +683,7 @@ fetchPriceAndApply(symbol)
         ) : filteredSessions?.length ? (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions aktif · {filteredSessions?.length || 0}</h2>
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions · {filteredSessions?.length || 0}</h2>
             </div>
             <div className="space-y-3">
               {filteredSessions?.map(s => (
@@ -795,7 +795,10 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
           ) : (
             <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
           )}
-          <button className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+          <button className="flex items-center gap-1 px-3 py-2 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">
+              <span>✕</span>
+              <span className="sr-only sm:not-sr-only text-xs font-medium">Hapus</span>
+            </button>
         </div>
       </div>
     </div>
