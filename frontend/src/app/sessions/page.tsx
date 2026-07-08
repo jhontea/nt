@@ -111,8 +111,9 @@ export default function SessionsPage() {
   const [lowerPrice, setLowerPrice] = useState('')
   const [gridCount, setGridCount] = useState('10')
   const [quantity, setQuantity] = useState('0.001')
-  const [fastPeriod, setFastPeriod] = useState('10')
-  const [slowPeriod, setSlowPeriod] = useState('30')
+const [fastPeriod, setFastPeriod] = useState('10')
+const [slowPeriod, setSlowPeriod] = useState('30')
+const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('5m')
   const [dcaInterval, setDcaInterval] = useState('3600')
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
@@ -159,19 +160,28 @@ export default function SessionsPage() {
     setPriceLoading(false)
   }
 
-  async function fetchRecommendation() {
-    if (strategy !== 'grid') return
-    try {
-      const rec = await api.grid.recommend({ symbol, horizon, capital: parseFloat(capital) || 100, validation_mode: validationMode })
-      setRecommendation(rec)
-      setUpperPrice(String(rec.UpperPrice))
-      setLowerPrice(String(rec.LowerPrice))
-      setGridCount(String(rec.GridCount))
-      setQuantity(rec.Quantity)
-      // Also fetch historical insights
-      const hist = await api.grid.insights(symbol)
-      setInsights(hist || [])
-    } catch { /* ignore */ }
+async function fetchRecommendation() {
+	if (strategy === 'grid') {
+	  try {
+		const rec = await api.grid.recommend({ symbol, horizon, capital: parseFloat(capital) || 100, validation_mode: validationMode })
+		setRecommendation(rec)
+		setUpperPrice(String(rec.UpperPrice))
+		setLowerPrice(String(rec.LowerPrice))
+		setGridCount(String(rec.GridCount))
+		setQuantity(rec.Quantity)
+		const hist = await api.grid.insights(symbol)
+		setInsights(hist || [])
+	  } catch { /* ignore */ }
+	} else if (strategy === 'trend') {
+	  try {
+		const rec = await api.trend.recommend({ symbol, horizon, capital: parseFloat(capital) || 100 })
+		setRecommendation(rec)
+		setFastPeriod(String(rec.FastPeriod))
+		setSlowPeriod(String(rec.SlowPeriod))
+		setQuantity(rec.Quantity)
+		setTrendInterval(rec.Interval as '5m' | '15m' | '1h' | '4h')
+	  } catch { /* ignore */ }
+	}
   }
 
   // Fetch price when form opens or pair changes
@@ -182,8 +192,8 @@ export default function SessionsPage() {
       setRecommendation(null)
       return
     }
-    fetchPriceAndApply(symbol)
-    if (strategy === 'grid') setTimeout(fetchRecommendation, 300)
+fetchPriceAndApply(symbol)
+	if (strategy === 'grid' || strategy === 'trend') setTimeout(fetchRecommendation, 300)
   }, [showCreate, symbol])
 
   function applyPreset(p: Preset) {
@@ -193,8 +203,9 @@ export default function SessionsPage() {
     setName(p.label)
     setQuantity(p.config.quantity || '0.001')
     setGridCount(String(p.config.grid_count || 10))
-    setFastPeriod(String(p.config.fast_period || 10))
-    setSlowPeriod(String(p.config.slow_period || 30))
+setFastPeriod(String(p.config.fast_period || 10))
+	setSlowPeriod(String(p.config.slow_period || 30))
+	setTrendInterval((p.config.interval as '5m' | '15m' | '1h' | '4h') || '5m')
     setDcaInterval(String(p.config.interval_sec || 3600))
     setDcaAmount(p.config.amount || '10')
     setDcaTakeProfit(String(p.config.take_profit_pct || 5))
@@ -213,9 +224,17 @@ export default function SessionsPage() {
         config.validation_invalid_value = recommendation?.ValidationInvalidValue || 1
         config.validation_window_minutes = recommendation?.ValidationWindowMinutes || 120
       }
-    } else if (strategy === 'trend') {
-      config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), quantity }
-    } else {
+} else if (strategy === 'trend') {
+	config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), interval: trendInterval, quantity }
+	if (isBeginner && recommendation) {
+	  config.validation_mode = 'percent'
+	  config.validation_target_value = recommendation.ValidationTargetValue || 2
+	  config.validation_invalid_value = recommendation.ValidationInvalidValue || 1
+	  config.validation_window_minutes = recommendation.ValidationWindowMinutes || 120
+	  config.capital = parseFloat(capital) || 0
+	  config.horizon = horizon
+	}
+  } else {
       config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
     }
     await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
@@ -480,25 +499,85 @@ export default function SessionsPage() {
                 <p><strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Apa itu Trend Following?</strong> Bot menggunakan 2 SMA (Simple Moving Average) untuk mendeteksi tren. SMA Cepat (fast period) bereaksi lebih cepat ke harga terbaru. SMA Lambat (slow period) lebih stabil.</p>
                 <p><strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Golden Cross (Beli):</strong> Terjadi saat SMA Cepat naik <em>di atas</em> SMA Lambat. Artinya tren naik mulai terbentuk — saat yang tepat untuk beli.</p>
                 <p><strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Death Cross (Jual):</strong> Terjadi saat SMA Cepat turun <em>di bawah</em> SMA Lambat. Artinya tren turun mulai terbentuk — saatnya jual atau hindari beli.</p>
-                <p><strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10, slow=30). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
+                <p><strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">Saran per Pair:</strong> Pair stabil seperti BTC/ETH bisa pakai (fast=10/20, slow=30/50). Pair volatile seperti SOL/ADA bisa pakai (fast=7, slow=21) agar lebih responsif. Pair yang jarang bergerak seperti USDT/IDR tidak cocok untuk strategi ini.</p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi SMA</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
-                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-[#686868] dark:text-[#898989] font-medium">Mode:</label>
+                <button type="button"
+                  onClick={() => { setIsBeginner(true); fetchRecommendation() }}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[rgba(56,200,255,0.85)] text-white' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
+                  🎓 Pemula
+                </button>
+                <button type="button"
+                  onClick={() => { setIsBeginner(false); setRecommendation(null) }}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[rgba(56,200,255,0.85)] text-white' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
+                  ⚙️ Manual
+                </button>
+              </div>
+
+              {isBeginner && (
+                <div className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[16px] p-4 space-y-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Horizon</label>
+                      <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                        <option value="short">Pendek (sinyal sering, noise lebih tinggi)</option>
+                        <option value="medium">Menengah (seimbang)</option>
+                        <option value="long">Panjang (sinyal jarang tapi reliabel)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Modal (USDT)</label>
+                      <input className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
+                    </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
-                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
+                  <div className="flex items-end">
+                    <button type="button" onClick={fetchRecommendation} className="w-full px-3 py-1.5 bg-[rgba(56,200,255,0.85)] text-white font-semibold hover:bg-[rgba(56,200,255,1)] rounded-full text-sm transition">
+                      Rekomendasi
+                    </button>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+
+                  {recommendation && (
+                    <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[rgba(56,200,255,0.85)] rounded-[16px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)] dark:shadow-[0_1px_4px_rgba(232,235,230,0.06)]">
+                      <p className="text-[#0994b3] dark:text-[#5dd8f5] font-semibold">Rekomendasi untuk {symbol}</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">SMA: cepat {recommendation.FastPeriod}, lambat {recommendation.SlowPeriod} pada interval {recommendation.Interval}</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Validasi: target +{recommendation.ValidationTargetValue}%, invalid -{recommendation.ValidationInvalidValue}% dalam {recommendation.ValidationWindowMinutes} menit</p>
+                      <p className="text-[#686868] dark:text-[#898989] italic">{recommendation.Reason}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isBeginner && (
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi SMA</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
+                      <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
+                      <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Interval Candle</span></div>
+                      <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={trendInterval} onChange={e => setTrendInterval(e.target.value as any)}>
+                        <option value="5m">5 menit</option>
+                        <option value="15m">15 menit</option>
+                        <option value="1h">1 jam</option>
+                        <option value="4h">4 jam</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Qty per Sinyal</span>{renderConfigHelp('quantity')}</div>
+                      <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <>

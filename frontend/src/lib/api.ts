@@ -51,10 +51,14 @@ export const api = {
     getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
     getPortfolio: (id: number) => request<{ virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[]; unrealized_pnl: number }>(`/v1/sessions/${id}/portfolio`),
   },
-  grid: {
-    recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
-      request<import('@/types').GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || 'grid_steps'}`),
-    insights: (symbol: string) =>
-      request<import('@/types').GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
+grid: {
+	recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
+	  request<import("@/types").GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || "grid_steps"}`),
+	insights: (symbol: string) =>
+	  request<import("@/types").GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
+  },
+  trend: {
+	recommend: (params: { symbol: string; horizon: string; capital: number }) =>
+	  request<import("@/types").TrendRecommendation>(`/v1/trend/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}`),
   },
 }
