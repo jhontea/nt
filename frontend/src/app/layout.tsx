@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geist.variable} ${inter.variable}`} suppressHydrationWarning>
-      <body className="bg-[#fafafa] text-[#0e0f0c] min-h-screen font-sans">
+      <body className="bg-[#fafafa] dark:bg-[#141411] text-[#0e0f0c] dark:text-[#e8ebe6] min-h-screen font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>
