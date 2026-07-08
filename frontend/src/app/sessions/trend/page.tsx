@@ -9,6 +9,7 @@ import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
+import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { TrendingUp } from 'lucide-react'
 
 export default function TrendPage() {
@@ -47,6 +48,7 @@ export default function TrendPage() {
             + New Session
           </button>
         </div>
+        <StrategyTabs active="trend" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="trend" />}
         {isLoading ? (

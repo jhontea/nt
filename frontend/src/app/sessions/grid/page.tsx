@@ -9,6 +9,7 @@ import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
+import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { Grid2x2 } from 'lucide-react'
 
 export default function GridPage() {
@@ -47,6 +48,7 @@ export default function GridPage() {
             + New Session
           </button>
         </div>
+        <StrategyTabs active="grid" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="grid" />}
         {isLoading ? (

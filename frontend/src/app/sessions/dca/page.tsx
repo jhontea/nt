@@ -9,6 +9,7 @@ import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
+import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { Coins } from 'lucide-react'
 
 export default function DcaPage() {
@@ -47,6 +48,7 @@ export default function DcaPage() {
             + New Session
           </button>
         </div>
+        <StrategyTabs active="dca" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
         {isLoading ? (
