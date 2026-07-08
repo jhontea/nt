@@ -389,14 +389,6 @@ export default function GridPage() {
                       {/* Row 2: mini grid bar */}
                       {currentPrice > 0 && (
                         <div className="mb-3">
-                          <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] mb-0.5">
-                            <span>Harga saat ini: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{formatPrice(currentPrice)}</span></span>
-                            {ticker && (
-                              <span className={parseFloat(ticker.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}>
-                                {parseFloat(ticker.priceChange) >= 0 ? '+' : ''}{parseFloat(ticker.priceChange).toFixed(2)}%
-                              </span>
-                            )}
-                          </div>
                           <GridBar lower={cfg.lower_price} upper={cfg.upper_price} current={currentPrice} gridCount={cfg.grid_count} />
                         </div>
                       )}
