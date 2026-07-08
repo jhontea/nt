@@ -41,6 +41,8 @@ export default function SessionsOverviewPage() {
 
         <MarketTicker />
 
+        {sessions && <RunningSessionsPanel sessions={sessions} router={router} />}
+
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse">
             <div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" />
