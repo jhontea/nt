@@ -291,7 +291,7 @@ func main() {
 
 		var sessions []model.Session
 		err := db.Select(&sessions, db.Rebind(
-			`SELECT * FROM sessions WHERE user_id = ? AND strategy = 'trend' AND status = 'running' ORDER BY created_at DESC`), userID)
+			`SELECT * FROM sessions WHERE user_id = ? AND strategy = 'trend' ORDER BY created_at DESC`), userID)
 		if err != nil {
 			return c.JSON(500, ErrorResponse{Error: err.Error()})
 		}
