@@ -16,6 +16,7 @@ export interface Session {
   is_alive?: boolean
   virtual_balance?: number
   initial_balance?: number
+  notes?: string
   started_at: string | null
   stopped_at: string | null
   created_at: string

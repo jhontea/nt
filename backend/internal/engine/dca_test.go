@@ -156,3 +156,114 @@ func TestDCAEngine_UpdateAvgPrice(t *testing.T) {
 		t.Errorf("expected avgBuyPrice %.2f, got %.2f", expected, d.avgBuyPrice[sessionID])
 	}
 }
+
+func TestDCAEngine_StopLossTriggered(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "50000", "0.002", "filled")
+	d.avgBuyPrice[session.ID] = 50000
+	d.lastBuy[session.ID] = time.Now() // prevent interval buy
+
+	// Price drops 12% (threshold at 10%): 50000 * 0.9 = 45000, 44000 < 45000
+	cfg := DCAConfig{IntervalSec: 9999, Amount: "100", StopLossPct: 10}
+	signals := d.evaluate(session, cfg, 44000, "44000.00")
+
+	if len(signals) != 1 {
+		t.Fatalf("expected 1 sell signal, got %d", len(signals))
+	}
+	if signals[0].Side != "sell" {
+		t.Errorf("expected sell, got %s", signals[0].Side)
+	}
+	if signals[0].Reason != "dca_stop_loss" {
+		t.Errorf("expected reason dca_stop_loss, got %s", signals[0].Reason)
+	}
+}
+
+func TestDCAEngine_StopLossNotTriggeredAboveThreshold(t *testing.T) {
+	d, db := setupDCA(t) //nolint
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "50000", "0.002", "filled")
+	d.avgBuyPrice[session.ID] = 50000
+
+	// Price drops 5% only (threshold at 10%): 50000 * 0.9 = 45000, 47500 > 45000
+	cfg := DCAConfig{IntervalSec: 9999, Amount: "100", StopLossPct: 10}
+	signals := d.evaluate(session, cfg, 47500, "47500.00")
+
+	for _, s := range signals {
+		if s.Side == "sell" && s.Reason == "dca_stop_loss" {
+			t.Error("stop loss should not trigger above threshold")
+		}
+	}
+}
+
+func TestDCAEngine_StopLossDisabledWhenZero(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "50000", "0.002", "filled")
+	d.avgBuyPrice[session.ID] = 50000
+	d.lastBuy[session.ID] = time.Now() // prevent interval buy
+
+	cfg := DCAConfig{IntervalSec: 9999, Amount: "100", StopLossPct: 0}
+	signals := d.evaluate(session, cfg, 1, "1.00") // extreme drop, SL disabled
+
+	for _, s := range signals {
+		if s.Reason == "dca_stop_loss" {
+			t.Error("stop loss should be disabled when StopLossPct=0")
+		}
+	}
+}
+
+func TestDCAEngine_NoDoubleSell_TPAndSL(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "50000", "0.002", "filled")
+	d.avgBuyPrice[session.ID] = 50000
+	d.lastBuy[session.ID] = time.Now() // prevent interval buy
+
+	// Price at take-profit level (>10% up), both TP and SL configured
+	cfg := DCAConfig{IntervalSec: 9999, TakeProfitPct: 10, StopLossPct: 10}
+	signals := d.evaluate(session, cfg, 56000, "56000.00")
+
+	sellCount := 0
+	for _, s := range signals {
+		if s.Side == "sell" {
+			sellCount++
+		}
+	}
+	if sellCount > 1 {
+		t.Errorf("expected at most 1 sell signal, got %d", sellCount)
+	}
+}
+
+func TestDCAEngine_StopLossAfterMultipleBuys(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	// Two buys: 0.002 @ 50000 and 0.002 @ 40000 -> avg = 45000
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "50000", "0.002", "filled")
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		1, "BTC_USDT", "buy", "market", "40000", "0.002", "filled")
+	d.avgBuyPrice[session.ID] = 45000 // (50000+40000)/2
+	d.lastBuy[session.ID] = time.Now() // prevent interval buy
+
+	// SL at 10% -> threshold = 45000 * 0.9 = 40500, price 40000 < 40500
+	cfg := DCAConfig{IntervalSec: 9999, StopLossPct: 10}
+	signals := d.evaluate(session, cfg, 40000, "40000.00")
+
+	if len(signals) != 1 || signals[0].Reason != "dca_stop_loss" {
+		t.Errorf("expected dca_stop_loss signal, got %v", signals)
+	}
+	expectedQty := strconv.FormatFloat(math.Round(0.004*1e8)/1e8, 'f', 8, 64)
+	if signals[0].Quantity != expectedQty {
+		t.Errorf("expected qty %s, got %s", expectedQty, signals[0].Quantity)
+	}
+}

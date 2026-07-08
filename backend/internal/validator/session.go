@@ -90,6 +90,7 @@ func DCAConfig(s string) error {
 		IntervalSec   int     `json:"interval_sec"`
 		Amount        string  `json:"amount"`
 		TakeProfitPct float64 `json:"take_profit_pct"`
+		StopLossPct   float64 `json:"stop_loss_pct"`
 	}
 	if err := json.Unmarshal([]byte(s), &cfg); err != nil {
 		return err
@@ -109,6 +110,9 @@ func DCAConfig(s string) error {
 	}
 	if cfg.TakeProfitPct > 1000 {
 		e.Add(ErrField("take_profit_pct", "maximum 1000%"))
+	}
+	if cfg.StopLossPct < 0 || cfg.StopLossPct >= 100 {
+		e.Add(ErrField("stop_loss_pct", "must be between 0 and 99.99 (0 = disabled)"))
 	}
 	return e.Err()
 }

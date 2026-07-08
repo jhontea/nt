@@ -184,6 +184,10 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			}
 			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
+		// Check SL/TP after executing signals
+		if len(signals) > 0 {
+			m.checkPaperStopConditions(session, signals[0].Price)
+		}
 	case string(model.ModeLive):
 		for _, sig := range signals {
 			if err := m.live.Execute(session, sig); err != nil {
@@ -449,4 +453,26 @@ func (m *Manager) validatePendingTrendSignals(session model.Session) {
 			slog.Error("update trend signal validation", "signal", r.signalID, "error", err)
 		}
 	}
+}
+
+func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice string) {
+	result := m.paper.CheckStopConditions(session, currentPrice)
+	if !result.Triggered {
+		return
+	}
+
+	reason := string(result.Reason)
+	slog.Info("paper stop condition triggered", "session", session.ID, "reason", reason,
+		"total_value", result.TotalValue, "init_balance", result.InitBalance)
+
+	m.Stop(session.ID)
+	m.db.Exec(m.db.Rebind("UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID)
+	m.notifier.SendStopAlert(session.Name, session.Symbol, reason, result.TotalValue, result.InitBalance)
+	m.Hub.Broadcast(session.ID, WSPaperAlert{
+		Type:      "paper_alert",
+		SessionID: session.ID,
+		Reason:    reason,
+		Needed:    result.InitBalance,
+		Available: result.TotalValue,
+	})
 }

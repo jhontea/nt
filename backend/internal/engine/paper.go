@@ -2,6 +2,7 @@ package engine
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
@@ -96,6 +97,9 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 	}
 
 	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "grid_price", gridPrice, "exec_price", execPrice, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
+	if p.notifier != nil {
+		p.notifier.SendTrade(session.Symbol, string(model.SideBuy), execPrice, qty, "")
+	}
 	return nil
 }
 
@@ -168,6 +172,9 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	}
 
 	slog.Info("paper sell", "session", session.ID, "symbol", session.Symbol, "qty", useQty, "price", execPrice, "pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
+	if p.notifier != nil {
+		p.notifier.SendTrade(session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr)
+	}
 	return nil
 }
 
@@ -316,4 +323,106 @@ func (p *PaperEngine) setBalance(sessionID int64, balance float64) error {
 	_, err := p.db.Exec(p.db.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"),
 		math.Round(balance*1e8)/1e8, sessionID)
 	return err
+}
+
+type StopReason string
+
+const (
+	StopReasonSL StopReason = "stop_loss"
+	StopReasonTP StopReason = "take_profit"
+)
+
+type StopConditionResult struct {
+	Triggered    bool
+	Reason       StopReason
+	TotalValue   float64
+	InitBalance  float64
+}
+
+// CheckStopConditions checks SL/TP thresholds for a paper session.
+// Config fields checked: stop_loss_pct, stop_loss_amount, take_profit_pct, take_profit_amount.
+// Returns triggered=true with reason if threshold is breached.
+func (p *PaperEngine) CheckStopConditions(session model.Session, currentPrice string) StopConditionResult {
+	// Parse SL/TP config from session config JSON
+	var cfg struct {
+		StopLossPct      *float64 `json:"stop_loss_pct"`
+		StopLossAmount   *float64 `json:"stop_loss_amount"`
+		TakeProfitPct    *float64 `json:"take_profit_pct"`
+		TakeProfitAmount *float64 `json:"take_profit_amount"`
+	}
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		return StopConditionResult{}
+	}
+	// Nothing configured
+	if cfg.StopLossPct == nil && cfg.StopLossAmount == nil && cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil {
+		return StopConditionResult{}
+	}
+
+	if session.InitialBalance == nil || *session.InitialBalance <= 0 {
+		return StopConditionResult{}
+	}
+	initBal := *session.InitialBalance
+
+	// Compute total value = virtual_balance + sum(open positions × current_price)
+	balance, err := p.getBalance(session.ID)
+	if err != nil {
+		return StopConditionResult{}
+	}
+
+	price, _ := strconv.ParseFloat(currentPrice, 64)
+
+	type openPos struct {
+		Quantity string `db:"quantity"`
+	}
+	var positions []openPos
+	p.db.Select(&positions, p.db.Rebind(
+		`SELECT quantity FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
+		session.ID)
+
+	holdingsValue := 0.0
+	for _, pos := range positions {
+		qty, _ := strconv.ParseFloat(pos.Quantity, 64)
+		holdingsValue += qty * price
+	}
+	totalValue := balance + holdingsValue
+
+	result := StopConditionResult{TotalValue: totalValue, InitBalance: initBal}
+
+	// Check Stop Loss
+	if cfg.StopLossPct != nil && *cfg.StopLossPct > 0 {
+		threshold := initBal * (1 - *cfg.StopLossPct/100)
+		if totalValue <= threshold {
+			result.Triggered = true
+			result.Reason = StopReasonSL
+			return result
+		}
+	}
+	if cfg.StopLossAmount != nil && *cfg.StopLossAmount > 0 {
+		threshold := initBal - *cfg.StopLossAmount
+		if totalValue <= threshold {
+			result.Triggered = true
+			result.Reason = StopReasonSL
+			return result
+		}
+	}
+
+	// Check Take Profit
+	if cfg.TakeProfitPct != nil && *cfg.TakeProfitPct > 0 {
+		threshold := initBal * (1 + *cfg.TakeProfitPct/100)
+		if totalValue >= threshold {
+			result.Triggered = true
+			result.Reason = StopReasonTP
+			return result
+		}
+	}
+	if cfg.TakeProfitAmount != nil && *cfg.TakeProfitAmount > 0 {
+		threshold := initBal + *cfg.TakeProfitAmount
+		if totalValue >= threshold {
+			result.Triggered = true
+			result.Reason = StopReasonTP
+			return result
+		}
+	}
+
+	return result
 }

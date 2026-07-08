@@ -100,6 +100,27 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			}
 		}
 	}
+
+	if cfg.StopLossPct > 0 {
+		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
+			slTarget := avgPrice * (1 - cfg.StopLossPct/100)
+			if currentPrice <= slTarget {
+				var totalQty float64
+				d.db.Get(&totalQty,
+					d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
+					 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
+					session.ID, session.Symbol)
+				if totalQty > 0 {
+					qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
+					signals = append(signals, Signal{
+						Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
+					})
+					delete(d.avgBuyPrice, session.ID)
+					slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
+				}
+			}
+		}
+	}
 	return signals
 }
 

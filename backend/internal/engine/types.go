@@ -38,4 +38,5 @@ type DCAConfig struct {
 	IntervalSec   int     `json:"interval_sec"`    // seconds between buys (e.g. 3600 = 1h)
 	Amount        string  `json:"amount"`          // quote asset amount per buy (e.g. "10" USDT)
 	TakeProfitPct float64 `json:"take_profit_pct"` // sell trigger: price >= avg_buy * (1 + pct/100), 0 = disabled
+	StopLossPct   float64 `json:"stop_loss_pct"`   // sell trigger: price <= avg_buy * (1 - pct/100), 0 = disabled
 }

@@ -160,9 +160,8 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 	}
 
 	// Pre-mark levels with recent signals (prevents duplicates on restart).
-	// Only consider most recent signal per level — avoids marking re-armed levels
-	// that have fired multiple times.
 	if g.db != nil {
+		// For signal mode: read from strategy_signals table
 		var triggeredLevels []int
 		err := g.db.Select(&triggeredLevels,
 			g.db.Rebind(`SELECT DISTINCT grid_level_index FROM strategy_signals
@@ -174,7 +173,32 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 					state.levels[idx].state = levelTriggered
 				}
 			}
-			slog.Info("grid pre-marked levels from DB", "session", sessionID, "levels", triggeredLevels)
+			slog.Info("grid pre-marked levels from strategy_signals", "session", sessionID, "levels", triggeredLevels)
+		}
+
+		// For paper/live mode: read from orders table — match by price
+		// ponytail: match open buy orders to grid levels by price proximity (within step/2)
+		type openOrder struct {
+			Price string `db:"price"`
+		}
+		var openOrders []openOrder
+		g.db.Select(&openOrders, g.db.Rebind(
+			`SELECT price FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
+			sessionID)
+		for _, o := range openOrders {
+			orderPrice, err := strconv.ParseFloat(o.Price, 64)
+			if err != nil {
+				continue
+			}
+			for i := range state.levels {
+				if math.Abs(state.levels[i].price-orderPrice) <= step/2 {
+					state.levels[i].state = levelTriggered
+					break
+				}
+			}
+		}
+		if len(openOrders) > 0 {
+			slog.Info("grid pre-marked levels from orders", "session", sessionID, "orders", len(openOrders))
 		}
 	}
 

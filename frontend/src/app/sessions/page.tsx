@@ -65,6 +65,10 @@ const fieldHelp: Record<string, { short: string; long: string }> = {
     short: 'Persentase kenaikan harga untuk menjual.',
     long: '5 = jual otomatis saat harga naik 5% dari rata-rata harga beli. 0 = nonaktifkan take profit (hold terus). Disarankan 3-10%.',
   },
+  dca_stop_loss: {
+    short: 'Persentase penurunan harga untuk cut loss.',
+    long: '10 = jual otomatis saat harga turun 10% dari rata-rata harga beli. 0 = nonaktifkan stop loss. Disarankan 5-15%.',
+  },
 }
 
 const DEFAULT_BOUNDARY_PCT = 15 // ±15% around current price
@@ -297,6 +301,7 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
   const [dcaInterval, setDcaInterval] = useState('3600')
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
+  const [dcaStopLoss, setDcaStopLoss] = useState('')
   const [initialBalance, setInitialBalance] = useState('1000')
   const [stopLossPct, setStopLossPct] = useState('')
   const [takeProfitPct, setTakeProfitPct] = useState('')
@@ -420,7 +425,7 @@ fetchPriceAndApply(symbol)
           config.horizon = horizon
         }
       } else {
-        config = { interval_sec: parseInt(dcaInterval), amount: parseFloat(dcaAmount), take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
+        config = { interval_sec: parseInt(dcaInterval), amount: parseFloat(dcaAmount), take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0 }
       }
       await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify({
         ...config,
@@ -818,7 +823,7 @@ fetchPriceAndApply(symbol)
               </div>
               <div>
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi DCA</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
                                          <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
@@ -837,6 +842,10 @@ fetchPriceAndApply(symbol)
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
                                          <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Stop Loss %</span>{renderConfigHelp('dca_stop_loss')}</div>
+                                         <input type="number" min="0" max="99.99" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0" value={dcaStopLoss} onChange={e => setDcaStopLoss(e.target.value)} />
                   </div>
                 </div>
               </div>

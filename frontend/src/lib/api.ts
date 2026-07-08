@@ -50,6 +50,15 @@ export const api = {
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
     getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
     getPortfolio: (id: number) => request<{ virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[]; unrealized_pnl: number }>(`/v1/sessions/${id}/portfolio`),
+    updateNotes: (id: number, notes: string) => request<{ status: string }>(`/v1/sessions/${id}/notes`, { method: 'PATCH', body: JSON.stringify({ notes }) }),
+    reevaluate: (id: number) => request<{
+      current_price: number; in_range: boolean; position_pct: number;
+      levels_triggered: number; total_levels: number; coverage_pct: number;
+      suggestion: string; suggested_lower: number; suggested_upper: number;
+      suggested_count: number; current_lower: number; current_upper: number;
+      current_count: number; step_size: number;
+    }>(`/v1/sessions/${id}/reevaluate`),
+    applyConfig: (id: number, config: string) => request<import('@/types').Session>(`/v1/sessions/${id}/config`, { method: 'PATCH', body: JSON.stringify({ config }) }),
   },
 grid: {
 	recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>

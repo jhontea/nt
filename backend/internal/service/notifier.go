@@ -108,6 +108,34 @@ func (n *Notifier) SendSignal(sessionName, strategy, mode, symbol, side, price, 
 	}
 }
 
+func (n *Notifier) SendStopAlert(sessionName, symbol, reason string, totalValue, initBalance float64) {
+	emoji := "🛑"
+	label := "STOP LOSS"
+	if reason == "take_profit" {
+		emoji = "🎯"
+		label = "TAKE PROFIT"
+	}
+	pnl := totalValue - initBalance
+	pnlSign := "+"
+	if pnl < 0 {
+		pnlSign = ""
+	}
+	msg := fmt.Sprintf(
+		"%s <b>%s TRIGGERED</b>\n"+
+			"📊 Session: <b>%s</b> (%s)\n"+
+			"💰 Total Value: <code>%.2f</code>\n"+
+			"📈 Modal Awal: <code>%.2f</code>\n"+
+			"📉 P&L: <b>%s%.2f</b>\n"+
+			"🕐 %s",
+		emoji, label, sessionName, symbol,
+		totalValue, initBalance, pnlSign, pnl,
+		time.Now().Format("15:04:05"),
+	)
+	if err := n.sendHTML(msg); err != nil {
+		slog.Warn("telegram stop alert", "error", err)
+	}
+}
+
 func (n *Notifier) SendPaperAlert(sessionName, symbol, reason string, needed, available float64) {
 	msg := fmt.Sprintf(
 		"⚠️ <b>Paper Alert</b>\n"+

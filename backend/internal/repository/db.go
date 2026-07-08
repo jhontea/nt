@@ -37,9 +37,11 @@ func Migrate(db *sqlx.DB) error {
 		db.Exec("ALTER TABLE strategy_signals ALTER COLUMN validation_note SET DEFAULT ''")
 		db.Exec("UPDATE strategy_signals SET validation_note = '' WHERE validation_note IS NULL")
 		db.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS initial_balance REAL DEFAULT NULL")
+		db.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''")
 	} else {
 		// SQLite: ignore error if column already exists
 		db.Exec("ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL")
+		db.Exec("ALTER TABLE sessions ADD COLUMN notes TEXT DEFAULT ''")
 	}
 	return nil
 }
@@ -72,6 +74,7 @@ const pgSchema = `
 		status VARCHAR(20) NOT NULL DEFAULT 'stopped',
 		virtual_balance REAL DEFAULT 0,
 		initial_balance REAL DEFAULT NULL,
+		notes TEXT DEFAULT '',
 		started_at TIMESTAMP,
 		stopped_at TIMESTAMP,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -179,6 +182,7 @@ const sqliteSchema = `
 		status TEXT NOT NULL DEFAULT 'stopped',
 		virtual_balance REAL DEFAULT 0,
 		initial_balance REAL DEFAULT NULL,
+		notes TEXT DEFAULT '',
 		started_at DATETIME,
 		stopped_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP

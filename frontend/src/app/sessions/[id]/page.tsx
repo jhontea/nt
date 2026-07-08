@@ -189,6 +189,7 @@ export default function SessionDetailPage() {
       lines.push(`- Interval: ${configDisplay.interval_sec}s`)
       lines.push(`- Amount: $${configDisplay.amount}`)
       lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
+      if (configDisplay.stop_loss_pct > 0) lines.push(`- Stop Loss: ${configDisplay.stop_loss_pct}%`)
     }
     lines.push('')
 
@@ -943,7 +944,7 @@ export default function SessionDetailPage() {
                   Take profit {configDisplay.take_profit_pct}%
                 </span>
               )}
-              {session.mode === 'paper' && configDisplay.stop_loss_pct > 0 && (
+              {configDisplay.stop_loss_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
                   <OctagonX size={12} className="inline mr-1" />SL {configDisplay.stop_loss_pct}%
                 </span>

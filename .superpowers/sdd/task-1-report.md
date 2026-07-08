@@ -61,3 +61,19 @@ cd backend && go test ./internal/engine/ -run "TestTrendBuy" -v
 ```
 
 **Time:** 2026-07-08T08:28
+
+---
+
+## Follow-up Fix: 2026-07-08T08:32
+
+### Status: DONE
+### Commit: `1b5746e` fix(trend-paper): return error on open-position guard DB failure
+
+### Change
+`executeTrendBuy` open-position guard (`paper.go:176-178`) changed from silently falling through on DB error to returning `fmt.Errorf("trend: check open position: %w", err)`.
+
+### Test Results
+- `TestTrendBuy_Executes` PASS
+- `TestTrendBuy_SkipsIfOpenPosition` PASS
+- `TestTrendBuy_InsufficientBalance` PASS
+- Full suite: **53/53 passing**

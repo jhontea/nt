@@ -147,6 +147,9 @@ func main() {
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
 	v1.GET("/sessions/:id/portfolio", sessionH.GetPortfolio)
+	v1.PATCH("/sessions/:id/notes", sessionH.UpdateNotes)
+	v1.GET("/sessions/:id/reevaluate", sessionH.Reevaluate)
+	v1.PATCH("/sessions/:id/config", sessionH.ApplyConfig)
 	v1.DELETE("/sessions/:id", sessionH.Delete)
 	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)

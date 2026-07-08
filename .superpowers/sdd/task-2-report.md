@@ -1,13 +1,22 @@
-# Task 2: Database Setup — Report
+# Task 2 Report: executeTrendSell
 
-**Status:** DONE
+## Status: DONE
 
-**Created files:**
-- `backend/internal/model/models.go` — 7 domain models (User, APIKey, Session, Order, Trade, Candle)
-- `backend/internal/repository/db.go` — `NewDB` (sqlite connection) + `Migrate` (6 tables)
+## Commits
+- `cd941ca` feat(trend-paper): add executeTrendSell closes all open buys
 
-**Commit:** `b06c766` feat: add database models and migration
+## Test Summary
+3 new tests added and passing; 0 regressions across full suite (56 tests pass).
 
-**Build:** `go build ./cmd/server/` — clean (no errors)
+## What Was Done
+- Added `executeTrendSell` to `PaperEngine` in `backend/internal/engine/paper.go`
+- Added `strconv` import to `paper_test.go`
+- Followed TDD: wrote failing tests first, confirmed build failure, then implemented
+- All 3 TrendSell tests pass: `TestTrendSell_ClosesAllBuys`, `TestTrendSell_SkipsIfNoPosition`, `TestTrendSell_MultipleBuys_ClosesAll`
+- Grid Paper (`executeBuy`, `executeSell`) completely unaffected
 
-**Concerns:** None.
+## Concerns
+None.
+
+## Report File
+`C:\Users\PC\go\src\project\nt\.superpowers\sdd\task-2-report.md`
