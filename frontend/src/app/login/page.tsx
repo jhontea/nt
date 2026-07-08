@@ -4,9 +4,9 @@ import { useAuth } from '@/lib/auth'
 import { api } from '@/lib/api'
 
 const modes = [
-  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual' },
-  { name: 'Paper', desc: 'Trading simulasi dengan uang virtual $1000 — tanpa risiko' },
-  { name: 'Live', desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati' },
+  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: '📊', border: 'border-l-4 border-l-[rgba(56,200,255,0.8)]' },
+  { name: 'Paper', desc: 'Trading simulasi dengan uang virtual $1000 — tanpa risiko', icon: '📝', border: 'border-l-4 border-l-[rgba(159,232,112,0.8)]' },
+  { name: 'Live', desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati', icon: '⚡', border: 'border-l-4 border-l-[rgba(255,209,26,0.8)]' },
 ]
 
 export default function LoginPage() {
@@ -33,16 +33,19 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa] dark:bg-[#141411]">
       <div className="flex flex-col lg:flex-row gap-8 max-w-3xl w-full">
         {/* Info Panel */}
-        <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-           <h1 className="text-2xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">Trading Bot</h1>
+         <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+           <div className="flex items-center gap-3 mb-2">
+             <div className="w-10 h-10 rounded-[12px] bg-[rgba(159,232,112,0.15)] flex items-center justify-center text-xl">🤖</div>
+             <h1 className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trading Bot</h1>
+           </div>
           <p className="text-sm text-[#686868] dark:text-[#898989]">
             Bot trading otomatis untuk TokoCrypto. Mulai dari sinyal, uji coba kertas, hingga trading sungguhan.
           </p>
           <div className="space-y-2">
             <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] uppercase tracking-wider font-semibold">3 Mode Trading</p>
             {modes.map(m => (
-              <div key={m.name} className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[12px] p-3">
-                <p className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6]">{m.name}</p>
+              <div key={m.name} className={`bg-[#f0f1ee] dark:bg-[#252822] rounded-[12px] p-3 ${m.border}`}>
+                <p className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6]">{m.icon} {m.name}</p>
                 <p className="text-xs text-[#686868] dark:text-[#898989]">{m.desc}</p>
               </div>
             ))}
@@ -53,7 +56,7 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[16px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-          <h2 className="text-xl font-semibold text-center text-[#0e0f0c] dark:text-[#e8ebe6]">{isRegister ? 'Register' : 'Login'}</h2>
+          <h2 className="text-2xl font-black tracking-tight text-center text-[#0e0f0c] dark:text-[#e8ebe6]">{isRegister ? 'Register' : 'Login'}</h2>
           {error && <p className="text-[#d03238] dark:text-[#ff6b6f] text-sm">{error}</p>}
 
           <div>
@@ -62,7 +65,7 @@ export default function LoginPage() {
               id="username"
               name="username"
               type="text"
-              className="w-full px-4 py-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
+              className="w-full px-4 py-3 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
               placeholder="Username"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -76,7 +79,7 @@ export default function LoginPage() {
             <input
               id="password"
               name="password"
-              className="w-full px-4 py-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
+              className="w-full px-4 py-3 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
               type="password"
               placeholder="Password"
               value={password}
@@ -97,10 +100,10 @@ export default function LoginPage() {
             <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
-          <button type="submit" className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300]">
+          <button type="submit" className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.4)] hover:scale-[1.01] active:scale-[0.99]">
             {isRegister ? 'Register' : 'Login'}
           </button>
-          <button type="button" className="w-full py-2 block text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition" onClick={() => setIsRegister(!isRegister)}>
+          <button type="button" className="w-full py-2 text-sm text-[#686868] dark:text-[#898989] hover:text-[#9fe870] dark:hover:text-[#9fe870] transition font-medium" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? 'Sudah punya akun? Login' : 'Belum punya akun? Register'}
           </button>
         </form>
