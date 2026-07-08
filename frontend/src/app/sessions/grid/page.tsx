@@ -131,13 +131,14 @@ export default function GridPage() {
     })),
   })
 
-  // Ticker per unique symbol
+  // Ticker per unique symbol — refetch every 1s so bar moves in real-time
   const tickerQueries = useQueries({
     queries: uniqueSymbols.map(symbol => ({
       queryKey: ['ticker', symbol],
       queryFn: () => api.sessions.getTicker(symbol),
       enabled: isAuthenticated && uniqueSymbols.length > 0,
-      staleTime: 15_000,
+      staleTime: 5_000,
+      refetchInterval: 1_000,
     })),
   })
   const tickerBySymbol = useMemo(() =>
