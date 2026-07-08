@@ -514,61 +514,32 @@ export default function SessionDetailPage() {
           </div>
         </div>
 
-        {/* Trend Signal Overview */}
-        {isTrendSignal && (
-          <div className="mb-6">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Konfigurasi Trend</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">SMA Cepat</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.fast_period || 10}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">periode candle</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">SMA Lambat</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.slow_period || 30}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">periode candle</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Interval</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.interval || '5m'}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">candle timeframe</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Qty per Sinyal</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.quantity || '?'}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">{session.symbol.split('_')[0]}</p>
-              </div>
+        {/* Trend Validation Info — only shown when validation_mode exists */}
+        {isTrendSignal && configDisplay.validation_mode && (
+          <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-4">
+            <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Validasi Otomatis</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
+                Target +{configDisplay.validation_target_value || 2}%
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
+                Invalid -{configDisplay.validation_invalid_value || 1}%
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                Window {configDisplay.validation_window_minutes || 120} menit
+              </span>
             </div>
-            {configDisplay.validation_mode && (
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mt-3">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Validasi Otomatis</p>
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="text-[#686868] dark:text-[#898989]">Target</span>
-                    <p className="font-semibold text-[#054d28] dark:text-[#9fe870]">+{configDisplay.validation_target_value || 2}%</p>
-                  </div>
-                  <div>
-                    <span className="text-[#686868] dark:text-[#898989]">Invalid</span>
-                    <p className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">-{configDisplay.validation_invalid_value || 1}%</p>
-                  </div>
-                  <div>
-                    <span className="text-[#686868] dark:text-[#898989]">Window</span>
-                    <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{configDisplay.validation_window_minutes || 120} menit</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         {/* Detail Konfigurasi — collapsible */}
-        <details className="mb-4">
-          <summary className="text-xs font-semibold text-[#686868] dark:text-[#898989] cursor-pointer hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors flex items-center gap-1.5 select-none">
-            › Detail Konfigurasi
+        <details className="mb-4 group">
+          <summary className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] bg-[#f0f1ee] dark:bg-[#1e201c] border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] cursor-pointer hover:bg-[rgba(14,15,12,0.04)] dark:hover:bg-[rgba(232,235,230,0.04)] transition-colors select-none w-fit">
+            <span className="text-xs transition-transform group-open:rotate-90 inline-block text-[#686868] dark:text-[#898989]">›</span>
+            <span className="text-xs font-semibold text-[#686868] dark:text-[#898989]">Detail Konfigurasi</span>
           </summary>
           <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mt-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
               <div>
                 <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Pair</span>
                 <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.symbol}</p>
@@ -593,7 +564,7 @@ export default function SessionDetailPage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88]">{JSON.stringify(configDisplay, null, 2)}</pre>
+              <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88] leading-relaxed">{JSON.stringify(configDisplay, null, 2)}</pre>
             </div>
           </div>
         </details>
@@ -602,30 +573,35 @@ export default function SessionDetailPage() {
         {isGridPaper && portfolio && (
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Virtual Portfolio</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-              <div className="col-span-1 sm:col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Saldo Virtual</p>
-                <p className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${fmt(portfolio.virtual_balance)}</p>
+
+            {/* Hero row: Saldo + Unrealized side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div className="rounded-[24px] p-5 border-2 border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-white dark:bg-[#1e201c]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Saldo Virtual</p>
+                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</p>
                 {portfolio.initial_balance != null && (
-                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Modal awal ${fmt(portfolio.initial_balance)}</p>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal ${fmt(portfolio.initial_balance)}</p>
                 )}
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Unrealized P&L</p>
-                <p className={`text-2xl font-black mt-1 ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+              <div className={`rounded-[24px] p-5 border-2 ${
+                (portfolio.unrealized_pnl ?? 0) >= 0
+                  ? 'border-[rgba(5,77,40,0.3)] dark:border-[rgba(159,232,112,0.2)] bg-gradient-to-br from-[rgba(5,77,40,0.05)] to-transparent dark:from-[rgba(159,232,112,0.08)]'
+                  : 'border-[rgba(208,50,56,0.3)] dark:border-[rgba(208,50,56,0.2)] bg-gradient-to-br from-[rgba(208,50,56,0.05)] to-transparent dark:from-[rgba(208,50,56,0.08)]'
+              }`}>
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Unrealized P&L</p>
+                <p className={`text-3xl font-black ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
                 </p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Posisi Terbuka</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{portfolio.holdings?.length ?? 0}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">{portfolio.holdings?.length ?? 0} posisi terbuka</p>
               </div>
             </div>
+
+            {/* Holdings card */}
             {(portfolio.holdings?.length ?? 0) > 0 && (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-6">
                   {/* Donut chart */}
-                  <div className="flex-shrink-0 flex items-center justify-center w-[140px] h-[140px]">
+                  <div className="flex-shrink-0 flex items-center justify-center w-[160px] h-[160px] mx-auto sm:mx-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -635,24 +611,15 @@ export default function SessionDetailPage() {
                               value: parseFloat(h.qty) * parseFloat(h.avg_price),
                               color: HOLDING_COLORS[i % HOLDING_COLORS.length],
                             })),
-                            {
-                              name: 'Cash',
-                              value: portfolio.virtual_balance,
-                              color: 'rgba(140,140,140,0.25)',
-                            }
+                            { name: 'Cash', value: portfolio.virtual_balance, color: 'rgba(140,140,140,0.2)' }
                           ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={42}
-                          outerRadius={60}
-                          paddingAngle={2}
-                          dataKey="value"
+                          cx="50%" cy="50%"
+                          innerRadius={48} outerRadius={68}
+                          paddingAngle={2} dataKey="value"
                         >
                           {[
-                            ...portfolio.holdings.map((h, i) => ({
-                              color: HOLDING_COLORS[i % HOLDING_COLORS.length],
-                            })),
-                            { color: 'rgba(140,140,140,0.25)' }
+                            ...portfolio.holdings.map((_, i) => ({ color: HOLDING_COLORS[i % HOLDING_COLORS.length] })),
+                            { color: 'rgba(140,140,140,0.2)' }
                           ].map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                           ))}
@@ -664,26 +631,26 @@ export default function SessionDetailPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  {/* Legend + list */}
-                  <div className="flex-1">
+                  {/* Holdings list */}
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Holdings</p>
-                    <div className="max-h-48 overflow-y-auto">
+                    <div className="space-y-2">
                       {portfolio.holdings.map((h, i) => (
                         <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
                           <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
                             <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
-                            <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">{h.qty}</span>
+                            <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{h.qty}</span>
                           </div>
-                          <div className="flex items-center flex-wrap gap-2 font-mono text-right">
+                          <div className="flex items-center gap-3 font-mono">
                             <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
-                            <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
                           </div>
                         </div>
                       ))}
                       <div className="flex items-center justify-between text-xs py-2">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
                           <span className="text-[#686868] dark:text-[#898989]">Cash</span>
                         </div>
                         <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</span>
@@ -740,41 +707,32 @@ export default function SessionDetailPage() {
         {isStrategySignal && signalSummary && signalSummary.total_count > 0 && (
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Ringkasan Sinyal</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total Sinyal</p>
-                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total</p>
+                <p className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.buy_count}▲ · {signalSummary.sell_count}▼</p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Success Rate</p>
-                <p className={`text-lg font-bold mb-2 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
+                <p className={`text-2xl font-black mb-2 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
-                <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${signalSummary.success_rate >= 50 ? 'bg-[#9fe870]' : signalSummary.success_rate > 0 ? 'bg-[#ffd11a]' : 'bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]'}`}
-                    style={{ width: `${Math.min(100, signalSummary.success_rate)}%` }}
-                  />
+                <div className="h-1.5 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-500 ${signalSummary.success_rate >= 50 ? 'bg-[#9fe870]' : signalSummary.success_rate > 0 ? 'bg-[#ffd11a]' : 'bg-[rgba(14,15,12,0.2)]'}`}
+                    style={{ width: `${Math.min(100, signalSummary.success_rate)}%` }} />
                 </div>
-                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">{signalSummary.confirmed_count} dari {signalSummary.total_count} sinyal</p>
+                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">{signalSummary.confirmed_count} dari {signalSummary.total_count}</p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider" title="Confirmed / Invalidated / Expired">C / I / E</p>
-                <p className="text-lg font-bold mt-1">
-                  <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.confirmed_count}</span>
-                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
-                  <span className="text-[#d03238] dark:text-[#ff6b6f]">{signalSummary.invalidated_count}</span>
-                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
-                  <span className="text-[#686868] dark:text-[#898989]">{signalSummary.expired_count}</span>
-                </p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Confirmed</p>
+                <p className="text-2xl font-black text-[#054d28] dark:text-[#9fe870] mt-1">{signalSummary.confirmed_count}</p>
+                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.invalidated_count} invalidated</p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Buy / Sell</p>
-                <p className="text-lg font-bold mt-1">
-                  <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.buy_count}</span>
-                  <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
-                  <span className="text-[#d03238] dark:text-[#ff6b6f]">{signalSummary.sell_count}</span>
-                </p>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Expired</p>
+                <p className="text-2xl font-black text-[#686868] dark:text-[#898989] mt-1">{signalSummary.expired_count}</p>
+                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.total_count - signalSummary.confirmed_count - signalSummary.invalidated_count - signalSummary.expired_count} pending</p>
               </div>
             </div>
           </div>
@@ -839,7 +797,7 @@ export default function SessionDetailPage() {
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
+                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#f0f1ee] dark:bg-[#252822]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                         <th className="px-4 py-3 text-left">Sisi</th>
@@ -847,36 +805,45 @@ export default function SessionDetailPage() {
                         <th className="px-4 py-3 text-left">Harga</th>
                         <th className="px-4 py-3 text-left">Qty</th>
                         <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Hasil</th>
+                        <th className="px-4 py-3 text-right">Hasil</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
+                    <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
                       {strategySignals.slice(0, 30).map(s => (
                         <tr key={s.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
-                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(s.created_at).toLocaleDateString('id-ID')}</span>
-                            <span className="block text-[10px]">{new Date(s.created_at).toLocaleTimeString('id-ID')}</span>
+                            <span className="block text-[10px] opacity-70">{new Date(s.created_at).toLocaleTimeString('id-ID')}</span>
                           </td>
-                          <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{s.signal_type}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${s.signal_type === 'buy' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              {s.signal_type === 'buy' ? '▲ Beli' : '▼ Jual'}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
                             {isTrendSignal
-                              ? (s.reason === 'golden_cross' ? 'Golden Cross' : s.reason === 'death_cross' ? 'Death Cross' : s.reason)
+                              ? (s.reason === 'golden_cross' ? '🌟 Golden' : s.reason === 'death_cross' ? '💀 Death' : s.reason)
                               : `#${s.grid_level_index}`}
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
                           <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{s.quantity}</td>
-                          <td className={`px-4 py-3 text-xs font-semibold ${
-                            s.validation_status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]' :
-                            s.validation_status === 'invalidated' ? 'text-[#d03238] dark:text-[#ff6b6f]' :
-                            s.validation_status === 'expired' ? 'text-[#5a5b58] dark:text-[#8a8d88]' : 'text-[#7a5f00] dark:text-[#f5c842]'
-                          }`}>{s.validation_status}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              s.validation_status === 'confirmed' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' :
+                              s.validation_status === 'invalidated' ? 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]' :
+                              s.validation_status === 'pending' ? 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]' :
+                              'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]'
+                            }`}>
+                              {s.validation_status === 'confirmed' ? '✓ confirmed' : s.validation_status === 'invalidated' ? '✗ invalid' : s.validation_status === 'pending' ? '⏳ pending' : 'expired'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-right">
                             {s.validation_status === 'confirmed' && s.result_pct != null && (
-                              <span className={`font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              <span className={`font-bold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                 {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
                               </span>
                             )}
-                            {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842]">menunggu</span>}
+                            {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842] text-[10px]">—</span>}
                           </td>
                         </tr>
                       ))}
@@ -903,7 +870,7 @@ export default function SessionDetailPage() {
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
+                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#f0f1ee] dark:bg-[#252822]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                         <th className="px-4 py-3 text-left">Sisi</th>
@@ -913,17 +880,28 @@ export default function SessionDetailPage() {
                         <th className="px-4 py-3 text-left">Tipe</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
+                    <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
                       {orders.slice(0, 20).map(o => (
                         <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
-                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
-                            <span className="block text-[10px]">{new Date(o.created_at).toLocaleTimeString('id-ID')}</span>
+                            <span className="block text-[10px] opacity-70">{new Date(o.created_at).toLocaleTimeString('id-ID')}</span>
                           </td>
-                          <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{o.side}</td>
-                          <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${o.side === 'buy' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              {o.side === 'buy' ? '▲ Beli' : '▼ Jual'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
-                          <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{o.status}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              o.status === 'filled' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' :
+                              o.status === 'cancelled' ? 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]' :
+                              o.status === 'closed' ? 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]' :
+                              'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
+                            }`}>{o.status}</span>
+                          </td>
                           <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
                         </tr>
                       ))}
