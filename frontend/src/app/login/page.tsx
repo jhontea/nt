@@ -16,22 +16,27 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
   const [isRegister, setIsRegister] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submitting) return
     setError('')
+    setSubmitting(true)
     try {
       const fn = isRegister ? api.auth.register : api.auth.login
       const res = await fn(username, password)
       login(res.token, rememberMe)
     } catch (err: any) {
       setError(err.message || 'Authentication failed')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa] dark:bg-[#141411]">
-      <div className="flex flex-col lg:flex-row gap-8 max-w-3xl w-full">
+      <div className="flex flex-col-reverse sm:flex-row gap-8 max-w-3xl w-full">
         {/* Info Panel */}
          <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
            <div className="flex items-center gap-3 mb-2">
@@ -57,7 +62,7 @@ export default function LoginPage() {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[16px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <h2 className="text-2xl font-black tracking-tight text-center text-[#0e0f0c] dark:text-[#e8ebe6]">{isRegister ? 'Register' : 'Login'}</h2>
-          {error && <p className="text-[#d03238] dark:text-[#ff6b6f] text-sm">{error}</p>}
+          {error && <p className="text-[#d03238] dark:text-[#ff6b6f] text-sm" role="alert" aria-live="polite">{error}</p>}
 
           <div>
             <label htmlFor="username" className="block text-sm text-[#686868] dark:text-[#898989] mb-1">Username</label>
@@ -85,13 +90,14 @@ export default function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
             />
           </div>
 
           {/* Ingat Saya checkbox */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
+          <label htmlFor="rememberMe" className="flex items-center gap-2 cursor-pointer select-none">
             <input
+              id="rememberMe"
               type="checkbox"
               checked={rememberMe}
               onChange={e => setRememberMe(e.target.checked)}
@@ -100,8 +106,8 @@ export default function LoginPage() {
             <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
-          <button type="submit" className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.4)] hover:scale-[1.01] active:scale-[0.99]">
-            {isRegister ? 'Register' : 'Login'}
+          <button type="submit" disabled={submitting} className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.4)] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed">
+            {submitting ? 'Loading...' : isRegister ? 'Register' : 'Login'}
           </button>
           <button type="button" className="w-full py-2 text-sm text-[#686868] dark:text-[#898989] hover:text-[#9fe870] dark:hover:text-[#9fe870] transition font-medium" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? 'Sudah punya akun? Login' : 'Belum punya akun? Register'}
