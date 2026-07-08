@@ -218,7 +218,7 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 
 func (c *Client) getKlinesAlt(symbol, interval string, limit int) ([][]any, error) {
 	u := "https://www.tokocrypto.site/api/v3/klines?" + url.Values{
-		"symbol":   {symbol},
+		"symbol":   {strings.ReplaceAll(symbol, "_", "")},
 		"interval": {interval},
 		"limit":    {strconv.Itoa(limit)},
 	}.Encode()
