@@ -127,7 +127,8 @@ export default function GridPage() {
       queryKey: ['portfolio', id],
       queryFn: () => api.sessions.getPortfolio(id),
       enabled: isAuthenticated && paperIds.length > 0,
-      staleTime: 30_000,
+      staleTime: 10_000,
+      refetchInterval: 15_000,
     })),
   })
 
