@@ -171,7 +171,12 @@ export default function TrendPage() {
                       </div>
                       {(() => {
                         const st = trendStatuses?.find(t => t.session_id === s.id)
-                        if (!st || st.cross_status === 'unknown' || st.fast_sma == null || st.slow_sma == null || st.price_position_pct == null) return null
+                        if (!st) return null
+                        if (st.cross_status === 'unknown' || st.fast_sma == null || st.slow_sma == null) return (
+                          <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] px-4 py-2 bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)] text-[10px] text-[#686868] dark:text-[#898989]">
+                            SMA tidak tersedia — restart session untuk menghitung ulang
+                          </div>
+                        )
                         const isGolden = st.cross_status === 'golden'
                         const barColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.3)]'
                         const dotColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.5)]'
@@ -183,7 +188,7 @@ export default function TrendPage() {
                               <div className="flex-1 relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
                                 <div className={`absolute inset-0 rounded-full ${barColor} opacity-20`} />
                                 <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow-sm transition-all" style={{
-                                  left: `${Math.min(100, Math.max(0, st.price_position_pct))}%`,
+                                  left: `${Math.min(100, Math.max(0, st.price_position_pct ?? 0))}%`,
                                   background: isGolden ? '#9fe870' : st.cross_status === 'death' ? '#ff6b6f' : 'rgba(140,140,140,0.5)',
                                   transform: 'translate(-50%, -50%)',
                                 }} />

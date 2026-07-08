@@ -124,7 +124,7 @@ export default function SessionDetailPage() {
   const { data: portfolio } = useQuery({
     queryKey: ['portfolio', id],
     queryFn: () => api.sessions.getPortfolio(Number(id)),
-    enabled: isAuthenticated && isGridPaper,
+    enabled: isAuthenticated && (isGridPaper || isDCAPaper),
     refetchInterval: 15000,
   })
 
@@ -751,6 +751,35 @@ export default function SessionDetailPage() {
           </div>
         ) : null}
 
+        {/* DCA cost basis strip — computed from orders, no extra API call */}
+        {session.strategy === 'dca' && orders && orders.length > 0 && (() => {
+          const buys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+          if (buys.length === 0) return null
+          const totalQty = buys.reduce((s, o) => s + parseFloat(o.quantity), 0)
+          const totalCost = buys.reduce((s, o) => s + parseFloat(o.quantity) * parseFloat(o.executed_price || o.price), 0)
+          const avgPrice = totalQty > 0 ? totalCost / totalQty : 0
+          const totalInvested = buys.reduce((s, o) => s + parseFloat(o.quantity) * parseFloat(o.price), 0)
+          return (
+            <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(255,209,26,0.2)] mb-6">
+              <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Cost Basis DCA</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Total Beli</p>
+                  <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{buys.length}x</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Avg Harga Beli</p>
+                  <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">${avgPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Total Invested</p>
+                  <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] mt-0.5">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Session Notes */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
@@ -1020,11 +1049,6 @@ export default function SessionDetailPage() {
               {configDisplay.stop_loss_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
                   <OctagonX size={12} className="inline mr-1" />SL {configDisplay.stop_loss_pct}%
-                </span>
-              )}
-              {session.mode === 'paper' && configDisplay.take_profit_pct > 0 && session.strategy !== 'dca' && (
-                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
-                  <Target size={12} className="inline mr-1" />TP {configDisplay.take_profit_pct}%
                 </span>
               )}
             </>)}

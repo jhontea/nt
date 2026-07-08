@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState, useMemo } from 'react'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
-import { SessionList } from '@/components/sessions/SessionList'
+import { SessionCard } from '@/components/sessions/SessionCard'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
@@ -14,7 +14,27 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import { Coins, Plus } from 'lucide-react'
+import type { DCAConfig, Order } from '@/types'
+import { Coins, Plus, Clock, TrendingUp } from 'lucide-react'
+
+function parseDCAConfig(config: string): DCAConfig | null {
+  try { return JSON.parse(config) } catch { return null }
+}
+
+function formatInterval(sec: number): string {
+  if (sec < 60) return `${sec}d`
+  if (sec < 3600) return `${Math.round(sec / 60)}m`
+  if (sec < 86400) return `${Math.round(sec / 3600)}j`
+  return `${Math.round(sec / 86400)}h`
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return 'Sekarang'
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}d lagi`
+  if (s < 3600) return `${Math.floor(s / 60)}m lagi`
+  return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
+}
 
 export default function DcaPage() {
   const { isAuthenticated, initialized } = useAuth()
@@ -22,12 +42,43 @@ export default function DcaPage() {
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
   const [showCreate, setShowCreate] = useState(false)
+  const [symbolFilter, setSymbolFilter] = useState('all')
+  const [now, setNow] = useState(Date.now())
+
+  // tick every 10s to update countdowns
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 10_000)
+    return () => clearInterval(t)
+  }, [])
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['dca-sessions'],
     queryFn: api.dca.sessions.list,
     enabled: isAuthenticated,
   })
+
+  const sessionIds = useMemo(() => sessions?.map(s => s.id) ?? [], [sessions])
+  const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
+
+  // Orders per session for next-buy countdown
+  const orderQueries = useQueries({
+    queries: sessionIds.map(id => ({
+      queryKey: ['orders', id],
+      queryFn: () => api.sessions.getOrders(id),
+      enabled: isAuthenticated && sessionIds.length > 0,
+      staleTime: 30_000,
+    })),
+  })
+
+  const ordersBySession = useMemo(() =>
+    Object.fromEntries(sessionIds.map((id, i) => [id, orderQueries[i]?.data ?? []])) as Record<number, Order[]>,
+    [sessionIds, orderQueries]
+  )
+
+  const filteredSessions = useMemo(() =>
+    symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter),
+    [sessions, symbolFilter]
+  )
 
   async function handleStart(id: number) { await api.sessions.start(id); refetch() }
   async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
@@ -48,7 +99,7 @@ export default function DcaPage() {
               <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Beli aset secara berkala dalam jumlah tetap</p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#ffd11a] text-[#3d2f00] font-bold border-2 border-[#ffd11a] hover:bg-[#ffe566] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(255,209,26,0.4)] whitespace-nowrap flex items-center gap-1.5">
             <Plus size={16} /> New Session
           </button>
         </div>
@@ -56,28 +107,78 @@ export default function DcaPage() {
         <StrategyTabs active="dca" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
-        <InfoStrip
-          tone="dca"
-          icon={<Coins size={16} />}
-          text="Bot membeli aset secara rutin dalam jumlah tetap untuk meratakan harga beli rata-rata — cocok untuk menabung aset tanpa menebak pasar."
-        />
+        <InfoStrip tone="dca" icon={<Coins size={16} />} text="Bot membeli aset secara rutin dalam jumlah tetap, meratakan harga beli rata-rata (cost averaging) dari waktu ke waktu." help="DCA cocok untuk investasi jangka panjang — tidak perlu timing pasar, cukup beli rutin." />
         <StrategyBanner strategy="dca" sessions={sessions ?? []} />
-        <SectionLabel>SESSION DCA · {sessions?.length ?? 0}</SectionLabel>
+
+        {/* Session list */}
+        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <SectionLabel>SESSION DCA · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}</SectionLabel>
+          {uniqueSymbols.length > 1 && (
+            <select
+              value={symbolFilter}
+              onChange={e => setSymbolFilter(e.target.value)}
+              className="text-xs px-3 py-1.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-full text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none"
+            >
+              <option value="all">Semua pair</option>
+              {uniqueSymbols.map(s => <option key={s} value={s}>{s.replace('_', '/')}</option>)}
+            </select>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse"><div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" /><span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span></div>
-        ) : (
-          sessions && sessions.length === 0 ? (
-            <EmptyState
-              icon={<Coins size={28} />}
-              title="Belum ada session DCA"
-              description="Buat session pertama kamu untuk mulai membeli aset secara rutin dan meratakan harga beli rata-rata."
-              actionLabel="New Session"
-              onAction={() => setShowCreate(true)}
-            />
+        ) : filteredSessions.length === 0 ? (
+          sessions?.length ? (
+            <p className="text-sm text-[#686868] dark:text-[#898989] py-8 text-center">Tidak ada session untuk pair {symbolFilter.replace('_', '/')}.</p>
           ) : (
-            <SessionList sessions={sessions ?? []} strategy="dca" onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={(id) => router.push(`/sessions/${id}`)} />
+            <EmptyState icon={<Coins size={28} />} title="Belum ada session DCA" description="Buat session pertama kamu untuk mulai membeli aset secara rutin dan meratakan harga beli rata-rata." actionLabel="New Session" onAction={() => setShowCreate(true)} />
           )
+        ) : (
+          <div className="space-y-3">
+            {filteredSessions.map(s => {
+              const cfg = parseDCAConfig(s.config)
+              const orders: Order[] = ordersBySession[s.id] ?? []
+              const lastBuy = orders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+              const nextBuyMs = cfg && lastBuy && s.status === 'running'
+                ? new Date(lastBuy.created_at).getTime() + cfg.interval_sec * 1000 - now
+                : null
+              const totalBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal')).length
+              const totalInvested = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+                .reduce((sum, o) => sum + parseFloat(o.quantity) * parseFloat(o.price || '0'), 0)
+
+              return (
+                <div key={s.id}>
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
+
+                  {/* DCA config strip */}
+                  {cfg && (
+                    <div className="mx-1 -mt-1 bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border border-t-0 border-[rgba(255,209,26,0.15)] rounded-b-[16px] px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                        <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
+                        <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                        <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
+                        {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
+                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                          <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
+                        </>)}
+                        {totalBuys > 0 && (<>
+                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                          <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested</span>
+                        </>)}
+                      </div>
+                      {/* Next buy countdown */}
+                      {nextBuyMs !== null && (
+                        <span className="flex items-center gap-1 text-xs text-[#686868] dark:text-[#898989]">
+                          <Clock size={11} />
+                          {formatCountdown(nextBuyMs)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
       <CreateSessionModal strategy="dca" open={showCreate} onClose={() => setShowCreate(false)} onCreated={() => refetch()} />
