@@ -107,19 +107,29 @@ function StatsRow({ stats, activeFilter, onFilterChange }: {
       {filters.map(f => {
         const isActive = activeFilter === f.key
         const stat = stats[f.key]
+        const hasRunning = stat.running > 0
         return (
           <button
             key={f.key}
             onClick={() => onFilterChange(f.key)}
-            className={`bg-white dark:bg-[#1e201c] rounded-[16px] p-4 text-left transition-all border-2 ${
+            className={`relative bg-white dark:bg-[#1e201c] rounded-[16px] p-4 text-left transition-all border-2 ${
               isActive
-                ? 'border-[#9fe870] bg-[rgba(159,232,112,0.04)] dark:bg-[rgba(159,232,112,0.08)] shadow-[0_4px_16px_rgba(159,232,112,0.15)]'
+                ? 'border-[#9fe870] bg-gradient-to-br from-[rgba(159,232,112,0.08)] to-transparent dark:from-[rgba(159,232,112,0.12)] shadow-[0_4px_16px_rgba(159,232,112,0.2)]'
+                : hasRunning
+                ? 'border-[rgba(159,232,112,0.35)] dark:border-[rgba(159,232,112,0.3)] hover:border-[rgba(159,232,112,0.5)]'
                 : 'border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)]'
             }`}
           >
+            {/* Running pulse dot — top right */}
+            {hasRunning && (
+              <span className="absolute top-3 right-3 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
+                <span className="text-[10px] font-bold text-[#9fe870]">{stat.running}</span>
+              </span>
+            )}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">{f.icon}</span>
-              <span className={`text-sm font-bold ${isActive ? 'text-[#163300] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
+              <span className={`text-base font-bold ${isActive ? 'text-[#163300] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
                 {f.label}
               </span>
             </div>
@@ -128,7 +138,7 @@ function StatsRow({ stats, activeFilter, onFilterChange }: {
                 {stat.total}
               </span>
               <span className="text-xs text-[#686868] dark:text-[#898989]">
-                {stat.running} running
+                sesi
               </span>
             </div>
           </button>
