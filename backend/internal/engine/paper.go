@@ -181,6 +181,8 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 		return nil
 	}
 
+	// ponytail: trend signals carry the crossover price (fresh from latest candle), no ticker fetch needed.
+	// Unlike grid paper where grid level prices can be stale. Add ticker fetch if live slippage tracking matters.
 	execPriceF, _ := strconv.ParseFloat(signal.Price, 64)
 	qtyF, _ := strconv.ParseFloat(signal.Quantity, 64)
 	notional := execPriceF * qtyF
