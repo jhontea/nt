@@ -536,7 +536,7 @@ fetchPriceAndApply(symbol)
                   <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">{currentPrice.toLocaleString()}</span>
                   <span className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol}</span>
                   {strategy === 'grid' && lowerPrice && upperPrice && (
-                    <span className="text-xs text-[#686868] ml-auto">
+                    <span className="text-xs text-[#686868] dark:text-[#898989] ml-auto">
                       Grid: <span className="text-[#163300] dark:text-[#9fe870] font-medium">{parseInt(lowerPrice).toLocaleString()}</span>
                       {' — '}
                       <span className="text-[#163300] dark:text-[#9fe870] font-medium">{parseInt(upperPrice).toLocaleString()}</span>
@@ -880,7 +880,7 @@ fetchPriceAndApply(symbol)
           </>
         ) : (
           <div className="text-center py-16">
-            <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] flex items-center justify-center text-2xl mx-auto mb-4">
+            <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] dark:bg-[rgba(159,232,112,0.08)] flex items-center justify-center mx-auto mb-4 text-[#163300] dark:text-[#9fe870]">
               {activeFilter === 'all' ? <Bot size={28} /> : activeFilter === 'grid' ? <Grid2x2 size={28} /> : activeFilter === 'trend' ? <TrendingUp size={28} /> : <Coins size={28} />}
             </div>
             <p className="text-[#0e0f0c] dark:text-[#e8ebe6] text-lg font-bold">
@@ -923,6 +923,16 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
     : session.strategy === 'trend'
     ? 'bg-[rgba(56,200,255,0.1)]'
     : 'bg-[rgba(255,209,26,0.1)]'
+  const strategyIconColor = session.strategy === 'grid'
+    ? 'text-[#163300] dark:text-[#9fe870]'
+    : session.strategy === 'trend'
+    ? 'text-[#0994b3] dark:text-[#5dd8f5]'
+    : 'text-[#7a5f00] dark:text-[#f5c842]'
+  const modeIconColor = session.mode === 'live'
+    ? 'text-[#7a5f00]'
+    : session.mode === 'paper'
+    ? 'text-[#163300]'
+    : 'text-[#0994b3]'
   const strategyLabel = session.strategy === 'grid' ? 'Grid Trading' : session.strategy === 'trend' ? 'Trend Following' : 'DCA'
 
   return (
@@ -943,10 +953,10 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
       <div className="flex items-center gap-4">
         {/* Strategy icon utama + mode badge kecil */}
         <div className="relative flex-shrink-0">
-          <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl ${strategyBg}`}>
+          <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center ${strategyBg} ${strategyIconColor}`}>
             {strategyIcon}
           </div>
-          <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${modeBg}`}>
+          <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${modeBg} ${modeIconColor}`}>
             {modeIcon}
           </span>
         </div>
