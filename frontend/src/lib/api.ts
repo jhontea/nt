@@ -60,14 +60,31 @@ export const api = {
     }>(`/v1/sessions/${id}/reevaluate`),
     applyConfig: (id: number, config: string) => request<import('@/types').Session>(`/v1/sessions/${id}/config`, { method: 'PATCH', body: JSON.stringify({ config }) }),
   },
-grid: {
+  grid: {
+    sessions: {
+      list: () => request<import('@/types').Session[]>('/v1/grid/sessions'),
+      create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
+        request<import('@/types').Session>('/v1/grid/sessions', { method: 'POST', body: JSON.stringify(data) }),
+    },
 	recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
 	  request<import("@/types").GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || "grid_steps"}`),
 	insights: (symbol: string) =>
 	  request<import("@/types").GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
   },
   trend: {
+    sessions: {
+      list: () => request<import('@/types').Session[]>('/v1/trend/sessions'),
+      create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
+        request<import('@/types').Session>('/v1/trend/sessions', { method: 'POST', body: JSON.stringify(data) }),
+    },
 	recommend: (params: { symbol: string; horizon: string; capital: number }) =>
 	  request<import("@/types").TrendRecommendation>(`/v1/trend/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}`),
+  },
+  dca: {
+    sessions: {
+      list: () => request<import('@/types').Session[]>('/v1/dca/sessions'),
+      create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
+        request<import('@/types').Session>('/v1/dca/sessions', { method: 'POST', body: JSON.stringify(data) }),
+    },
   },
 }
