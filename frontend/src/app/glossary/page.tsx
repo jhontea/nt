@@ -190,15 +190,23 @@ export default function GlossaryPage() {
             placeholder="Cari istilah..."
             value={search}
             onChange={e => setSearch(e.target.value)}
+            aria-label="Cari istilah trading"
             className="w-full px-4 py-3 pl-10 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[14px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] focus:border-[#9fe870]"
           />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] text-sm">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] text-sm pointer-events-none">🔍</span>
         </div>
 
         {filtered.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-[#686868] dark:text-[#898989] text-sm">Tidak ada istilah yang cocok dengan &quot;{search}&quot;</p>
-            <button onClick={() => setSearch('')} className="mt-2 text-[#9fe870] text-sm font-medium hover:underline">Reset pencarian</button>
+            <p className="text-[#686868] dark:text-[#898989] text-sm">
+                {search && activeCategory !== 'all'
+                  ? `Tidak ada istilah di kategori "${activeCategory}" yang cocok dengan "${search}"`
+                  : search
+                  ? `Tidak ada istilah yang cocok dengan "${search}"`
+                  : `Tidak ada istilah di kategori "${activeCategory}"`
+                }
+              </p>
+            <button onClick={() => { setSearch(''); setActiveCategory('all') }} className="mt-2 text-[#9fe870] text-sm font-medium hover:underline">Reset semua filter</button>
           </div>
         )}
 
@@ -212,7 +220,7 @@ export default function GlossaryPage() {
                     {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
                   </span>
                 </span>
-                <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform text-xs flex-shrink-0">▼</span>
+                <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform duration-200 text-xs flex-shrink-0">▼</span>
               </summary>
               <div className="px-5 pt-1 pb-4 text-sm text-[#0e0f0c] dark:text-[#e8ebe6] leading-relaxed border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
                 {t.desc}
