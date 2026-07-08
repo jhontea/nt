@@ -1,8 +1,10 @@
 'use client'
+import React from 'react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
+import { Bot, BarChart2, FileText, Zap, Grid2x2, TrendingUp, Coins } from 'lucide-react'
 
 const steps = [
   { num: 1, title: 'Buat Akun', desc: 'Register dengan username dan password. Data disimpan di database lokal.' },
@@ -11,16 +13,16 @@ const steps = [
   { num: 4, title: 'Pantau Hasil', desc: 'Lihat P&L, order, dan sinyal real-time via WebSocket di halaman detail sesi.' },
 ]
 
-const modes = [
-  { name: 'Signal', icon: '📊', desc: 'Bot hanya menganalisis pasar dan mencatat sinyal beli/jual. Tidak ada order sungguhan. Cocok untuk belajar dan uji strategi.' },
-  { name: 'Paper', icon: '📝', desc: 'Trading simulasi dengan uang virtual $1000. Bot mengeksekusi order palsu dan mencatat P&L virtual.' },
-  { name: 'Live', icon: '⚡', desc: 'Trading sungguhan via API TokoCrypto. Eksekusi order real dengan uang sungguhan — gunakan dengan hati-hati.' },
+const modes: { name: string; icon: React.ReactNode; desc: string }[] = [
+  { name: 'Signal', icon: <BarChart2 size={28} />, desc: 'Bot hanya menganalisis pasar dan mencatat sinyal beli/jual. Tidak ada order sungguhan. Cocok untuk belajar dan uji strategi.' },
+  { name: 'Paper', icon: <FileText size={28} />, desc: 'Trading simulasi dengan uang virtual $1000. Bot mengeksekusi order palsu dan mencatat P&L virtual.' },
+  { name: 'Live', icon: <Zap size={28} />, desc: 'Trading sungguhan via API TokoCrypto. Eksekusi order real dengan uang sungguhan — gunakan dengan hati-hati.' },
 ]
 
-const strategies = [
-  { name: 'Grid', icon: '📐', desc: 'Pasang order beli dan jual di level harga yang sudah ditentukan. Bot akan beli di harga rendah dan jual di harga tinggi.' },
-  { name: 'Trend', icon: '📈', desc: 'Deteksi tren pasar menggunakan SMA crossover. Golden cross (SMA cepat naik di atas SMA lambat) = beli, death cross = jual.' },
-  { name: 'DCA', icon: '🪙', desc: 'Dollar Cost Averaging — beli aset secara berkala dalam jumlah tetap. Otomatis jual saat harga naik ke target profit.' },
+const strategies: { name: string; icon: React.ReactNode; desc: string }[] = [
+  { name: 'Grid', icon: <Grid2x2 size={28} />, desc: 'Pasang order beli dan jual di level harga yang sudah ditentukan. Bot akan beli di harga rendah dan jual di harga tinggi.' },
+  { name: 'Trend', icon: <TrendingUp size={28} />, desc: 'Deteksi tren pasar menggunakan SMA crossover. Golden cross (SMA cepat naik di atas SMA lambat) = beli, death cross = jual.' },
+  { name: 'DCA', icon: <Coins size={28} />, desc: 'Dollar Cost Averaging — beli aset secara berkala dalam jumlah tetap. Otomatis jual saat harga naik ke target profit.' },
 ]
 
 export default function Home() {
@@ -42,7 +44,7 @@ export default function Home() {
       <header className="border-b border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] sticky top-0 bg-[#fafafa]/95 dark:bg-[#141411]/95 backdrop-blur-sm z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <h1 className="text-lg font-bold flex items-center gap-2 text-[#0e0f0c] dark:text-[#e8ebe6]">
-            <span className="text-2xl">🤖</span>
+            <Bot size={22} className="text-[#9fe870]" />
             <span className="hidden sm:inline">Trading Bot</span>
           </h1>
           <nav className="flex gap-3 sm:gap-4 text-sm">
@@ -95,7 +97,7 @@ export default function Home() {
         <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
           {modes.map(m => (
             <div key={m.name} className="bg-white dark:bg-[#1e201c] rounded-[16px] p-5 sm:p-6 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.12)] dark:hover:border-[rgba(232,235,230,0.12)] transition">
-              <div className="text-3xl mb-3">{m.icon}</div>
+              <div className="mb-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{m.icon}</div>
               <h4 className="font-semibold mb-2 text-lg text-[#0e0f0c] dark:text-[#e8ebe6]">{m.name}</h4>
               <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{m.desc}</p>
             </div>
@@ -110,7 +112,7 @@ export default function Home() {
         <div className="grid sm:grid-cols-3 gap-4 sm:gap-6">
           {strategies.map(s => (
             <div key={s.name} className="bg-white dark:bg-[#1e201c] rounded-[16px] p-5 sm:p-6 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.12)] dark:hover:border-[rgba(232,235,230,0.12)] transition">
-              <div className="text-3xl mb-3">{s.icon}</div>
+              <div className="mb-3 text-[#0e0f0c] dark:text-[#e8ebe6]">{s.icon}</div>
               <h4 className="font-semibold mb-2 text-lg text-[#0e0f0c] dark:text-[#e8ebe6]">{s.name}</h4>
               <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{s.desc}</p>
             </div>

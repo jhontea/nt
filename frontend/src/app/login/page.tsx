@@ -1,12 +1,14 @@
 'use client'
+import React from 'react'
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { api } from '@/lib/api'
+import { Bot, BarChart2, FileText, Zap, BookOpen } from 'lucide-react'
 
-const modes = [
-  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: '📊', border: 'border-l-4 border-l-[rgba(56,200,255,0.8)]' },
-  { name: 'Paper', desc: 'Trading simulasi dengan uang virtual $1000 — tanpa risiko', icon: '📝', border: 'border-l-4 border-l-[rgba(159,232,112,0.8)]' },
-  { name: 'Live', desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati', icon: '⚡', border: 'border-l-4 border-l-[rgba(255,209,26,0.8)]' },
+const modes: { name: string; desc: string; icon: React.ReactNode; border: string }[] = [
+  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: <BarChart2 size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(56,200,255,0.8)]' },
+  { name: 'Paper', desc: 'Trading simulasi dengan uang virtual $1000 — tanpa risiko', icon: <FileText size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(159,232,112,0.8)]' },
+  { name: 'Live', desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati', icon: <Zap size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(255,209,26,0.8)]' },
 ]
 
 export default function LoginPage() {
@@ -40,7 +42,7 @@ export default function LoginPage() {
         {/* Info Panel */}
          <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
            <div className="flex items-center gap-3 mb-2">
-             <div className="w-10 h-10 rounded-[12px] bg-[rgba(159,232,112,0.15)] flex items-center justify-center text-xl">🤖</div>
+             <div className="w-10 h-10 rounded-[12px] bg-[rgba(159,232,112,0.15)] flex items-center justify-center"><Bot size={20} className="text-[#163300] dark:text-[#9fe870]" /></div>
              <h1 className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trading Bot</h1>
            </div>
           <p className="text-sm text-[#686868] dark:text-[#898989]">
@@ -56,7 +58,7 @@ export default function LoginPage() {
             ))}
           </div>
           <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">* 3 strategi: Grid, Trend Following, DCA</p>
-          <a href="/glossary" className="block text-xs text-[#2d7a1a] dark:text-[#b3f08a] hover:text-[#054d28] dark:hover:text-[#cdffad] mt-2">📖 Lihat Glosarium istilah trading &rarr;</a>
+          <a href="/glossary" className="block text-xs text-[#2d7a1a] dark:text-[#b3f08a] hover:text-[#054d28] dark:hover:text-[#cdffad] mt-2"><BookOpen size={14} className="inline mr-1" /> Lihat Glosarium istilah trading &rarr;</a>
         </div>
 
         {/* Login Form */}
