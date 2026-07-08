@@ -90,6 +90,54 @@ const presets: Preset[] = [
   { label: '📊 Grid Paper', desc: 'Simulasi Grid Trading dengan uang virtual $1000.', strategy: 'grid', mode: 'paper', symbol: 'ETH_USDT', config: { grid_count: 8, quantity: '0.01' } },
 ]
 
+function StatsRow({ stats, activeFilter, onFilterChange }: {
+  stats: { all: { total: number; running: number }; grid: { total: number; running: number }; trend: { total: number; running: number }; dca: { total: number; running: number } }
+  activeFilter: 'all' | 'grid' | 'trend' | 'dca'
+  onFilterChange: (filter: 'all' | 'grid' | 'trend' | 'dca') => void
+}) {
+  const filters = [
+    { key: 'all' as const, label: 'All', icon: '🤖' },
+    { key: 'grid' as const, label: 'Grid', icon: '📐' },
+    { key: 'trend' as const, label: 'Trend', icon: '📈' },
+    { key: 'dca' as const, label: 'DCA', icon: '🪙' }
+  ]
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      {filters.map(f => {
+        const isActive = activeFilter === f.key
+        const stat = stats[f.key]
+        return (
+          <button
+            key={f.key}
+            onClick={() => onFilterChange(f.key)}
+            className={`bg-white dark:bg-[#1e201c] rounded-[16px] p-4 text-left transition-all border-2 ${
+              isActive
+                ? 'border-[#9fe870] bg-[rgba(159,232,112,0.04)] dark:bg-[rgba(159,232,112,0.08)] shadow-[0_4px_16px_rgba(159,232,112,0.15)]'
+                : 'border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)]'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xl">{f.icon}</span>
+              <span className={`text-sm font-bold ${isActive ? 'text-[#163300] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
+                {f.label}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className={`text-2xl font-black ${isActive ? 'text-[#163300] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
+                {stat.total}
+              </span>
+              <span className="text-xs text-[#686868] dark:text-[#898989]">
+                {stat.running} running
+              </span>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function SessionsPage() {
   const { logout, isAuthenticated, initialized } = useAuth()
   const router = useRouter()
@@ -308,6 +356,9 @@ setFastPeriod(String(p.config.fast_period || 10))
           </div>
           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent rounded-r-[24px] pointer-events-none" />
         </div>
+
+        {/* Stats Row */}
+        <StatsRow stats={stats} activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
         {/* Form panel — slide-down, full width, max-w-3xl */}
         {showCreate && (
