@@ -47,6 +47,12 @@ func ComputeTrendStatus(fetcher CandleFetcher, session model.Session, configStr 
 		return nil
 	}
 
+	if len(raw) == 0 {
+		slog.Warn("GetCandles returned empty", "session", session.ID, "symbol", session.Symbol, "interval", interval)
+		return nil
+	}
+	slog.Info("candle sample", "session", session.ID, "first", raw[0], "len", len(raw[0]))
+
 	prices := make([]float64, 0, len(raw))
 	for _, c := range raw {
 		if len(c) < 5 {

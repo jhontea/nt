@@ -267,6 +267,10 @@ func (c *Client) GetCandles(symbol, interval string, limit int) ([][]any, error)
 	if res.Code != 0 {
 		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
 	}
+	// ponytail: fallback to alt endpoint if primary returns empty list
+	if len(res.Data.List) == 0 {
+		return c.getKlinesAlt(symbol, interval, limit)
+	}
 	return res.Data.List, nil
 }
 

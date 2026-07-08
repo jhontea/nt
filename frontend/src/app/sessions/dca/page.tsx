@@ -36,53 +36,45 @@ function formatCountdown(ms: number): string {
   return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
 }
 
-// Progress bar: 0% (avg buy price) → current gain → TP target
+// Progress bar: Avg (left=0%) → current gain → TP (right edge)
 function DCABar({ avgBuy, current, tpPct }: { avgBuy: number; current: number; tpPct: number }) {
   if (avgBuy <= 0 || tpPct <= 0) return null
   const gainPct = ((current - avgBuy) / avgBuy) * 100
-  // bar range: -tpPct/2 to +tpPct (with some padding)
-  const rangeMin = -tpPct * 0.5
+  // range: 0 (avg) → tpPct*1.1 so TP sits near right, not clipped
   const rangeMax = tpPct * 1.1
-  const range = rangeMax - rangeMin
-  const markerPct = Math.max(0, Math.min(100, ((gainPct - rangeMin) / range) * 100))
-  const tpPctPos = Math.max(0, Math.min(100, ((tpPct - rangeMin) / range) * 100))
+  const markerPct = Math.max(0, Math.min(100, (gainPct / rangeMax) * 100))
+  const tpLinePos = Math.round((tpPct / rangeMax) * 100)
   const isProfit = gainPct >= 0
   const nearTP = gainPct >= tpPct * 0.8
 
   return (
-    <div className="w-full mt-1 mb-2">
-      <div className="relative w-full h-5 flex items-center">
+    <div className="w-full mt-2 mb-1">
+      {/* Avg price info */}
+      <div className="flex items-center justify-between text-[10px] mb-1">
+        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
+        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
+          {nearTP && <span className="ml-1 animate-pulse">· Mendekati TP!</span>}
+        </span>
+      </div>
+      <div className="relative w-full h-4 flex items-center">
         {/* Track */}
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] rounded-full overflow-hidden">
-          {/* Fill from zero to current */}
           <div
-            className={`absolute inset-y-0 rounded-full transition-all ${isProfit ? 'bg-gradient-to-r from-[rgba(159,232,112,0.2)] to-[rgba(159,232,112,0.5)]' : 'bg-gradient-to-r from-[rgba(208,50,56,0.2)] to-[rgba(208,50,56,0.4)]'}`}
-            style={{
-              left: `${Math.min(markerPct, ((0 - rangeMin) / range) * 100)}%`,
-              right: `${100 - Math.max(markerPct, ((0 - rangeMin) / range) * 100)}%`,
-            }}
+            className={`absolute inset-y-0 left-0 rounded-full transition-all ${isProfit ? 'bg-gradient-to-r from-[rgba(159,232,112,0.3)] to-[rgba(159,232,112,0.6)]' : 'bg-gradient-to-r from-[rgba(208,50,56,0.3)] to-[rgba(208,50,56,0.5)]'}`}
+            style={{ width: `${markerPct}%` }}
           />
         </div>
-        {/* Zero line */}
-        <div className="absolute top-0 bottom-0 w-px bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]" style={{ left: `${((0 - rangeMin) / range) * 100}%` }} />
         {/* TP target line */}
-        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(159,232,112,0.6)] dark:bg-[rgba(159,232,112,0.5)] rounded-full" style={{ left: `${tpPctPos}%` }} title={`TP: +${tpPct}%`} />
+        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(159,232,112,0.7)] dark:bg-[rgba(159,232,112,0.6)] rounded-full" style={{ left: `${tpLinePos}%` }} title={`TP: +${tpPct}%`} />
         {/* Current price marker */}
         <div
           className={`absolute top-0 bottom-0 w-0.5 rounded-full transition-all ${nearTP ? 'bg-[#9fe870]' : isProfit ? 'bg-[#163300] dark:bg-[#9fe870]' : 'bg-[#d03238] dark:bg-[#ff6b6f]'}`}
           style={{ left: `${markerPct}%` }}
-          title={`Gain: ${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%`}
         />
         {/* Labels */}
         <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">Avg</span>
-        <span className="absolute -bottom-3.5 text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpPctPos}%`, transform: 'translateX(-50%)' }}>TP</span>
-      </div>
-      <div className="mt-4 flex items-center justify-between text-[10px]">
-        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}% dari avg
-        </span>
-        {nearTP && <span className="text-[#054d28] dark:text-[#9fe870] font-bold animate-pulse">Mendekati TP!</span>}
-        <span className="text-[#686868] dark:text-[#898989]">Target +{tpPct}%</span>
+        <span className="absolute -bottom-3.5 text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePos}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>
       </div>
     </div>
   )
