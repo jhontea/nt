@@ -1,5 +1,5 @@
 'use client'
-import { Bot, Zap, TrendingUp, Trophy } from 'lucide-react'
+import { Bot, Zap, TrendingUp, Trophy, TrendingDown, DollarSign } from 'lucide-react'
 import type { Session } from '@/types'
 
 export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
@@ -14,12 +14,19 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
 
   let best: Session | null = null
   let bestPct = -Infinity
+  let worst: Session | null = null
+  let worstPct = Infinity
   for (const s of paper) {
     const init = s.initial_balance ?? 0
     if (init <= 0) continue
     const pct = ((s.virtual_balance! - init) / init) * 100
     if (pct > bestPct) { bestPct = pct; best = s }
+    if (pct < worstPct) { worstPct = pct; worst = s }
   }
+
+  const runningPaperModal = sessions
+    .filter(s => s.status === 'running' && s.mode === 'paper' && s.virtual_balance != null)
+    .reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0)
 
   const cards = [
     { icon: <Bot size={18} />, label: 'Total Sessions', value: String(total), sub: `${running} running`, color: 'text-[#9fe870]' },
@@ -36,10 +43,22 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
       sub: best ? `${bestPct >= 0 ? '+' : ''}${bestPct.toFixed(1)}%` : 'belum ada',
       color: best ? (bestPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]') : 'text-[#686868] dark:text-[#898989]',
     },
+    {
+      icon: <TrendingDown size={18} />, label: 'Worst Performer',
+      value: worst ? worst.name : '—',
+      sub: worst ? `${worstPct >= 0 ? '+' : ''}${worstPct.toFixed(1)}%` : 'belum ada',
+      color: worst ? (worstPct < 0 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]') : 'text-[#686868] dark:text-[#898989]',
+    },
+    {
+      icon: <DollarSign size={18} />, label: 'Modal Aktif',
+      value: `$${runningPaperModal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      sub: 'virtual running',
+      color: runningPaperModal > 0 ? 'text-[#9fe870]' : 'text-[#686868] dark:text-[#898989]',
+    },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
       {cards.map((c, i) => (
         <div key={i} className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <div className="flex items-center gap-2 mb-2 text-[#686868] dark:text-[#898989]">

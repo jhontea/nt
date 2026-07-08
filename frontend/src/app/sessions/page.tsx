@@ -10,8 +10,8 @@ import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
-import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
+import { RunningSessionsPanel } from '@/components/sessions/RunningSessionsPanel'
 
 export default function SessionsOverviewPage() {
   const { isAuthenticated, initialized } = useAuth()
@@ -40,8 +40,6 @@ export default function SessionsOverviewPage() {
         </div>
 
         <MarketTicker />
-
-        <InfoStrip tone="neutral" icon={<Bot size={16} />} text="Di sini Anda melihat ringkasan performa bot dan sesi trading yang sedang berjalan. Mulai dengan membuat sesi baru, lalu pantau PnL, win rate, dan modal aktif dari satu dashboard." help="KPI menunjukkan total profit/rugi, rasio menang, dan dana yang sedang dipakai bot." />
 
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse">
