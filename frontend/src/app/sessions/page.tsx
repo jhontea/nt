@@ -773,7 +773,20 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   const strategyLabel = session.strategy === 'grid' ? 'Grid Trading' : session.strategy === 'trend' ? 'Trend Following' : 'DCA'
 
   return (
-    <div className="bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all p-5 cursor-pointer group" onClick={() => onDetail(session.id)}>
+    <div
+      className={`bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all p-5 cursor-pointer group border-l-4 ${
+        session.strategy === 'grid'
+          ? 'border-l-[#9fe870]'
+          : session.strategy === 'trend'
+          ? 'border-l-[#38c8ff]'
+          : 'border-l-[#ffd11a]'
+      } ${
+        session.status === 'running'
+          ? 'bg-[rgba(159,232,112,0.015)] dark:bg-[rgba(159,232,112,0.03)]'
+          : 'opacity-90'
+      }`}
+      onClick={() => onDetail(session.id)}
+    >
       <div className="flex items-center gap-4">
         {/* Strategy icon utama + mode badge kecil */}
         <div className="relative flex-shrink-0">
@@ -803,13 +816,13 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
                 : 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]'
             }`}>
               {session.status === 'running' && (
-                <span className={`inline-block w-1.5 h-1.5 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
+                <span className={`inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
               )}
               {session.status === 'running' ? 'Running' : 'Stopped'}
             </span>
           </div>
           <p className="text-xs text-[#686868] dark:text-[#898989]">
-            <span className="font-medium text-[#5a5b58] dark:text-[#8a8d88]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
+            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
           </p>
         </div>
         {/* Actions — stop propagation agar tidak trigger onDetail */}
