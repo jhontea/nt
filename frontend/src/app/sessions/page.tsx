@@ -8,7 +8,6 @@ import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { SessionList } from '@/components/sessions/SessionList'
-import { Bot } from 'lucide-react'
 
 export default function SessionsOverviewPage() {
   const { logout, isAuthenticated, initialized } = useAuth()

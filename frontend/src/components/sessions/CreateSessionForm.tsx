@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
-import { GraduationCap, Settings, X } from 'lucide-react'
+import { GraduationCap, Settings } from 'lucide-react'
 import { api } from '@/lib/api'
 
 const PAIRS = [
