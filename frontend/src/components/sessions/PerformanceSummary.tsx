@@ -1,8 +1,13 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { Bot, Zap, TrendingUp, Trophy, TrendingDown, DollarSign } from 'lucide-react'
 import type { Session } from '@/types'
 
+const strategyLabel = (s: Session) =>
+  s.strategy === 'grid' ? 'Grid' : s.strategy === 'trend' ? 'Trend' : 'DCA'
+
 export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
+  const router = useRouter()
   const total = sessions.length
   const running = sessions.filter(s => s.status === 'running').length
 
@@ -39,15 +44,17 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
     },
     {
       icon: <Trophy size={18} />, label: 'Best Performer',
-      value: best ? best.name : '—',
+      value: best ? `${strategyLabel(best)} ${best.symbol}` : '—',
       sub: best ? `${bestPct >= 0 ? '+' : ''}${bestPct.toFixed(1)}%` : 'belum ada',
       color: best ? (bestPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]') : 'text-[#686868] dark:text-[#898989]',
+      href: best ? `/sessions/${best.id}` : undefined,
     },
     {
       icon: <TrendingDown size={18} />, label: 'Worst Performer',
-      value: worst ? worst.name : '—',
+      value: worst ? `${strategyLabel(worst)} ${worst.symbol}` : '—',
       sub: worst ? `${worstPct >= 0 ? '+' : ''}${worstPct.toFixed(1)}%` : 'belum ada',
       color: worst ? (worstPct < 0 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]') : 'text-[#686868] dark:text-[#898989]',
+      href: worst ? `/sessions/${worst.id}` : undefined,
     },
     {
       icon: <DollarSign size={18} />, label: 'Modal Aktif',
@@ -60,7 +67,8 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
       {cards.map((c, i) => (
-        <div key={i} className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+        <div key={i} onClick={c.href ? () => router.push(c.href as string) : undefined} role={c.href ? 'button' : undefined} tabIndex={c.href ? 0 : undefined}
+          className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] ${c.href ? 'hover:border-[#9fe870] dark:hover:border-[#9fe870] cursor-pointer transition-colors' : 'cursor-default'}`}>
           <div className="flex items-center gap-2 mb-2 text-[#686868] dark:text-[#898989]">
             <span className={c.color}>{c.icon}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest">{c.label}</span>

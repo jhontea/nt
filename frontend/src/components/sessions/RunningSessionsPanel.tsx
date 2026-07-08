@@ -1,5 +1,6 @@
 'use client'
-import { Grid2x2, TrendingUp, Coins, FileText, BarChart2, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { Grid2x2, TrendingUp, Coins, FileText, BarChart2, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Session } from '@/types'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
@@ -20,20 +21,23 @@ const modeBadge = (m: Session['mode']) => {
 }
 
 export function RunningSessionsPanel({ sessions, router }: { sessions: Session[]; router: AppRouterInstance }) {
+  const [expanded, setExpanded] = useState(true)
   const running = sessions.filter(s => s.status === 'running')
   if (running.length === 0) return null
 
   return (
     <div className="mt-4 mb-2 bg-white dark:bg-[#1e201c] rounded-[20px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] overflow-hidden">
       {/* header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+      <button className="w-full flex items-center gap-2 px-4 py-2.5 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] text-left" onClick={() => setExpanded(!expanded)}>
         <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
         <span className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6] uppercase tracking-widest">Running Now</span>
         <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870] text-[10px] font-bold">{running.length}</span>
-      </div>
+        <span className="ml-auto text-[#686868] dark:text-[#898989] transition-transform">{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
+      </button>
 
       {/* rows */}
-      <ul>
+      <div className={`grid transition-all duration-200 ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <ul className="overflow-hidden">
         {running.map((s, i) => {
           const badge = modeBadge(s.mode)
           const balanceColor = s.mode === 'paper' && s.virtual_balance != null && s.initial_balance != null
@@ -73,6 +77,7 @@ export function RunningSessionsPanel({ sessions, router }: { sessions: Session[]
           )
         })}
       </ul>
+    </div>
     </div>
   )
 }
