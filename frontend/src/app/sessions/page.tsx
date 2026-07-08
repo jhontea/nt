@@ -473,7 +473,7 @@ fetchPriceAndApply(symbol)
               }
             </p>
           </div>
-          <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
+          <button onClick={() => setShowCreate(!showCreate)} aria-expanded={showCreate} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
             {showCreate ? '✕ Tutup' : '+ New Session'}
           </button>
         </div>
@@ -553,8 +553,8 @@ fetchPriceAndApply(symbol)
               {/* Main fields — 2 column grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
-                  <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. Grid Signal BTC/USDT 07 Jul" value={name} onChange={e => { setNameEdited(true); setName(e.target.value) }} />
+                  <label htmlFor="session-name" className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
+                  <input id="session-name" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. Grid Signal BTC/USDT 07 Jul" value={name} onChange={e => { setNameEdited(true); setName(e.target.value) }} />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
@@ -841,7 +841,11 @@ fetchPriceAndApply(symbol)
               </div>
             </>
           )}
-              <button type="submit" disabled={creating} className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-4 border-t border-[rgba(14,15,12,0.06)] pt-5 disabled:opacity-60 disabled:cursor-not-allowed">{creating ? 'Membuat...' : 'Buat Session'}</button>
+              <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-5 mt-4">
+                <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100" disabled={creating}>
+                  {creating ? 'Membuat...' : 'Buat Session'}
+                </button>
+              </div>
             </form>
           </div>
         )}
