@@ -63,17 +63,22 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
   return (
     <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.2)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>
-          <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-1">{symbol}</p>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${isUp ? 'bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+            {symbol.split('_')[0].slice(0, 3)}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{label}</p>
+            <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol}</p>
+          </div>
         </div>
-        <div className={`text-sm font-semibold ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+        <div className={`px-2.5 py-1 rounded-full text-sm font-bold ${isUp ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {isUp ? '+' : ''}{changePct.toFixed(2)}%
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-xl sm:text-2xl font-bold font-mono text-[#0e0f0c] dark:text-[#e8ebe6] truncate">
+        <p className="text-2xl sm:text-3xl font-black font-mono text-[#0e0f0c] dark:text-[#e8ebe6] truncate">
           {isIDRPair ? formatIDR(last) : `$${formatUSDTPrice(last)}`}
         </p>
         {approxIDR && (
@@ -81,18 +86,18 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
+      <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs">
         <div>
-          <p>24h High</p>
-          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
+          <p className="text-[#686868] dark:text-[#898989]">↑ 24h High</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
         </div>
         <div>
-          <p>24h Low</p>
-          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
+          <p className="text-[#686868] dark:text-[#898989]">↓ 24h Low</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
         </div>
         <div>
-          <p>Volume</p>
-          <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <p className="text-[#686868] dark:text-[#898989]">Vol</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
         </div>
       </div>
     </div>
@@ -115,11 +120,13 @@ export default function MarketPage() {
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="market" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Market Price</h1>
-        <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Harga pasar aktual untuk pair utama di TokoCrypto</p>
-
-        <div className="bg-[rgba(14,15,12,0.02)] dark:bg-[rgba(232,235,230,0.04)] rounded-[16px] p-4 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-8 mt-4 text-sm text-[#686868] dark:text-[#898989]">
-          Halaman ini menampilkan harga pair utama di TokoCrypto. Untuk pair USDT, harga juga dikonversi kira-kira ke rupiah memakai kurs <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-medium">USDT/IDR</span>{usdtIdrRate ? ` (${formatIDR(usdtIdrRate)})` : ''}.
+        <div className="flex items-center justify-between mb-6 mt-0 flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Market</h1>
+            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">
+              Harga live TokoCrypto{usdtIdrRate ? <> · <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-medium">USDT = {formatIDR(usdtIdrRate)}</span></> : ''}
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
