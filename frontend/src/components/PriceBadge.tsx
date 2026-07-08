@@ -1,6 +1,7 @@
 'use client'
 import { useMarketTicker } from '@/lib/useMarketTicker'
 import { useState, useEffect } from 'react'
+import { Loader, TrendingUp, TrendingDown, TriangleAlert } from 'lucide-react'
 
 export function PriceBadge({ symbol, compact }: { symbol: string; compact?: boolean }) {
   const { data, connected } = useMarketTicker(symbol)
@@ -13,7 +14,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
 
   if (compact) {
     if (!data) {
-      return <span className="text-xs text-[#686868] dark:text-[#898989]">⏳</span>
+      return <Loader size={12} className="text-[#686868] dark:text-[#898989] animate-spin" />
     }
     const price = parseFloat(data.lastPrice)
     const change = parseFloat(data.priceChange)
@@ -21,7 +22,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
     return (
       <span className={`text-xs font-mono ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
         {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
-        <span className="ml-1">{isUp ? '▲' : '▼'} {Math.abs(parseFloat(data.priceChangePct)).toFixed(2)}%</span>
+        <span className="ml-1">{isUp ? <TrendingUp size={10} className="inline" /> : <TrendingDown size={10} className="inline" />} {Math.abs(parseFloat(data.priceChangePct)).toFixed(2)}%</span>
       </span>
     )
   }
@@ -29,14 +30,14 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
   return (
     <div className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[16px] p-4 dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
       {!connected && !data ? (
-        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88]">⏳ Menghubungkan ke TokoCrypto untuk harga {symbol}...</p>
+        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88]"><Loader size={14} className="animate-spin inline mr-1" /> Menghubungkan ke TokoCrypto untuk harga {symbol}...</p>
       ) : timeout && !data ? (
         <p className="text-sm text-[#7a5f00] dark:text-[#f5c842]">
-          ⚠️ Tidak dapat terhubung ke TokoCrypto. Harga real-time tidak tersedia.{' '}
+          <TriangleAlert size={14} className="inline mr-1" /> Tidak dapat terhubung ke TokoCrypto. Harga real-time tidak tersedia.{' '}
           <span className="text-[#5a5b58] dark:text-[#8a8d88]">Coba refresh halaman.</span>
         </p>
       ) : !data ? (
-        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88]">⏳ Menunggu data harga {symbol}...</p>
+        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88]"><Loader size={14} className="animate-spin inline mr-1" /> Menunggu data harga {symbol}...</p>
       ) : (
         <>
           <div className="flex items-baseline justify-between">

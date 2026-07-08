@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
+import { Menu, X, Sun, Moon } from 'lucide-react'
 
 export function Navbar({ active }: { active?: 'sessions' | 'market' | 'glossary' }) {
   const router = useRouter()
@@ -26,7 +27,7 @@ export function Navbar({ active }: { active?: 'sessions' | 'market' | 'glossary'
             className="sm:hidden p-2 min-h-[44px] min-w-[44px] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] rounded-lg transition flex items-center justify-center"
             aria-label="Menu"
           >
-            {mobileOpen ? '✕' : '☰'}
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
           {/* Desktop nav links */}
           <div className="hidden sm:flex items-center gap-1">
@@ -56,7 +57,7 @@ export function Navbar({ active }: { active?: 'sessions' | 'market' | 'glossary'
             className="px-2.5 py-1.5 min-h-[44px] text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c] rounded-full transition"
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button
             onClick={logout}
