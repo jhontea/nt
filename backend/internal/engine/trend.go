@@ -5,17 +5,36 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/tokocrypto"
 )
 
+// trendSessionState tracks the last cross type fired by a session so that repeated
+// identical crosses while price hovers do not emit duplicate signals.
+type trendSessionState struct {
+	lastCrossType string // "golden" | "death" | ""
+}
+
 type TrendEngine struct {
 	client *tokocrypto.Client
+	mu     sync.Mutex
+	states map[int64]*trendSessionState
 }
 
 func NewTrendEngine(client *tokocrypto.Client) *TrendEngine {
-	return &TrendEngine{client: client}
+	return &TrendEngine{
+		client: client,
+		states: make(map[int64]*trendSessionState),
+	}
+}
+
+// Reset clears the cross tracking state for a session. Called by Manager on session restart.
+func (t *TrendEngine) Reset(sessionID int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.states, sessionID)
 }
 
 func (t *TrendEngine) Evaluate(session model.Session, configStr string) []Signal {
@@ -25,7 +44,12 @@ func (t *TrendEngine) Evaluate(session model.Session, configStr string) []Signal
 		return nil
 	}
 
-	raw, err := t.client.GetCandles(session.Symbol, "5m", cfg.SlowPeriod+5)
+	interval := cfg.Interval
+	if interval == "" {
+		interval = "5m"
+	}
+
+	raw, err := t.client.GetCandles(session.Symbol, interval, cfg.SlowPeriod+5)
 	if err != nil {
 		slog.Error("fetch candles", "session", session.ID, "error", err)
 		return nil
@@ -44,7 +68,7 @@ func (t *TrendEngine) Evaluate(session model.Session, configStr string) []Signal
 		prices = append(prices, p)
 	}
 
-	signals := t.evaluate(prices, cfg)
+	signals := t.evaluateWithID(session.ID, prices, cfg)
 	for i := range signals {
 		signals[i].Symbol = session.Symbol
 		signals[i].Quantity = cfg.Quantity
@@ -52,7 +76,18 @@ func (t *TrendEngine) Evaluate(session model.Session, configStr string) []Signal
 	return signals
 }
 
-func (t *TrendEngine) evaluate(prices []float64, config TrendConfig) []Signal {
+// evaluateWithID checks the last two SMA crossover points and emits one signal
+// per cross type per session, gated by trendSessionState.lastCrossType (anti-noise).
+func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config TrendConfig) []Signal {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	state := t.states[sessionID]
+	if state == nil {
+		state = &trendSessionState{}
+		t.states[sessionID] = state
+	}
+
 	signals := []Signal{}
 	if len(prices) < config.SlowPeriod {
 		return signals
@@ -66,15 +101,24 @@ func (t *TrendEngine) evaluate(prices []float64, config TrendConfig) []Signal {
 	currFast := fast[len(fast)-1]
 	currSlow := slow[len(slow)-1]
 
-	if prevFast <= prevSlow && currFast > currSlow {
+	golden := prevFast <= prevSlow && currFast > currSlow
+	death := prevFast >= prevSlow && currFast < currSlow
+
+	if golden && state.lastCrossType != "golden" {
 		signals = append(signals, Signal{
-			Side: string(model.SideBuy), Price: fmt.Sprintf("%.8f", prices[len(prices)-1]), Reason: "golden_cross",
+			Side:   string(model.SideBuy),
+			Price:  fmt.Sprintf("%.8f", prices[len(prices)-1]),
+			Reason: "golden_cross",
 		})
+		state.lastCrossType = "golden"
 	}
-	if prevFast >= prevSlow && currFast < currSlow {
+	if death && state.lastCrossType != "death" {
 		signals = append(signals, Signal{
-			Side: string(model.SideSell), Price: fmt.Sprintf("%.8f", prices[len(prices)-1]), Reason: "death_cross",
+			Side:   string(model.SideSell),
+			Price:  fmt.Sprintf("%.8f", prices[len(prices)-1]),
+			Reason: "death_cross",
 		})
+		state.lastCrossType = "death"
 	}
 	return signals
 }

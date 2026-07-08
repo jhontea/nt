@@ -71,6 +71,10 @@ func (m *Manager) Start(session model.Session) error {
 	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
 		grid.Reset(session.ID)
 	}
+// Reset Trend state on restart (clear cross tracking)
+	if trend, ok := m.strategies[string(model.StratTrend)].(*TrendEngine); ok {
+		trend.Reset(session.ID)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	m.sessions[session.ID] = &RunningSession{
