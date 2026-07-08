@@ -8,6 +8,7 @@ import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
+import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
@@ -52,7 +53,7 @@ export default function GridPage() {
           </button>
         </div>
         <InfoStrip tone="grid" icon={<Grid2x2 size={16} />} text="Bot memasang order beli di harga rendah dan jual di harga tinggi secara berjenjang, lalu mengambil untung dari fluktuasi pasar." help="Grid cocok untuk pasar sideways (naik-turun) di mana harga bergerak dalam rentang tertentu." />
-        <InfoStrip tone="grid" text="Buka sesi untuk melihat visualisasi grid, level harga, dan sinyal secara real-time." />
+        <StrategyBanner strategy="grid" sessions={sessions ?? []} />
         <StrategyTabs active="grid" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="grid" />}

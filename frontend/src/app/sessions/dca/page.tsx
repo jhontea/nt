@@ -8,6 +8,7 @@ import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
+import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
@@ -60,10 +61,7 @@ export default function DcaPage() {
           icon={<Coins size={16} />}
           text="Bot membeli aset secara rutin dalam jumlah tetap untuk meratakan harga beli rata-rata — cocok untuk menabung aset tanpa menebak pasar."
         />
-        <InfoStrip
-          tone="dca"
-          text="Buka sesi untuk melihat total investasi, rata-rata harga beli, dan jadwal pembelian berikutnya."
-        />
+        <StrategyBanner strategy="dca" sessions={sessions ?? []} />
 
         <StrategyTabs active="dca" />
         <MarketTicker />

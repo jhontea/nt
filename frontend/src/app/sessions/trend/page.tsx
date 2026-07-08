@@ -8,6 +8,7 @@ import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionList } from '@/components/sessions/SessionList'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
+import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
@@ -57,18 +58,13 @@ export default function TrendPage() {
         <StrategyTabs active="trend" />
         <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="trend" />}
-        <div className="mt-8 space-y-3">
-          <InfoStrip
-            tone="trend"
-            icon={<TrendingUp size={16} />}
-            text="Mendeteksi tren dengan SMA crossover: golden cross (SMA pendek naik melewati SMA panjang) memberi sinyal beli, death cross memberi sinyal jual."
-            help="Golden cross: SMA pendek naik melewati SMA panjang → sinyal beli. Death cross: sebaliknya → sinyal jual."
-          />
-          <InfoStrip
-            tone="neutral"
-            text="Buka sesi untuk melihat sinyal crossover terbaru, status pasar, dan performa."
-          />
-        </div>
+        <InfoStrip
+          tone="trend"
+          icon={<TrendingUp size={16} />}
+          text="Mendeteksi tren dengan SMA crossover: golden cross (SMA pendek naik melewati SMA panjang) memberi sinyal beli, death cross memberi sinyal jual."
+          help="Golden cross: SMA pendek naik melewati SMA panjang → sinyal beli. Death cross: sebaliknya → sinyal jual."
+        />
+        <StrategyBanner strategy="trend" sessions={sessions ?? []} />
         <SectionLabel>SESSION TREND · {sessions?.length ?? 0}</SectionLabel>
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse"><div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" /><span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span></div>

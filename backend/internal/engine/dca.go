@@ -75,6 +75,20 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 
 	// buy on interval
 	lastTime, exists := d.lastBuy[session.ID]
+	if !exists {
+		// recover lastBuy from DB on first tick after restart
+		var lastCreated string
+		_ = d.db.Get(&lastCreated, d.db.Rebind(
+			`SELECT created_at FROM orders WHERE session_id=? AND symbol=? AND side='buy' ORDER BY created_at DESC LIMIT 1`,
+		), session.ID, session.Symbol)
+		if lastCreated != "" {
+			if t, err := time.Parse("2006-01-02 15:04:05", lastCreated); err == nil {
+				lastTime = t
+				exists = true
+				d.lastBuy[session.ID] = t
+			}
+		}
+	}
 	interval := time.Duration(cfg.IntervalSec) * time.Second
 	if !exists || time.Since(lastTime) >= interval {
 		amount, _ := strconv.ParseFloat(cfg.Amount, 64)
