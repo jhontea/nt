@@ -90,23 +90,28 @@ func (r *StrategySignalRepo) GetSummary(ctx context.Context, sessionID int64) (*
 	var summary model.SignalSummary
 	summary.SessionID = sessionID
 
-	err := r.db.GetContext(ctx, &summary.TotalCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ?"), sessionID)
+	err := r.db.QueryRowContext(ctx,
+		r.db.Rebind(`SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE validation_status = 'confirmed'),
+			COUNT(*) FILTER (WHERE validation_status = 'invalidated'),
+			COUNT(*) FILTER (WHERE validation_status = 'expired'),
+			COUNT(*) FILTER (WHERE validation_status = 'pending'),
+			COUNT(*) FILTER (WHERE signal_type = 'buy'),
+			COUNT(*) FILTER (WHERE signal_type = 'sell')
+		FROM strategy_signals WHERE session_id = ?`), sessionID,
+	).Scan(
+		&summary.TotalCount,
+		&summary.ConfirmedCount,
+		&summary.InvalidatedCount,
+		&summary.ExpiredCount,
+		&summary.PendingCount,
+		&summary.BuyCount,
+		&summary.SellCount,
+	)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-	r.db.GetContext(ctx, &summary.ConfirmedCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND validation_status = 'confirmed'"), sessionID)
-	r.db.GetContext(ctx, &summary.InvalidatedCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND validation_status = 'invalidated'"), sessionID)
-	r.db.GetContext(ctx, &summary.ExpiredCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND validation_status = 'expired'"), sessionID)
-	r.db.GetContext(ctx, &summary.PendingCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND validation_status = 'pending'"), sessionID)
-	r.db.GetContext(ctx, &summary.BuyCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND signal_type = 'buy'"), sessionID)
-	r.db.GetContext(ctx, &summary.SellCount,
-		r.db.Rebind("SELECT COUNT(*) FROM strategy_signals WHERE session_id = ? AND signal_type = 'sell'"), sessionID)
 
 	if summary.TotalCount > 0 {
 		summary.SuccessRate = float64(summary.ConfirmedCount) / float64(summary.TotalCount) * 100

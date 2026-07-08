@@ -89,10 +89,16 @@ func (r *SessionRepo) Delete(ctx context.Context, id int64) error {
 	}
 	defer tx.Rollback()
 
-	tx.ExecContext(ctx, r.db.Rebind("DELETE FROM strategy_signals WHERE session_id = ?"), id)
-	tx.ExecContext(ctx, r.db.Rebind("DELETE FROM trades WHERE session_id = ?"), id)
-	tx.ExecContext(ctx, r.db.Rebind("DELETE FROM orders WHERE session_id = ?"), id)
-	tx.ExecContext(ctx, r.db.Rebind("DELETE FROM sessions WHERE id = ?"), id)
+	for _, q := range []string{
+		r.db.Rebind("DELETE FROM strategy_signals WHERE session_id = ?"),
+		r.db.Rebind("DELETE FROM trades WHERE session_id = ?"),
+		r.db.Rebind("DELETE FROM orders WHERE session_id = ?"),
+		r.db.Rebind("DELETE FROM sessions WHERE id = ?"),
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return err
+		}
+	}
 
 	return tx.Commit()
 }

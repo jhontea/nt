@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"log"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/config"
@@ -14,6 +16,9 @@ func NewDB(cfg *config.Config) (*sqlx.DB, error) {
 	}
 	db.SetMaxOpenConns(cfg.DBMaxConnections)
 	db.SetMaxIdleConns(cfg.DBMaxIdleConns)
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -34,16 +39,32 @@ func Migrate(db *sqlx.DB) error {
 
 	// Fix existing tables: ensure validation_note has a default value
 	if driver == "pgx" || driver == "postgres" {
-		db.Exec("ALTER TABLE strategy_signals ALTER COLUMN validation_note SET DEFAULT ''")
-		db.Exec("UPDATE strategy_signals SET validation_note = '' WHERE validation_note IS NULL")
-		db.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS initial_balance REAL DEFAULT NULL")
-		db.Exec("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''")
+		if err := logExec(db, "ALTER TABLE strategy_signals ALTER COLUMN validation_note SET DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "UPDATE strategy_signals SET validation_note = '' WHERE validation_note IS NULL"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS initial_balance REAL DEFAULT NULL"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
 	} else {
-		// SQLite: ignore error if column already exists
-		db.Exec("ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL")
-		db.Exec("ALTER TABLE sessions ADD COLUMN notes TEXT DEFAULT ''")
+		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN notes TEXT DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
 	}
 	return nil
+}
+
+func logExec(db *sqlx.DB, query string) error {
+	_, err := db.Exec(query)
+	return err
 }
 
 const pgSchema = `

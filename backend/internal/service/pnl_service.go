@@ -30,14 +30,17 @@ func NewPnLService(db *sqlx.DB) *PnLService {
 
 func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSummary, error) {
 	var realizedPnL sql.NullFloat64
-	if err := s.db.GetContext(ctx, &realizedPnL, s.db.Rebind("SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?"), sessionID); err != nil {
+	var winCount, lossCount, tradeCount int
+	if err := s.db.QueryRowContext(ctx,
+		s.db.Rebind(`SELECT
+			COALESCE(SUM(CAST(pnl AS REAL)), 0),
+			COUNT(*) FILTER (WHERE CAST(pnl AS REAL) > 0),
+			COUNT(*) FILTER (WHERE CAST(pnl AS REAL) <= 0),
+			COUNT(*)
+		FROM trades WHERE session_id = ?`), sessionID,
+	).Scan(&realizedPnL, &winCount, &lossCount, &tradeCount); err != nil {
 		return nil, err
 	}
-
-	var winCount, lossCount, tradeCount int
-	s.db.GetContext(ctx, &winCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) > 0"), sessionID)
-	s.db.GetContext(ctx, &lossCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ? AND CAST(pnl AS REAL) <= 0"), sessionID)
-	s.db.GetContext(ctx, &tradeCount, s.db.Rebind("SELECT COUNT(*) FROM trades WHERE session_id = ?"), sessionID)
 
 	var balance sql.NullFloat64
 	if err := s.db.GetContext(ctx, &balance, s.db.Rebind("SELECT virtual_balance FROM sessions WHERE id = ?"), sessionID); err != nil {

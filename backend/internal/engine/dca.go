@@ -37,19 +37,29 @@ func (d *DCAEngine) Evaluate(session model.Session, configStr string) []Signal {
 		return nil
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
+	// B1: fetch ticker outside the lock — network call must not block other sessions
 	ticker, err := d.client.GetTicker(session.Symbol)
 	if err != nil {
 		slog.Error("dca ticker", "session", session.ID, "error", err)
 		return nil
 	}
 	currentPrice, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+	// B2: guard invalid price before entering state-mutation section
+	if currentPrice <= 0 {
+		slog.Warn("dca invalid price", "session", session.ID, "price", ticker.LastPrice)
+		return nil
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
 	signals := d.evaluate(session, cfg, currentPrice, ticker.LastPrice)
+	now := time.Now().UnixMilli()
 	for i := range signals {
 		signals[i].Symbol = session.Symbol
+		// B3: stamp SessionID and Timestamp so consumers don't get zero values
+		signals[i].SessionID = session.ID
+		signals[i].Timestamp = now
 	}
 	return signals
 }
@@ -80,44 +90,30 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "interval", cfg.IntervalSec)
 	}
 
-	if cfg.TakeProfitPct > 0 {
+	// fetch total filled qty once; reused by both TP and SL checks
+	var totalQty float64
+	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
-			targetPrice := avgPrice * (1 + cfg.TakeProfitPct/100)
-			if currentPrice >= targetPrice {
-				var totalQty float64
-				d.db.Get(&totalQty,
-					d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-					 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
-					session.ID, session.Symbol)
-				if totalQty > 0 {
-					qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
-					signals = append(signals, Signal{
-						Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_take_profit",
-					})
-					delete(d.avgBuyPrice, session.ID)
-					slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
-				}
-			}
-		}
-	}
+			d.db.Get(&totalQty,
+				d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
+				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
+				session.ID, session.Symbol)
 
-	if cfg.StopLossPct > 0 {
-		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
-			slTarget := avgPrice * (1 - cfg.StopLossPct/100)
-			if currentPrice <= slTarget {
-				var totalQty float64
-				d.db.Get(&totalQty,
-					d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-					 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
-					session.ID, session.Symbol)
-				if totalQty > 0 {
-					qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
-					signals = append(signals, Signal{
-						Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
-					})
-					delete(d.avgBuyPrice, session.ID)
-					slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
-				}
+			if cfg.TakeProfitPct > 0 && currentPrice >= avgPrice*(1+cfg.TakeProfitPct/100) && totalQty > 0 {
+				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
+				signals = append(signals, Signal{
+					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_take_profit",
+				})
+				delete(d.avgBuyPrice, session.ID)
+				slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
+			} else if cfg.StopLossPct > 0 && currentPrice <= avgPrice*(1-cfg.StopLossPct/100) && totalQty > 0 {
+				// ponytail: else-if ensures TP and SL cannot both fire in same tick
+				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
+				signals = append(signals, Signal{
+					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
+				})
+				delete(d.avgBuyPrice, session.ID)
+				slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
 			}
 		}
 	}
@@ -133,7 +129,7 @@ func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, price, qty fl
 	var existingQty float64
 	d.db.Get(&existingQty,
 		d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-		 WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`),
+		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
 		sessionID, symbol)
 	totalQty := existingQty + qty
 	if totalQty > 0 {
