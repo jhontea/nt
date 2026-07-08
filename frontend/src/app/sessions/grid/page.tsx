@@ -395,22 +395,6 @@ export default function GridPage() {
                           <GridBar lower={cfg.lower_price} upper={cfg.upper_price} current={currentPrice} gridCount={cfg.grid_count} />
                         </div>
                       )}
-
-                      {/* Row 3: portfolio holdings for paper sessions */}
-                      {s.mode === 'paper' && extra?.portfolio && extra.portfolio.holdings.length > 0 && (
-                        <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-2 flex items-center gap-3 text-xs flex-wrap">
-                          <span className="text-[#686868] dark:text-[#898989]">Holdings:</span>
-                          {extra.portfolio.holdings.map((h, i) => (
-                            <span key={i} className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">
-                              {h.qty} @ ${parseFloat(h.avg_price).toFixed(2)}
-                            </span>
-                          ))}
-                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                          <span className={`font-semibold ${extra.portfolio.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                            Unrealized {extra.portfolio.unrealized_pnl >= 0 ? '+' : ''}${extra.portfolio.unrealized_pnl.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   )}
 

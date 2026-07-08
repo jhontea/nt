@@ -37,7 +37,7 @@ export default function SessionDetailPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const [copied, setCopied] = useState(false)
-  const [signalView, setSignalView] = useState<'timeline' | 'table'>('timeline')
+  const [signalView, setSignalView] = useState<'summary' | 'timeline' | 'table'>('summary')
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
@@ -547,6 +547,11 @@ export default function SessionDetailPage() {
                   {session.symbol.replace('_', '/')}
                 </span>
                 <PriceBadge symbol={session.symbol} compact />
+                {session.strategy === 'trend' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">
+                    SMA {configDisplay.fast_period || 10}/{configDisplay.slow_period || 30}
+                  </span>
+                )}
               </div>
 
               {/* Actions */}
@@ -745,6 +750,22 @@ export default function SessionDetailPage() {
             <span className="text-sm">Memuat data P&L...</span>
           </div>
         ) : null}
+
+        {/* Session Notes */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Catatan</h2>
+            {notesSaved && <span className="text-xs text-[#054d28] dark:text-[#9fe870]">✓ Tersimpan</span>}
+          </div>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            onBlur={e => handleSaveNotes(e.target.value)}
+            placeholder="Tulis catatan, reasoning, atau evaluasi untuk session ini..."
+            rows={4}
+            className="w-full px-4 py-3 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[16px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] resize-none"
+          />
+        </div>
 
         {/* Grid Reevaluation Panel */}
         {reevalResult && session.strategy === 'grid' && (
@@ -1137,26 +1158,13 @@ export default function SessionDetailPage() {
           </div>
         </details>
 
-        {/* Session Notes */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Catatan</h2>
-            {notesSaved && <span className="text-xs text-[#054d28] dark:text-[#9fe870]">✓ Tersimpan</span>}
-          </div>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            onBlur={e => handleSaveNotes(e.target.value)}
-            placeholder="Tulis catatan, reasoning, atau evaluasi untuk session ini..."
-            rows={4}
-            className="w-full px-4 py-3 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[16px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] resize-none"
-          />
-        </div>
-
         {/* Grid Level Visual */}
         {(isGridSignal || isGridPaper) && strategySignals && Object.keys(signalsByLevel).length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Grid Levels</h2>
+          <details className="mb-8 group">
+            <summary className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+              <span className="text-xs transition-transform group-open:rotate-90 inline-block text-[#686868] dark:text-[#898989]">›</span>
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Grid Levels</h2>
+            </summary>
             <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
               <div className="space-y-2">
                 {Object.entries(signalsByLevel)
@@ -1190,58 +1198,56 @@ export default function SessionDetailPage() {
               </div>
               <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-3">✓ Confirmed  ✗ Invalidated  ○ Pending  — Expired</p>
             </div>
-          </div>
+          </details>
         )}
 
-        {/* Signal Summary (Grid and Trend) */}
-        {isStrategySignal && signalSummary && signalSummary.total_count > 0 && (
+        {(isStrategySignal && signalSummary && signalSummary.total_count > 0) || (isStrategySignal && strategySignals && strategySignals.length > 0) ? (
           <div className="mb-8">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Ringkasan Sinyal</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total</p>
-                <p className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.buy_count}▲ · {signalSummary.sell_count}▼</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Success Rate</p>
-                <p className={`text-2xl font-black mb-2 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
-                  {signalSummary.success_rate.toFixed(1)}%
-                </p>
-                <div className="h-1.5 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-500 ${signalSummary.success_rate >= 50 ? 'bg-[#9fe870]' : signalSummary.success_rate > 0 ? 'bg-[#ffd11a]' : 'bg-[rgba(14,15,12,0.2)]'}`}
-                    style={{ width: `${Math.min(100, signalSummary.success_rate)}%` }} />
-                </div>
-                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">{signalSummary.confirmed_count} dari {signalSummary.total_count}</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Confirmed</p>
-                <p className="text-2xl font-black text-[#054d28] dark:text-[#9fe870] mt-1">{signalSummary.confirmed_count}</p>
-                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.invalidated_count} invalidated</p>
-              </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Expired</p>
-                <p className="text-2xl font-black text-[#686868] dark:text-[#898989] mt-1">{signalSummary.expired_count}</p>
-                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.total_count - signalSummary.confirmed_count - signalSummary.invalidated_count - signalSummary.expired_count} pending</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Strategy Signal History (Grid and Trend) */}
-        {isStrategySignal && strategySignals && strategySignals.length > 0 && (
-          <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">
-                {isTrendSignal ? 'Histori Sinyal Trend' : 'Histori Sinyal Grid'}
+                {isTrendSignal ? 'Sinyal Trend' : 'Sinyal Grid'}
               </h2>
               <div className="flex items-center gap-1 bg-[#f0f1ee] dark:bg-[#252822] rounded-full p-0.5">
+                {signalSummary && signalSummary.total_count > 0 && (
+                  <button onClick={() => setSignalView('summary')} className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${signalView === 'summary' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Summary</button>
+                )}
                 <button onClick={() => setSignalView('timeline')} className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${signalView === 'timeline' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Timeline</button>
                 <button onClick={() => setSignalView('table')} className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${signalView === 'table' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Tabel</button>
               </div>
             </div>
 
-            {signalView === 'timeline' ? (
+            {signalView === 'summary' && signalSummary && signalSummary.total_count > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total</p>
+                  <p className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.buy_count}▲ · {signalSummary.sell_count}▼</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Success Rate</p>
+                  <p className={`text-2xl font-black mb-2 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
+                    {signalSummary.success_rate.toFixed(1)}%
+                  </p>
+                  <div className="h-1.5 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${signalSummary.success_rate >= 50 ? 'bg-[#9fe870]' : signalSummary.success_rate > 0 ? 'bg-[#ffd11a]' : 'bg-[rgba(14,15,12,0.2)]'}`}
+                      style={{ width: `${Math.min(100, signalSummary.success_rate)}%` }} />
+                  </div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">{signalSummary.confirmed_count} dari {signalSummary.total_count}</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Confirmed</p>
+                  <p className="text-2xl font-black text-[#054d28] dark:text-[#9fe870] mt-1">{signalSummary.confirmed_count}</p>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.invalidated_count} invalidated</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Expired</p>
+                  <p className="text-2xl font-black text-[#686868] dark:text-[#898989] mt-1">{signalSummary.expired_count}</p>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">{signalSummary.total_count - signalSummary.confirmed_count - signalSummary.invalidated_count - signalSummary.expired_count} pending</p>
+                </div>
+              </div>
+            )}
+
+            {signalView === 'timeline' && strategySignals && (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <div className="space-y-0">
                   {strategySignals.slice(0, 30).map((s, i) => {
@@ -1283,7 +1289,9 @@ export default function SessionDetailPage() {
                   })}
                 </div>
               </div>
-            ) : (
+            )}
+
+            {signalView === 'table' && strategySignals && (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] relative">
                 <div className="overflow-x-auto relative">
                   <table className="w-full text-sm">
@@ -1344,7 +1352,7 @@ export default function SessionDetailPage() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Orders Table — hidden when strategy signal history is shown */}
         {!isStrategySignal && (
@@ -1358,7 +1366,17 @@ export default function SessionDetailPage() {
                 <span className="text-sm">Memuat orders...</span>
               </div>
             ) : !orders?.length ? (
-              <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
+              <div className="flex flex-col items-center gap-3 py-8 text-sm">
+                <p className="text-[#686868] dark:text-[#898989]">Belum ada order.</p>
+                {session.status !== 'running' && (
+                  <button onClick={handleStart} className="px-5 py-2 text-sm font-bold bg-[#9fe870] text-[#163300] rounded-full hover:bg-[#cdffad] transition-all">
+                    Mulai Bot Sekarang
+                  </button>
+                )}
+                {session.status === 'running' && (
+                  <p className="text-[#686868] dark:text-[#898989]">Bot sedang berjalan. Order akan muncul saat sinyal tereksekusi.</p>
+                )}
+              </div>
             ) : (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6 relative">
                 <div className="overflow-x-auto relative">
