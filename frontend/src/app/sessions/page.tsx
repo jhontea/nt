@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
+import { Bot, Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, X, GraduationCap, Settings } from 'lucide-react'
 
 const PAIRS = [
   'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT',
@@ -80,9 +81,9 @@ function OverviewPanel({ sessions, onFilterChange }: {
   onFilterChange: (f: 'all' | 'grid' | 'trend' | 'dca') => void
 }) {
   const strategies = [
-    { key: 'grid' as const, label: 'Grid', icon: '📐', color: 'rgba(159,232,112,0.12)', textColor: 'text-[#163300] dark:text-[#9fe870]', borderColor: 'border-[rgba(159,232,112,0.25)]' },
-    { key: 'trend' as const, label: 'Trend', icon: '📈', color: 'rgba(56,200,255,0.1)', textColor: 'text-[#0994b3] dark:text-[#5dd8f5]', borderColor: 'border-[rgba(56,200,255,0.2)]' },
-    { key: 'dca' as const, label: 'DCA', icon: '🪙', color: 'rgba(255,209,26,0.1)', textColor: 'text-[#7a5f00] dark:text-[#f5c842]', borderColor: 'border-[rgba(255,209,26,0.2)]' },
+    { key: 'grid' as const, label: 'Grid', icon: <Grid2x2 size={16} />, color: 'rgba(159,232,112,0.12)', textColor: 'text-[#163300] dark:text-[#9fe870]', borderColor: 'border-[rgba(159,232,112,0.25)]' },
+    { key: 'trend' as const, label: 'Trend', icon: <TrendingUp size={16} />, color: 'rgba(56,200,255,0.1)', textColor: 'text-[#0994b3] dark:text-[#5dd8f5]', borderColor: 'border-[rgba(56,200,255,0.2)]' },
+    { key: 'dca' as const, label: 'DCA', icon: <Coins size={16} />, color: 'rgba(255,209,26,0.1)', textColor: 'text-[#7a5f00] dark:text-[#f5c842]', borderColor: 'border-[rgba(255,209,26,0.2)]' },
   ]
 
   return (
@@ -111,7 +112,7 @@ function OverviewPanel({ sessions, onFilterChange }: {
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className={`w-8 h-8 rounded-[10px] flex items-center justify-center text-base`} style={{ background: strat.color }}>
+                  <span className={`w-8 h-8 rounded-[10px] flex items-center justify-center`} style={{ background: strat.color }}>
                     {strat.icon}
                   </span>
                   <span className={`text-sm font-bold ${strat.textColor}`}>{strat.label}</span>
@@ -217,10 +218,10 @@ function StatsRow({
   onFilterChange: (filter: 'all' | 'grid' | 'trend' | 'dca') => void
 }) {
   const filters = [
-    { key: 'all' as const, label: 'All', icon: '🤖' },
-    { key: 'grid' as const, label: 'Grid', icon: '📐' },
-    { key: 'trend' as const, label: 'Trend', icon: '📈' },
-    { key: 'dca' as const, label: 'DCA', icon: '🪙' }
+    { key: 'all' as const, label: 'All', icon: <Bot size={18} /> },
+    { key: 'grid' as const, label: 'Grid', icon: <Grid2x2 size={18} /> },
+    { key: 'trend' as const, label: 'Trend', icon: <TrendingUp size={18} /> },
+    { key: 'dca' as const, label: 'DCA', icon: <Coins size={18} /> },
   ]
 
   return (
@@ -249,7 +250,7 @@ function StatsRow({
               </span>
             )}
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">{f.icon}</span>
+              {f.icon}
               <span className={`text-base font-bold ${isActive ? 'text-[#163300] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>
                 {f.label}
               </span>
@@ -474,7 +475,7 @@ fetchPriceAndApply(symbol)
             </p>
           </div>
           <button onClick={() => setShowCreate(!showCreate)} aria-expanded={showCreate} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
-            {showCreate ? '✕ Tutup' : '+ New Session'}
+            {showCreate ? <><X size={14} className="inline mr-1" />Tutup</> : '+ New Session'}
           </button>
         </div>
 
@@ -519,7 +520,7 @@ fetchPriceAndApply(symbol)
                   <h2 className="font-black text-xl text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">New Session</h2>
                   <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">Konfigurasi bot trading baru</p>
                 </div>
-                <button type="button" onClick={() => { setShowCreate(false); setNameEdited(false) }} className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full transition">✕</button>
+                <button type="button" onClick={() => { setShowCreate(false); setNameEdited(false) }} className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full transition"><X size={16} /></button>
               </div>
 
               {/* Info harga saat ini */}
@@ -570,17 +571,17 @@ fetchPriceAndApply(symbol)
                 <div>
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Strategi <HelpIcon text={strategyHelp[strategy]} /></label>
                   <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={strategy} onChange={e => setStrategy(e.target.value as any)}>
-                    <option value="grid">📐 Grid Trading — beli & jual di level harga</option>
-                    <option value="trend">📈 Trend Following — SMA crossover</option>
-                    <option value="dca">🪙 DCA — beli rutin berkala (Dollar Cost Average)</option>
+                    <option value="grid">Grid Trading — beli & jual di level harga</option>
+                    <option value="trend">Trend Following — SMA crossover</option>
+                    <option value="dca">DCA — beli rutin berkala (Dollar Cost Average)</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Mode <HelpIcon text={modeHelp[mode]} /></label>
                   <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={mode} onChange={e => setMode(e.target.value as any)}>
-                    <option value="signal">📊 Signal — sinyal saja, tanpa eksekusi</option>
-                  <option value="paper">📝 Paper — trading simulasi (uang virtual)</option>
-                    <option value="live">⚡ Live — trading sungguhan (RISIKO TINGGI)</option>
+                    <option value="signal">Signal — sinyal saja, tanpa eksekusi</option>
+                  <option value="paper">Paper — trading simulasi (uang virtual)</option>
+                    <option value="live">Live — trading sungguhan (RISIKO TINGGI)</option>
                   </select>
                 </div>
               </div>
@@ -616,12 +617,12 @@ fetchPriceAndApply(symbol)
                 <button type="button"
                   onClick={() => { setIsBeginner(true); fetchRecommendation() }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
-                  🎓 Pemula
+                  <GraduationCap size={14} className="inline mr-1" />Pemula
                 </button>
                 <button type="button"
                   onClick={() => setIsBeginner(false)}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
-                  ⚙️ Manual
+                  <Settings size={14} className="inline mr-1" />Manual
                 </button>
               </div>
 
@@ -736,12 +737,12 @@ fetchPriceAndApply(symbol)
                 <button type="button"
                   onClick={() => { setIsBeginner(true); fetchRecommendation('trend') }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[rgba(56,200,255,0.85)] text-white' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
-                  🎓 Pemula
+                  <GraduationCap size={14} className="inline mr-1" />Pemula
                 </button>
                 <button type="button"
                   onClick={() => { setIsBeginner(false); setRecommendation(null) }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[rgba(56,200,255,0.85)] text-white' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
-                  ⚙️ Manual
+                  <Settings size={14} className="inline mr-1" />Manual
                 </button>
               </div>
 
@@ -880,7 +881,7 @@ fetchPriceAndApply(symbol)
         ) : (
           <div className="text-center py-16">
             <div className="w-14 h-14 rounded-[24px] bg-[rgba(159,232,112,0.1)] flex items-center justify-center text-2xl mx-auto mb-4">
-              {activeFilter === 'all' ? '🤖' : activeFilter === 'grid' ? '📐' : activeFilter === 'trend' ? '📈' : '🪙'}
+              {activeFilter === 'all' ? <Bot size={28} /> : activeFilter === 'grid' ? <Grid2x2 size={28} /> : activeFilter === 'trend' ? <TrendingUp size={28} /> : <Coins size={28} />}
             </div>
             <p className="text-[#0e0f0c] dark:text-[#e8ebe6] text-lg font-bold">
               {activeFilter === 'all'
@@ -910,8 +911,8 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   onDelete: (id: number) => void
   onDetail: (id: number) => void
 }) {
-  const strategyIcon = session.strategy === 'grid' ? '📐' : session.strategy === 'trend' ? '📈' : '🪙'
-  const modeIcon = session.mode === 'live' ? '⚡' : session.mode === 'paper' ? '📝' : '📊'
+  const strategyIcon = session.strategy === 'grid' ? <Grid2x2 size={22} /> : session.strategy === 'trend' ? <TrendingUp size={22} /> : <Coins size={22} />
+  const modeIcon = session.mode === 'live' ? <Zap size={10} /> : session.mode === 'paper' ? <FileText size={10} /> : <BarChart2 size={10} />
   const modeBg = session.mode === 'live'
     ? 'bg-[rgba(255,209,26,0.9)] dark:bg-[rgba(255,209,26,0.8)]'
     : session.mode === 'paper'
@@ -960,7 +961,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
                 ? 'bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870]'
                 : 'bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]'
             }`}>
-              {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : '⚡ Live'}
+              {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : 'Live'}
             </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               session.status === 'running'
@@ -996,7 +997,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
             <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
           )}
           <button className="flex items-center gap-1 px-3 py-2 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">
-              <span>✕</span>
+              <X size={14} />
               <span className="sr-only sm:not-sr-only text-xs font-medium">Hapus</span>
             </button>
         </div>
