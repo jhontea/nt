@@ -176,7 +176,6 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if err := m.paper.Execute(session, sig); err != nil {
 				slog.Error("paper execute", "session", session.ID, "error", err)
 			}
-			m.notifier.SendSignal(session.Name, sig.Symbol, sig.Side, sig.Price, sig.Reason)
 			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 		}
 	case string(model.ModeLive):
