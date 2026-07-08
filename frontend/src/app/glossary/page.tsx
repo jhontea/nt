@@ -157,10 +157,11 @@ const categoryColors: Record<Category, string> = {
 
 export default function GlossaryPage() {
   const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState<string>('all')
 
   const filtered = terms.filter(t =>
-    t.term.toLowerCase().includes(search.toLowerCase()) ||
-    t.desc.toLowerCase().includes(search.toLowerCase())
+    (activeCategory === 'all' || t.category === activeCategory) &&
+    (search === '' || t.term.toLowerCase().includes(search.toLowerCase()) || t.desc.toLowerCase().includes(search.toLowerCase()))
   )
 
   return (
@@ -169,6 +170,19 @@ export default function GlossaryPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight mb-1">Glosarium</h1>
         <p className="text-sm text-[#686868] dark:text-[#898989] mb-8">Menampilkan {filtered.length} dari {terms.length} istilah</p>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          {(['all', 'strategi', 'mode', 'indikator', 'order', 'umum'] as const).map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                activeCategory === cat
+                  ? 'bg-[#9fe870] text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.3)]'
+                  : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.08)] dark:hover:bg-[rgba(232,235,230,0.08)]'
+              }`}>
+              {cat === 'all' ? 'Semua' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </button>
+          ))}
+        </div>
 
         <div className="relative mb-6">
           <input
@@ -195,12 +209,12 @@ export default function GlossaryPage() {
                 <span className="flex-1 min-w-0 flex items-center gap-2">
                   {t.term}
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${categoryColors[t.category]}`}>
-                    {t.category}
+                    {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
                   </span>
                 </span>
                 <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform text-xs flex-shrink-0">▼</span>
               </summary>
-              <div className="px-5 pt-1 pb-4 text-sm text-[#686868] dark:text-[#898989] leading-relaxed border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+              <div className="px-5 pt-1 pb-4 text-sm text-[#0e0f0c] dark:text-[#e8ebe6] leading-relaxed border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
                 {t.desc}
               </div>
             </details>
