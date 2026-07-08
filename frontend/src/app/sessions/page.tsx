@@ -161,6 +161,8 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
   const [initialBalance, setInitialBalance] = useState('1000')
+  const [stopLossPct, setStopLossPct] = useState('')
+  const [takeProfitPct, setTakeProfitPct] = useState('')
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [priceLoading, setPriceLoading] = useState(false)
   const [priceError, setPriceError] = useState('')
@@ -278,7 +280,11 @@ fetchPriceAndApply(symbol)
   } else {
       config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
     }
-    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify(config), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
+    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify({
+      ...config,
+      ...(mode === 'paper' && stopLossPct ? { stop_loss_pct: parseFloat(stopLossPct) } : {}),
+      ...(mode === 'paper' && takeProfitPct ? { take_profit_pct: parseFloat(takeProfitPct) } : {}),
+    }), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
     setShowCreate(false)
     setNameEdited(false)
     refetch()
@@ -426,9 +432,23 @@ fetchPriceAndApply(symbol)
               </div>
 
               {mode === 'paper' && (
-                <div>
-                  <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
-                                     <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
+                    <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Stop Loss % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
+                      <input type="number" min="0" max="100" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(208,50,56,0.4)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 10" value={stopLossPct} onChange={e => setStopLossPct(e.target.value)} />
+                      <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Stop jika total value turun {stopLossPct ? stopLossPct : 'X'}% dari modal</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Take Profit % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
+                      <input type="number" min="0" max="1000" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 20" value={takeProfitPct} onChange={e => setTakeProfitPct(e.target.value)} />
+                      <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Stop jika total value naik {takeProfitPct ? takeProfitPct : 'Y'}% dari modal</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -683,7 +703,15 @@ fetchPriceAndApply(symbol)
         ) : filteredSessions?.length ? (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions · {filteredSessions?.length || 0}</h2>
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">
+                Sessions · {filteredSessions?.length || 0}
+              </h2>
+              {sessions && sessions.filter(s => s.mode === 'paper' && s.status === 'running').length > 0 && (
+                <span className="text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block" />
+                  {sessions.filter(s => s.mode === 'paper' && s.status === 'running').length} paper running
+                </span>
+              )}
             </div>
             <div className="space-y-3">
               {filteredSessions?.map(s => (
@@ -790,6 +818,17 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
           <p className="text-xs text-[#686868] dark:text-[#898989] truncate min-w-0">
             <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
           </p>
+          {session.mode === 'paper' && session.virtual_balance != null && (
+            <p className="text-xs mt-1 flex items-center gap-2">
+              <span className="text-[#686868] dark:text-[#898989]">Saldo virtual</span>
+              <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${session.virtual_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              {session.initial_balance != null && (
+                <span className={`text-xs font-semibold ${session.virtual_balance >= session.initial_balance ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {session.virtual_balance >= session.initial_balance ? '+' : ''}{(((session.virtual_balance - session.initial_balance) / session.initial_balance) * 100).toFixed(1)}%
+                </span>
+              )}
+            </p>
+          )}
         </div>
         {/* Actions — stop propagation agar tidak trigger onDetail */}
         <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
