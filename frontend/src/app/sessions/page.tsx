@@ -2,13 +2,16 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
+import { SectionLabel } from '@/components/sessions/SectionLabel'
+import { InfoStrip } from '@/components/sessions/InfoStrip'
+import { EmptyState } from '@/components/sessions/EmptyState'
 
 export default function SessionsOverviewPage() {
   const { isAuthenticated, initialized } = useAuth()
@@ -38,6 +41,8 @@ export default function SessionsOverviewPage() {
 
         <MarketTicker />
 
+        <InfoStrip tone="neutral" icon={<Bot size={16} />} text="Di sini Anda melihat ringkasan performa bot dan sesi trading yang sedang berjalan. Mulai dengan membuat sesi baru, lalu pantau PnL, win rate, dan modal aktif dari satu dashboard." help="KPI menunjukkan total profit/rugi, rasio menang, dan dana yang sedang dipakai bot." />
+
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse">
             <div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" />
@@ -46,31 +51,28 @@ export default function SessionsOverviewPage() {
         ) : sessions && sessions.length > 0 ? (
           <>
             <section className="mt-6">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989] mb-3">Performa</h2>
+              <SectionLabel>Performa</SectionLabel>
               <PerformanceSummary sessions={sessions} />
             </section>
             <section className="mt-8">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989] mb-3">Strategi</h2>
+              <SectionLabel>Strategi</SectionLabel>
               <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
             </section>
           </>
         ) : (
           sessions && (
             <>
-            <section className="mt-6 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[24px] p-8 text-center">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#9fe870] flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-[#163300]" />
-              </div>
-              <h2 className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6]">Belum ada sesi trading</h2>
-              <p className="text-sm text-[#686868] dark:text-[#898989] mt-2 max-w-sm mx-auto">Mulai dengan membuat sesi baru, atau pilih salah satu strategi di bawah untuk menjalankan bot pertama Anda.</p>
-              <div className="mt-5 flex items-center justify-center">
-                <button onClick={() => router.push('/sessions/grid')} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
-                  + New Session
-                </button>
-              </div>
-            </section>
-            <section className="mt-6">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989] mb-3">Strategi</h2>
+            <div className="mt-6">
+              <EmptyState
+                icon={<Bot size={28} />}
+                title="Belum ada sesi trading"
+                description="Mulai dengan membuat sesi baru, atau pilih salah satu strategi di bawah untuk menjalankan bot pertama Anda."
+                actionLabel="New Session"
+                onAction={() => router.push('/sessions/grid')}
+              />
+            </div>
+            <section className="mt-2">
+              <SectionLabel>Strategi</SectionLabel>
               <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
             </section>
             </>
