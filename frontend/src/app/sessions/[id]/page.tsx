@@ -28,16 +28,19 @@ const HOLDING_COLORS = ['#9fe870', '#38c8ff', '#ffd11a', '#c084fc', '#f97316']
 
 export default function SessionDetailPage() {
   const params = useParams()
-  const id = params.id // keep for queryKey strings
+  const id = Array.isArray(params.id) ? params.id[0] : params.id // keep for queryKey strings
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
+  const [copied, setCopied] = useState(false)
   const [signalView, setSignalView] = useState<'timeline' | 'table'>('timeline')
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
+  const [reevalResult, setReevalResult] = useState<any>(null)
+  const [reevalLoading, setReevalLoading] = useState(false)
 
   // Fetch all sessions for navigation
   const { data: allSessions } = useQuery({
@@ -45,6 +48,11 @@ export default function SessionDetailPage() {
     queryFn: api.sessions.list,
     enabled: isAuthenticated,
   })
+
+  // Auth guard
+  useEffect(() => {
+    if (initialized && !isAuthenticated) router.push('/login')
+  }, [initialized, isAuthenticated, router])
 
   // Auto-refresh on page focus
   useEffect(() => {
@@ -141,16 +149,24 @@ export default function SessionDetailPage() {
     setLoading('')
   }
 
-  function handleCopySummary() {
+  async function handleCopySummary() {
     if (!session) return
     let configDisplay: any = {}
     try { configDisplay = JSON.parse(session.config) } catch {}
+
+    // Fetch live price
+    let currentPriceStr = '-'
+    try {
+      const ticker = await api.sessions.getTicker(session.symbol)
+      currentPriceStr = parseFloat(ticker.lastPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+    } catch { /* ignore */ }
 
     const lines: string[] = []
     const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
     lines.push(`## Session: ${session.name}`)
     lines.push(`Tanggal: ${dateStr} | Status: ${session.status} | Mode: ${session.mode}`)
+    lines.push(`Harga ${session.symbol} saat ini: ${currentPriceStr}`)
     lines.push('')
 
     // Config
@@ -209,11 +225,24 @@ export default function SessionDetailPage() {
         const t = new Date(o.created_at).toLocaleString('id-ID')
         lines.push(`- ${o.side.toUpperCase()} ${o.executed_qty || o.quantity} @ ${o.executed_price || o.price} | ${o.status} | ${t}`)
       })
+      lines.push('')
+    }
+
+    // Reevaluation result (if available)
+    if (reevalResult && session.strategy === 'grid') {
+      lines.push('### Reevaluasi Grid')
+      lines.push(`- Harga saat ini: ${reevalResult.current_price.toLocaleString(undefined, { maximumFractionDigits: 8 })}`)
+      lines.push(`- Status: ${reevalResult.in_range ? 'Dalam range' : 'KELUAR RANGE'}`)
+      lines.push(`- Posisi: ${reevalResult.position_pct.toFixed(1)}% dalam range`)
+      lines.push(`- Level aktif: ${reevalResult.levels_triggered}/${reevalResult.total_levels} (${reevalResult.coverage_pct.toFixed(1)}%)`)
+      lines.push(`- Range saat ini: ${reevalResult.current_lower.toLocaleString()} — ${reevalResult.current_upper.toLocaleString()}`)
+      if (!reevalResult.in_range) lines.push(`- Saran range baru: ${reevalResult.suggested_lower.toLocaleString()} — ${reevalResult.suggested_upper.toLocaleString()}`)
+      lines.push(`- Analisis: ${reevalResult.suggestion}`)
     }
 
     navigator.clipboard.writeText(lines.join('\n'))
-    setLoading('copied')
-    setTimeout(() => setLoading(''), 2000)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   // Sync notes from session data
@@ -228,6 +257,27 @@ export default function SessionDetailPage() {
       setNotesSaved(true)
       setTimeout(() => setNotesSaved(false), 2000)
     } catch { /* ignore */ }
+  }
+
+  async function handleReevaluate() {
+    setReevalLoading(true)
+    try {
+      const result = await api.sessions.reevaluate(Number(id))
+      setReevalResult(result)
+    } catch (e: any) {
+      setError(e.message || 'Reevaluate failed')
+    }
+    setReevalLoading(false)
+  }
+
+  async function handleApplyConfig(config: string) {
+    try {
+      await api.sessions.applyConfig(Number(id), config)
+      qc.invalidateQueries({ queryKey: ['session', id] })
+      setReevalResult(null)
+    } catch (e: any) {
+      setError(e.message || 'Apply config failed')
+    }
   }
 
   if (sessionLoading) return (
@@ -315,7 +365,7 @@ export default function SessionDetailPage() {
               </button>
 
               {switcherOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] shadow-[0_8px_32px_rgba(14,15,12,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-50 overflow-hidden">
+                <div className="absolute top-full left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] shadow-[0_8px_32px_rgba(14,15,12,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-50 overflow-hidden">
                   {/* Same strategy sessions */}
                   {sameStrategyOthers.length > 0 && (
                     <div>
@@ -466,8 +516,17 @@ export default function SessionDetailPage() {
                   onClick={handleCopySummary}
                   className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all"
                 >
-                  {loading === 'copied' ? '✓ Copied!' : '📋 Copy Summary'}
+                  {copied ? '✓ Copied!' : '📋 Copy Summary'}
                 </button>
+                {session.strategy === 'grid' && (
+                  <button
+                    onClick={handleReevaluate}
+                    disabled={reevalLoading}
+                    className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all disabled:opacity-50"
+                  >
+                    {reevalLoading ? '...' : '🔍 Reevaluate'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -595,7 +654,7 @@ export default function SessionDetailPage() {
                 </p>
                 {pnl.balance && (
                   <p className="text-sm text-[#686868] dark:text-[#898989]">
-                    {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{((parseFloat(pnl.total_pnl) / Number(pnl.balance)) * 100).toFixed(1)}%
+                    {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{((parseFloat(pnl.total_pnl) / (Number(pnl.balance) - parseFloat(pnl.total_pnl))) * 100).toFixed(1)}%
                   </p>
                 )}
               </div>
@@ -629,6 +688,64 @@ export default function SessionDetailPage() {
             <span className="text-sm">Memuat data P&L...</span>
           </div>
         ) : null}
+
+        {/* Grid Reevaluation Panel */}
+        {reevalResult && session.strategy === 'grid' && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Hasil Reevaluasi Grid</h2>
+              <button onClick={() => setReevalResult(null)} className="text-xs text-[#686868] dark:text-[#898989] hover:text-[#d03238] transition-colors">✕ Tutup</button>
+            </div>
+            <div className={`rounded-[24px] p-5 border-2 mb-4 ${reevalResult.in_range ? 'border-[rgba(159,232,112,0.4)] bg-[rgba(159,232,112,0.04)]' : 'border-[rgba(208,50,56,0.4)] bg-[rgba(208,50,56,0.04)]'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${reevalResult.in_range ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.12)] text-[#d03238]'}`}>
+                  {reevalResult.in_range ? '✓ Dalam Range' : '✗ Keluar Range'}
+                </span>
+                <span className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{reevalResult.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</span>
+                <span className="text-xs text-[#686868] dark:text-[#898989]">posisi {reevalResult.position_pct.toFixed(1)}% dalam range</span>
+              </div>
+              <p className="text-sm text-[#454745] dark:text-[#8a8d88] mb-4">{reevalResult.suggestion}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-4">
+                <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-3">
+                  <p className="text-[#686868] dark:text-[#898989] mb-1">Range Saat Ini</p>
+                  <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{reevalResult.current_lower.toLocaleString()} — {reevalResult.current_upper.toLocaleString()}</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-3">
+                  <p className="text-[#686868] dark:text-[#898989] mb-1">Step Size</p>
+                  <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{reevalResult.step_size.toLocaleString(undefined, { maximumFractionDigits: 8 })}</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-3">
+                  <p className="text-[#686868] dark:text-[#898989] mb-1">Level Aktif</p>
+                  <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{reevalResult.levels_triggered} / {reevalResult.total_levels}</p>
+                </div>
+                <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-3">
+                  <p className="text-[#686868] dark:text-[#898989] mb-1">Coverage</p>
+                  <p className={`font-semibold ${reevalResult.coverage_pct >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#686868] dark:text-[#898989]'}`}>{reevalResult.coverage_pct.toFixed(1)}%</p>
+                </div>
+              </div>
+              {!reevalResult.in_range && (
+                <div className="border-t border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] pt-4">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mb-2">Saran range baru (±15% dari harga saat ini):</p>
+                  <p className="text-sm font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mb-3">{reevalResult.suggested_lower.toLocaleString()} — {reevalResult.suggested_upper.toLocaleString()} · {reevalResult.suggested_count} level</p>
+                  <button
+                    disabled={session.status === 'running'}
+                    onClick={() => {
+                      let cfg: any = {}
+                      try { cfg = JSON.parse(session.config) } catch {}
+                      cfg.lower_price = reevalResult.suggested_lower
+                      cfg.upper_price = reevalResult.suggested_upper
+                      handleApplyConfig(JSON.stringify(cfg))
+                    }}
+                    className="px-4 py-2 text-sm font-semibold bg-[#9fe870] text-[#163300] rounded-full hover:bg-[#cdffad] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={session.status === 'running' ? 'Stop session dulu sebelum apply' : ''}
+                  >
+                    {session.status === 'running' ? '🔒 Stop Dulu untuk Apply' : '✓ Terapkan Saran'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Grid Paper Portfolio */}
         {isGridPaper && portfolio && (
