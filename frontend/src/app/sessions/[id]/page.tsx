@@ -69,19 +69,21 @@ export default function SessionDetailPage() {
 
   // Grid Signal specific queries
   const isGridSignal = session?.strategy === 'grid' && session?.mode === 'signal'
+  const isTrendSignal = session?.strategy === 'trend' && session?.mode === 'signal'
+  const isStrategySignal = isGridSignal || isTrendSignal
   const isGridPaper = session?.strategy === 'grid' && session?.mode === 'paper'
 
   const { data: strategySignals } = useQuery({
     queryKey: ['signals', id],
     queryFn: () => api.sessions.getSignals(Number(id)),
-    enabled: isAuthenticated && isGridSignal,
+    enabled: isAuthenticated && isStrategySignal,
     refetchInterval: 15000,
   })
 
   const { data: signalSummary } = useQuery({
     queryKey: ['signalSummary', id],
     queryFn: () => api.sessions.getSignalSummary(Number(id)),
-    enabled: isAuthenticated && isGridSignal,
+    enabled: isAuthenticated && isStrategySignal,
     refetchInterval: 15000,
   })
 
@@ -187,11 +189,11 @@ export default function SessionDetailPage() {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
                 )}
               </div>
-              <p className="text-sm text-[#686868] dark:text-[#898989]">{session.symbol} · {strategyLabel} · {modeInfo[session.mode]}</p>
+              <p className="text-sm text-[#686868] dark:text-[#898989] break-all sm:break-normal">{session.symbol} · {strategyLabel} · {modeInfo[session.mode]}</p>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
               <PriceBadge symbol={session.symbol} compact />
-              {error && <span className="text-[#d03238] dark:text-[#ff6b6f] text-sm">{error}</span>}
+              {error && <span className="text-[#d03238] dark:text-[#ff6b6f] text-sm min-w-0 truncate flex-1">{error}</span>}
               {session.status === 'running' ? (
                 <button
                   onClick={handleStop}
@@ -214,7 +216,7 @@ export default function SessionDetailPage() {
         </div>
 
         {/* Active Signals — empty state */}
-        {isGridSignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
+        {isStrategySignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sinyal Aktif</h2>
@@ -225,7 +227,7 @@ export default function SessionDetailPage() {
         )}
 
         {/* Active Signals */}
-        {isGridSignal && strategySignals && strategySignals.some(s => s.validation_status === 'pending') && (
+        {isStrategySignal && strategySignals && strategySignals.some(s => s.validation_status === 'pending') && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sinyal Aktif</h2>
@@ -285,7 +287,7 @@ export default function SessionDetailPage() {
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Performa</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              <div className="col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="sm:col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total P&L</p>
                 <p className={`text-2xl font-black mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
@@ -345,7 +347,7 @@ export default function SessionDetailPage() {
             › Detail Konfigurasi
           </summary>
           <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mt-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
               <div>
                 <span className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider">Pair</span>
                 <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{session.symbol}</p>
@@ -369,7 +371,9 @@ export default function SessionDetailPage() {
                 <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
               </div>
             </div>
-            <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
+            <div className="overflow-x-auto">
+              <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88]">{JSON.stringify(configDisplay, null, 2)}</pre>
+            </div>
           </div>
         </details>
 
@@ -398,13 +402,11 @@ export default function SessionDetailPage() {
             </div>
             {(portfolio.holdings?.length ?? 0) > 0 && (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Holdings</p>
-                  <div className="flex items-center gap-4 text-xs text-[#686868] dark:text-[#898989]">
-                    <span>Total aset: <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty), 0))} {session.symbol.split('_')[0]}</span></span>
-                    <span>Total dikeluarkan: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty) * parseFloat(h.avg_price), 0))}</span></span>
-                  </div>
-                </div>
+                 <div className="flex flex-col gap-1.5 mb-3">
+                   <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Holdings</p>
+                   <span className="text-xs text-[#686868] dark:text-[#898989]">Total aset: <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty), 0))} {session.symbol.split('_')[0]}</span></span>
+                   <span className="text-xs text-[#686868] dark:text-[#898989]">Total dikeluarkan: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty) * parseFloat(h.avg_price), 0))}</span></span>
+                 </div>
                 {/* Column headers */}
                 <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1 px-0">
                   <span>Aset</span>
@@ -432,11 +434,11 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Grid Signal Summary */}
-        {isGridSignal && signalSummary && signalSummary.total_count > 0 && (
+        {/* Signal Summary (Grid and Trend) */}
+        {isStrategySignal && signalSummary && signalSummary.total_count > 0 && (
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Ringkasan Sinyal</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total Sinyal</p>
                 <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
@@ -448,7 +450,7 @@ export default function SessionDetailPage() {
                 </p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed/Invalid/Exp</p>
+                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider" title="Confirmed / Invalidated / Expired">C / I / E</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.confirmed_count}</span>
                   <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
@@ -469,10 +471,12 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Grid Signal History */}
-        {isGridSignal && strategySignals && strategySignals.length > 0 && (
+        {/* Strategy Signal History (Grid and Trend) */}
+        {isStrategySignal && strategySignals && strategySignals.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Histori Sinyal Grid</h2>
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">
+              {isTrendSignal ? 'Histori Sinyal Trend' : 'Histori Sinyal Grid'}
+            </h2>
             <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -480,7 +484,7 @@ export default function SessionDetailPage() {
                     <tr>
                       <th className="px-4 py-3 text-left">Waktu</th>
                       <th className="px-4 py-3 text-left">Sisi</th>
-                      <th className="px-4 py-3 text-left">Level</th>
+                      <th className="px-4 py-3 text-left">{isTrendSignal ? 'Cross' : 'Level'}</th>
                       <th className="px-4 py-3 text-left">Harga</th>
                       <th className="px-4 py-3 text-left">Qty</th>
                       <th className="px-4 py-3 text-left">Status</th>
@@ -490,9 +494,16 @@ export default function SessionDetailPage() {
                   <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                     {strategySignals.slice(0, 30).map(s => (
                       <tr key={s.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
-                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(s.created_at).toLocaleString('id-ID')}</td>
+                         <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                          <span className="block">{new Date(s.created_at).toLocaleDateString('id-ID')}</span>
+                          <span className="block text-[10px]">{new Date(s.created_at).toLocaleTimeString('id-ID')}</span>
+                        </td>
                         <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{s.signal_type}</td>
-                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">#{s.grid_level_index}</td>
+                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                          {isTrendSignal
+                            ? (s.reason === 'golden_cross' ? 'Golden Cross' : s.reason === 'death_cross' ? 'Death Cross' : s.reason)
+                            : `#${s.grid_level_index}`}
+                        </td>
                         <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
                         <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{s.quantity}</td>
                         <td className={`px-4 py-3 text-xs font-semibold ${
@@ -517,8 +528,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Orders Table — hidden when grid signal history is shown */}
-        {!isGridSignal && (
+        {/* Orders Table — hidden when strategy signal history is shown */}
+        {!isStrategySignal && (
           <>
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Riwayat Signal & Order</h2>
             {ordersLoading ? (
@@ -545,7 +556,10 @@ export default function SessionDetailPage() {
                     <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                       {orders.slice(0, 20).map(o => (
                         <tr key={o.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
-                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(o.created_at).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                            <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
+                            <span className="block text-[10px]">{new Date(o.created_at).toLocaleTimeString('id-ID')}</span>
+                          </td>
                           <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{o.side}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
