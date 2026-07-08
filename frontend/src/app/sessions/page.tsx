@@ -160,8 +160,9 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
     setPriceLoading(false)
   }
 
-async function fetchRecommendation() {
-	if (strategy === 'grid') {
+async function fetchRecommendation(strat?: string) {
+	const s = strat ?? strategy
+	if (s === 'grid') {
 	  try {
 		const rec = await api.grid.recommend({ symbol, horizon, capital: parseFloat(capital) || 100, validation_mode: validationMode })
 		setRecommendation(rec)
@@ -172,7 +173,7 @@ async function fetchRecommendation() {
 		const hist = await api.grid.insights(symbol)
 		setInsights(hist || [])
 	  } catch { /* ignore */ }
-	} else if (strategy === 'trend') {
+	} else if (s === 'trend') {
 	  try {
 		const rec = await api.trend.recommend({ symbol, horizon, capital: parseFloat(capital) || 100 })
 		setRecommendation(rec)
@@ -193,8 +194,8 @@ async function fetchRecommendation() {
       return
     }
 fetchPriceAndApply(symbol)
-	if (strategy === 'grid' || strategy === 'trend') setTimeout(fetchRecommendation, 300)
-  }, [showCreate, symbol])
+	if (strategy === 'grid' || strategy === 'trend') setTimeout(() => fetchRecommendation(strategy), 300)
+  }, [showCreate, symbol, strategy])
 
   function applyPreset(p: Preset) {
     setStrategy(p.strategy)
@@ -422,7 +423,7 @@ setFastPeriod(String(p.config.fast_period || 10))
                       </select>
                     </div>
                     <div className="flex items-end">
-                      <button type="button" onClick={fetchRecommendation} className="w-full px-3 py-1.5 bg-[#9fe870] text-[#163300] font-semibold hover:bg-[#cdffad] rounded-full text-sm transition">
+                      <button type="button" onClick={() => fetchRecommendation('grid')} className="w-full px-3 py-1.5 bg-[#9fe870] text-[#163300] font-semibold hover:bg-[#cdffad] rounded-full text-sm transition">
                         Rekomendasi
                       </button>
                     </div>
@@ -505,7 +506,7 @@ setFastPeriod(String(p.config.fast_period || 10))
               <div className="flex items-center gap-2">
                 <label className="text-xs text-[#686868] dark:text-[#898989] font-medium">Mode:</label>
                 <button type="button"
-                  onClick={() => { setIsBeginner(true); fetchRecommendation() }}
+                  onClick={() => { setIsBeginner(true); fetchRecommendation('trend') }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[rgba(56,200,255,0.85)] text-white' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
                   🎓 Pemula
                 </button>
@@ -521,7 +522,7 @@ setFastPeriod(String(p.config.fast_period || 10))
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Horizon</label>
-                      <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
+                      <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(() => fetchRecommendation('trend'), 0) }}>
                         <option value="short">Pendek (sinyal sering, noise lebih tinggi)</option>
                         <option value="medium">Menengah (seimbang)</option>
                         <option value="long">Panjang (sinyal jarang tapi reliabel)</option>
@@ -529,11 +530,11 @@ setFastPeriod(String(p.config.fast_period || 10))
                     </div>
                     <div>
                       <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Modal (USDT)</label>
-                      <input className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
+                      <input className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(() => fetchRecommendation('trend'), 0) }} />
                     </div>
                   </div>
                   <div className="flex items-end">
-                    <button type="button" onClick={fetchRecommendation} className="w-full px-3 py-1.5 bg-[rgba(56,200,255,0.85)] text-white font-semibold hover:bg-[rgba(56,200,255,1)] rounded-full text-sm transition">
+                    <button type="button" onClick={() => fetchRecommendation('trend')} className="w-full px-3 py-1.5 bg-[rgba(56,200,255,0.85)] text-white font-semibold hover:bg-[rgba(56,200,255,1)] rounded-full text-sm transition">
                       Rekomendasi
                     </button>
                   </div>
@@ -672,6 +673,12 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   onDetail: (id: number) => void
 }) {
   const strategyIcon = session.strategy === 'grid' ? '📐' : session.strategy === 'trend' ? '📈' : '🪙'
+  const modeIcon = session.mode === 'live' ? '⚡' : session.mode === 'paper' ? '📝' : '📊'
+  const modeBg = session.mode === 'live'
+    ? 'bg-[rgba(255,209,26,0.9)] dark:bg-[rgba(255,209,26,0.8)]'
+    : session.mode === 'paper'
+    ? 'bg-[rgba(159,232,112,0.9)] dark:bg-[rgba(159,232,112,0.7)]'
+    : 'bg-[rgba(56,200,255,0.9)] dark:bg-[rgba(56,200,255,0.7)]'
   const strategyBg = session.strategy === 'grid'
     ? 'bg-[rgba(159,232,112,0.15)]'
     : session.strategy === 'trend'
@@ -682,9 +689,14 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
   return (
     <div className="bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all p-5 cursor-pointer group" onClick={() => onDetail(session.id)}>
       <div className="flex items-center gap-4">
-        {/* Strategy icon — lebih besar */}
-        <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl flex-shrink-0 ${strategyBg}`}>
-          {strategyIcon}
+        {/* Strategy icon utama + mode badge kecil */}
+        <div className="relative flex-shrink-0">
+          <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-2xl ${strategyBg}`}>
+            {strategyIcon}
+          </div>
+          <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${modeBg}`}>
+            {modeIcon}
+          </span>
         </div>
         {/* Content */}
         <div className="flex-1 min-w-0">
