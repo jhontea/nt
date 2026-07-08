@@ -6,18 +6,18 @@ import { useMarketTicker } from '@/lib/useMarketTicker'
 import { Navbar } from '@/components/Navbar'
 
 const MARKET_SYMBOLS = [
+  { label: 'Bitcoin', symbol: 'BTC_USDT' },
   { label: 'Ethereum', symbol: 'ETH_USDT' },
   { label: 'Solana', symbol: 'SOL_USDT' },
+  { label: 'BNB', symbol: 'BNB_USDT' },
+  { label: 'Dogecoin', symbol: 'DOGE_USDT' },
   { label: 'Shiba Inu', symbol: 'SHIB_USDT' },
   { label: 'Polkadot', symbol: 'DOT_USDT' },
-  { label: 'Dogecoin', symbol: 'DOGE_USDT' },
-  { label: 'Bitcoin', symbol: 'BTC_USDT' },
-  { label: 'BNB', symbol: 'BNB_USDT' },
   { label: 'USDT → IDR', symbol: 'USDT_IDR' },
 ]
 
 function formatUSDTPrice(value: number) {
-  return value.toLocaleString(undefined, {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: value < 1 ? 4 : 2,
     maximumFractionDigits: value < 1 ? 8 : 2,
   })
@@ -82,18 +82,18 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
           {isIDRPair ? formatIDR(last) : `${formatUSDTPrice(last)} USDT`}
         </p>
         {approxIDR && (
-          <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">~ {formatIDR(approxIDR)}</p>
+          <p className="text-sm text-[#686868] dark:text-[#898989] mt-1 truncate">~ {formatIDR(approxIDR)}</p>
         )}
       </div>
 
       <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs">
         <div>
           <p className="text-[#686868] dark:text-[#898989]">↑ 24h High</p>
-          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}>{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
         </div>
         <div>
           <p className="text-[#686868] dark:text-[#898989]">↓ 24h Low</p>
-          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}>{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
         </div>
         <div>
           <p className="text-[#686868] dark:text-[#898989]">Vol (24h)</p>
@@ -117,7 +117,15 @@ export default function MarketPage() {
     if (initialized && !isAuthenticated) router.push('/login')
   }, [initialized, isAuthenticated, router])
 
-  if (!initialized || !isAuthenticated) return null
+  if (!initialized) return (
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411] flex items-center justify-center">
+      <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse">
+        <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
+        <span className="text-sm">Memuat...</span>
+      </div>
+    </div>
+  )
+  if (!isAuthenticated) return null
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
