@@ -75,7 +75,143 @@ function calcGridDefaults(price: number) {
 }
 
 
-function StatsRow({ stats, activeFilter, onFilterChange }: {
+function OverviewPanel({ sessions, onFilterChange }: {
+  sessions: import('@/types').Session[]
+  onFilterChange: (f: 'all' | 'grid' | 'trend' | 'dca') => void
+}) {
+  const strategies = [
+    { key: 'grid' as const, label: 'Grid', icon: '📐', color: 'rgba(159,232,112,0.12)', textColor: 'text-[#163300] dark:text-[#9fe870]', borderColor: 'border-[rgba(159,232,112,0.25)]' },
+    { key: 'trend' as const, label: 'Trend', icon: '📈', color: 'rgba(56,200,255,0.1)', textColor: 'text-[#0994b3] dark:text-[#5dd8f5]', borderColor: 'border-[rgba(56,200,255,0.2)]' },
+    { key: 'dca' as const, label: 'DCA', icon: '🪙', color: 'rgba(255,209,26,0.1)', textColor: 'text-[#7a5f00] dark:text-[#f5c842]', borderColor: 'border-[rgba(255,209,26,0.2)]' },
+  ]
+
+  return (
+    <div className="mb-6">
+      <h2 className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest mb-3">Overview per Strategi</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {strategies.map(strat => {
+          const stratSessions = sessions.filter(s => s.strategy === strat.key)
+          if (stratSessions.length === 0) return null
+          const running = stratSessions.filter(s => s.status === 'running').length
+          const paperSessions = stratSessions.filter(s => s.mode === 'paper')
+          const signalSessions = stratSessions.filter(s => s.mode === 'signal')
+          const bestBalance = paperSessions.reduce((best, s) => {
+            const bal = s.virtual_balance ?? 0
+            return bal > best ? bal : best
+          }, 0)
+          const bestInitial = paperSessions.find(s => (s.virtual_balance ?? 0) === bestBalance)?.initial_balance ?? 1000
+          const bestPct = bestInitial > 0 ? ((bestBalance - bestInitial) / bestInitial) * 100 : 0
+
+          return (
+            <button
+              key={strat.key}
+              onClick={() => onFilterChange(strat.key)}
+              className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 text-left border ${strat.borderColor} hover:shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className={`w-8 h-8 rounded-[10px] flex items-center justify-center text-base`} style={{ background: strat.color }}>
+                    {strat.icon}
+                  </span>
+                  <span className={`text-sm font-bold ${strat.textColor}`}>{strat.label}</span>
+                </div>
+                {running > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-[#9fe870]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
+                    {running} running
+                  </span>
+                )}
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                <div>
+                  <p className="text-[#686868] dark:text-[#898989]">Total</p>
+                  <p className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{stratSessions.length}</p>
+                </div>
+                <div>
+                  <p className="text-[#686868] dark:text-[#898989]">Paper</p>
+                  <p className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{paperSessions.length}</p>
+                </div>
+                <div>
+                  <p className="text-[#686868] dark:text-[#898989]">Signal</p>
+                  <p className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{signalSessions.length}</p>
+                </div>
+              </div>
+
+              {/* Best paper balance */}
+              {paperSessions.length > 0 && bestBalance > 0 && (
+                <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-2.5">
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mb-1">Best Paper Balance</p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${bestBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className={`text-[10px] font-bold ${bestPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                      {bestPct >= 0 ? '+' : ''}{bestPct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <p className={`text-[10px] font-semibold mt-2.5 ${strat.textColor}`}>Lihat {strat.label} →</p>
+            </button>
+          )
+        }).filter(Boolean)}
+      </div>
+    </div>
+  )
+}
+
+function StrategyInsightRow({ sessions, activeFilter }: {
+  sessions: import('@/types').Session[]
+  activeFilter: 'grid' | 'trend' | 'dca'
+}) {
+  const stratSessions = sessions.filter(s => s.strategy === activeFilter)
+  const paperSessions = stratSessions.filter(s => s.mode === 'paper')
+  const signalSessions = stratSessions.filter(s => s.mode === 'signal')
+  const running = stratSessions.filter(s => s.status === 'running')
+  const paperRunning = paperSessions.filter(s => s.status === 'running')
+
+  const avgBalance = paperSessions.length > 0
+    ? paperSessions.reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0) / paperSessions.length
+    : null
+
+  const avgInitial = paperSessions.length > 0
+    ? paperSessions.reduce((sum, s) => sum + (s.initial_balance ?? 1000), 0) / paperSessions.length
+    : 1000
+
+  const avgPct = avgBalance !== null && avgInitial > 0
+    ? ((avgBalance - avgInitial) / avgInitial) * 100
+    : null
+
+  const strategyName = activeFilter === 'grid' ? 'Grid Trading' : activeFilter === 'trend' ? 'Trend Following' : 'DCA'
+
+  return (
+    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 flex flex-wrap items-center gap-4">
+      <span className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">{strategyName}</span>
+      <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" />
+      <div className="flex flex-wrap gap-4 text-xs">
+        <span><span className="text-[#686868] dark:text-[#898989]">Total </span><span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{stratSessions.length}</span></span>
+        <span><span className="text-[#686868] dark:text-[#898989]">Running </span><span className="font-bold text-[#9fe870]">{running.length}</span></span>
+        <span><span className="text-[#686868] dark:text-[#898989]">Paper </span><span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{paperSessions.length}</span>{paperRunning.length > 0 && <span className="text-[#9fe870] ml-1">({paperRunning.length} running)</span>}</span>
+        <span><span className="text-[#686868] dark:text-[#898989]">Signal </span><span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{signalSessions.length}</span></span>
+        {avgBalance !== null && avgPct !== null && (
+          <span>
+            <span className="text-[#686868] dark:text-[#898989]">Avg balance </span>
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className={`ml-1 font-semibold ${avgPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+              {avgPct >= 0 ? '+' : ''}{avgPct.toFixed(1)}%
+            </span>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StatsRow({
+  stats, activeFilter, onFilterChange
+}: {
   stats: { all: { total: number; running: number }; grid: { total: number; running: number }; trend: { total: number; running: number }; dca: { total: number; running: number } }
   activeFilter: 'all' | 'grid' | 'trend' | 'dca'
   onFilterChange: (filter: 'all' | 'grid' | 'trend' | 'dca') => void
@@ -355,6 +491,16 @@ fetchPriceAndApply(symbol)
 
         {/* Stats Row */}
         <StatsRow stats={stats} activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+
+        {/* Overview Panel — shown when filter is 'all' and sessions exist */}
+        {!showCreate && activeFilter === 'all' && sessions && sessions.length > 0 && (
+          <OverviewPanel sessions={sessions} onFilterChange={setActiveFilter} />
+        )}
+
+        {/* Strategy Insight Row — shown when a specific strategy filter is active */}
+        {!showCreate && activeFilter !== 'all' && sessions && sessions.length > 0 && (
+          <StrategyInsightRow sessions={sessions} activeFilter={activeFilter} />
+        )}
 
         {/* Form panel — slide-down, full width, max-w-3xl */}
         {showCreate && (
