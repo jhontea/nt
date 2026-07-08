@@ -245,10 +245,6 @@ export default function SessionDetailPage() {
         {/* Active Signals — empty state */}
         {isStrategySignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sinyal Aktif</h2>
-              <span className="text-xs font-bold bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] rounded-full px-2 py-0.5">0</span>
-            </div>
             <p className="text-sm text-[#686868] dark:text-[#898989]">Belum ada sinyal aktif. Bot akan memunculkan sinyal saat kondisi pasar sesuai.</p>
           </div>
         )}
@@ -398,6 +394,54 @@ export default function SessionDetailPage() {
             </p>
           )}
         </div>
+
+        {/* Trend Signal Overview */}
+        {isTrendSignal && (
+          <div className="mb-6">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Konfigurasi Trend</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">SMA Cepat</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.fast_period || 10}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">periode candle</p>
+              </div>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">SMA Lambat</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.slow_period || 30}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">periode candle</p>
+              </div>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Interval</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.interval || '5m'}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">candle timeframe</p>
+              </div>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Qty per Sinyal</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{configDisplay.quantity || '?'}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">{session.symbol.split('_')[0]}</p>
+              </div>
+            </div>
+            {configDisplay.validation_mode && (
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mt-3">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Validasi Otomatis</p>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#686868] dark:text-[#898989]">Target</span>
+                    <p className="font-semibold text-[#054d28] dark:text-[#9fe870]">+{configDisplay.validation_target_value || 2}%</p>
+                  </div>
+                  <div>
+                    <span className="text-[#686868] dark:text-[#898989]">Invalid</span>
+                    <p className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">-{configDisplay.validation_invalid_value || 1}%</p>
+                  </div>
+                  <div>
+                    <span className="text-[#686868] dark:text-[#898989]">Window</span>
+                    <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{configDisplay.validation_window_minutes || 120} menit</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Detail Konfigurasi — collapsible */}
         <details className="mb-4">
