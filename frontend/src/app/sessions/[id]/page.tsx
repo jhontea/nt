@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie } from 'recharts'
 
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
 
@@ -23,17 +24,17 @@ const pnlHelp: Record<string, string> = {
   winRate: 'Persentase trade yang profit dari total trade.',
 }
 
+const HOLDING_COLORS = ['#9fe870', '#38c8ff', '#ffd11a', '#c084fc', '#f97316']
+
 export default function SessionDetailPage() {
   const params = useParams()
-  const sessionId = parseInt(params.id as string, 10)
   const id = params.id // keep for queryKey strings
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
-
-  useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
+  const [signalView, setSignalView] = useState<'timeline' | 'table'>('timeline')
 
   // Auto-refresh on page focus
   useEffect(() => {
@@ -152,6 +153,32 @@ export default function SessionDetailPage() {
 
   const strategyLabel = session.strategy === 'grid' ? 'Grid' : session.strategy === 'trend' ? 'Trend' : 'DCA'
 
+  const pnlChartData = (isStrategySignal && strategySignals)
+    ? strategySignals
+        .filter(s => s.validation_status === 'confirmed' && s.result_pct != null)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .reduce((acc, s, i) => {
+          const prev = acc[i - 1]?.cumulative ?? 0
+          const cumulative = parseFloat((prev + (s.result_pct ?? 0)).toFixed(2))
+          acc.push({
+            label: `S${i + 1}`,
+            result: parseFloat((s.result_pct ?? 0).toFixed(2)),
+            cumulative,
+            time: new Date(s.created_at).toLocaleDateString('id-ID'),
+          })
+          return acc
+        }, [] as { label: string; result: number; cumulative: number; time: string }[])
+    : []
+
+  const signalsByLevel = strategySignals
+    ? strategySignals.reduce((acc, s) => {
+        if (!acc[s.grid_level_index] || s.id > acc[s.grid_level_index].id) {
+          acc[s.grid_level_index] = s
+        }
+        return acc
+      }, {} as Record<number, import('@/types').StrategySignal>)
+    : {}
+
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
@@ -198,7 +225,7 @@ export default function SessionDetailPage() {
                 <button
                   onClick={handleStop}
                   disabled={loading === 'stop'}
-                  className="bg-[#d03238] text-white border-2 border-[#d03238] hover:bg-[#d94a4f] dark:hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
+                  className="bg-[#d03238] text-white dark:text-white border-2 border-[#d03238] hover:bg-[#d94a4f] dark:hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
                 >
                   {loading === 'stop' ? '...' : 'Stop'}
                 </button>
@@ -320,6 +347,37 @@ export default function SessionDetailPage() {
           </div>
         ) : null}
 
+        {isStrategySignal && pnlChartData.length >= 2 && (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Performa Sinyal</h2>
+            <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="flex items-center gap-4 mb-4 text-xs text-[#686868] dark:text-[#898989]">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#9fe870] inline-block rounded-full" />Kumulatif</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[rgba(159,232,112,0.3)] inline-block rounded-sm" />Per Sinyal</span>
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <ComposedChart data={pnlChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,100,100,0.15)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgba(104,104,104,1)' }} tickLine={false} axisLine={false} stroke="none" />
+                  <YAxis tick={{ fontSize: 10, fill: 'rgba(104,104,104,1)' }} tickLine={false} axisLine={false} stroke="none" tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}%`} />
+                  <Tooltip
+                    contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 12, fontSize: 11 }}
+                    formatter={(value: number, name: string) => [`${value > 0 ? '+' : ''}${value}%`, (name as string) === 'cumulative' ? 'Kumulatif' : 'Sinyal'] as [string, string]}
+                    labelFormatter={(label: string, payload: Array<{ payload?: { time?: string } }>) => payload?.[0]?.payload?.time ?? label}
+                  />
+                  <Bar dataKey="result" fill="rgba(159,232,112,0.3)" radius={[4, 4, 0, 0]}>
+                    {pnlChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.result >= 0 ? 'rgba(159,232,112,0.4)' : 'rgba(208,50,56,0.3)'} />
+                    ))}
+                  </Bar>
+                  <Line type="monotone" dataKey="cumulative" stroke="#9fe870" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#9fe870' }} />
+                  <ReferenceLine y={0} stroke="rgba(128,128,128,0.3)" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
         {/* Strategy Description */}
         <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-r-[16px] px-4 py-3 mb-4 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
           {session.strategy === 'grid' ? (
@@ -329,7 +387,7 @@ export default function SessionDetailPage() {
             </p>
           ) : session.strategy === 'trend' ? (
             <p>
-              <span className="text-[#5a5b58] dark:text-[#d0d3ce] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
+              <span className="text-[#5a5b58] dark:text-[#e8ebe6] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
               Golden cross = sinyal <span className="text-[#054d28] dark:text-[#9fe870] font-medium">beli</span>. Death cross = sinyal <span className="text-[#d03238] dark:text-[#ff6b6f] font-medium">jual</span>.
             </p>
           ) : (
@@ -402,35 +460,116 @@ export default function SessionDetailPage() {
             </div>
             {(portfolio.holdings?.length ?? 0) > 0 && (
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                 <div className="flex flex-col gap-1.5 mb-3">
-                   <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Holdings</p>
-                   <span className="text-xs text-[#686868] dark:text-[#898989]">Total aset: <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty), 0))} {session.symbol.split('_')[0]}</span></span>
-                   <span className="text-xs text-[#686868] dark:text-[#898989]">Total dikeluarkan: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty) * parseFloat(h.avg_price), 0))}</span></span>
-                 </div>
-                {/* Column headers */}
-                <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1 px-0">
-                  <span>Aset</span>
-                  <div className="flex items-center flex-wrap gap-2 font-mono">
-                    <span className="text-right">Harga Rata-rata</span>
-                    <span className="text-right">Total Biaya</span>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Donut chart */}
+                  <div className="flex-shrink-0 flex items-center justify-center w-[140px] h-[140px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            ...portfolio.holdings.map((h, i) => ({
+                              name: `${session.symbol.split('_')[0]} #${i + 1}`,
+                              value: parseFloat(h.qty) * parseFloat(h.avg_price),
+                              color: HOLDING_COLORS[i % HOLDING_COLORS.length],
+                            })),
+                            {
+                              name: 'Cash',
+                              value: portfolio.virtual_balance,
+                              color: 'rgba(140,140,140,0.25)',
+                            }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={42}
+                          outerRadius={60}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {[
+                            ...portfolio.holdings.map((h, i) => ({
+                              color: HOLDING_COLORS[i % HOLDING_COLORS.length],
+                            })),
+                            { color: 'rgba(140,140,140,0.25)' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 10, fontSize: 11 }}
+                          formatter={(value: number) => [`$${fmt(value)}`, '']}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                </div>
-                <div className="space-y-0 max-h-48 overflow-y-auto">
-                  {portfolio.holdings.map((h, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
-                        <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">{h.qty}</span>
-                      </div>
-                      <div className="flex items-center flex-wrap gap-2 font-mono text-right">
-                        <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
-                        <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                  {/* Legend + list */}
+                  <div className="flex-1">
+                    <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Holdings</p>
+                    <div className="max-h-48 overflow-y-auto">
+                      {portfolio.holdings.map((h, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
+                            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
+                            <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">{h.qty}</span>
+                          </div>
+                          <div className="flex items-center flex-wrap gap-2 font-mono text-right">
+                            <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
+                            <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between text-xs py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
+                          <span className="text-[#686868] dark:text-[#898989]">Cash</span>
+                        </div>
+                        <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</span>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Grid Level Visual */}
+        {(isGridSignal || isGridPaper) && strategySignals && Object.keys(signalsByLevel).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Grid Levels</h2>
+            <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="space-y-2">
+                {Object.entries(signalsByLevel)
+                  .sort((a, b) => Number(b[0]) - Number(a[0]))
+                  .map(([levelIndex, signal]) => {
+                    const isBuy = signal.signal_type === 'buy'
+                    const status = signal.validation_status
+                    const barColor = status === 'confirmed' ? 'bg-[#9fe870]'
+                      : status === 'invalidated' ? 'bg-[#d03238]'
+                      : status === 'pending' ? 'bg-[rgba(255,209,26,0.5)] dark:bg-[rgba(255,209,26,0.7)] animate-pulse'
+                      : 'bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]'
+                    const statusLabel = status === 'confirmed' ? '✓' : status === 'invalidated' ? '✗' : status === 'pending' ? '○' : '—'
+                    const statusColor = status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]'
+                      : status === 'invalidated' ? 'text-[#d03238] dark:text-[#ff6b6f]'
+                      : status === 'pending' ? 'text-[#7a5f00] dark:text-[#f5c842]'
+                      : 'text-[#686868] dark:text-[#898989]'
+                    return (
+                      <div key={signal.id} className="flex items-center gap-3 text-xs">
+                        <span className="w-14 text-right text-[#686868] dark:text-[#898989] flex-shrink-0">L{levelIndex}</span>
+                        <span className={`w-12 text-center rounded-full px-1.5 py-0.5 flex-shrink-0 font-semibold text-[10px] ${isBuy ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                          {isBuy ? '▲ Beli' : '▼ Jual'}
+                        </span>
+                        <span className="w-24 text-[#686868] dark:text-[#898989] font-mono flex-shrink-0">{fmt(parseFloat(signal.grid_level_price))}</span>
+                        <div className="flex-1 h-4 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: signal.result_pct != null ? `${Math.min(100, Math.abs(signal.result_pct))}%` : '100%' }} />
+                        </div>
+                        <span className={`w-4 text-center flex-shrink-0 font-bold ${statusColor}`}>{statusLabel}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+              <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-3">✓ Confirmed  ✗ Invalidated  ○ Pending  — Expired</p>
+            </div>
           </div>
         )}
 
@@ -444,10 +583,17 @@ export default function SessionDetailPage() {
                 <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{signalSummary.total_count}</p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Success Rate</p>
-                <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Success Rate</p>
+                <p className={`text-lg font-bold mb-2 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
+                <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${signalSummary.success_rate >= 50 ? 'bg-[#9fe870]' : signalSummary.success_rate > 0 ? 'bg-[#ffd11a]' : 'bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]'}`}
+                    style={{ width: `${Math.min(100, signalSummary.success_rate)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">{signalSummary.confirmed_count} dari {signalSummary.total_count} sinyal</p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider" title="Confirmed / Invalidated / Expired">C / I / E</p>
@@ -474,57 +620,108 @@ export default function SessionDetailPage() {
         {/* Strategy Signal History (Grid and Trend) */}
         {isStrategySignal && strategySignals && strategySignals.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">
-              {isTrendSignal ? 'Histori Sinyal Trend' : 'Histori Sinyal Grid'}
-            </h2>
-            <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Waktu</th>
-                      <th className="px-4 py-3 text-left">Sisi</th>
-                      <th className="px-4 py-3 text-left">{isTrendSignal ? 'Cross' : 'Level'}</th>
-                      <th className="px-4 py-3 text-left">Harga</th>
-                      <th className="px-4 py-3 text-left">Qty</th>
-                      <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3 text-left">Hasil</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
-                    {strategySignals.slice(0, 30).map(s => (
-                      <tr key={s.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
-                         <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
-                          <span className="block">{new Date(s.created_at).toLocaleDateString('id-ID')}</span>
-                          <span className="block text-[10px]">{new Date(s.created_at).toLocaleTimeString('id-ID')}</span>
-                        </td>
-                        <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{s.signal_type}</td>
-                        <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
-                          {isTrendSignal
-                            ? (s.reason === 'golden_cross' ? 'Golden Cross' : s.reason === 'death_cross' ? 'Death Cross' : s.reason)
-                            : `#${s.grid_level_index}`}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
-                        <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{s.quantity}</td>
-                        <td className={`px-4 py-3 text-xs font-semibold ${
-                          s.validation_status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]' :
-                          s.validation_status === 'invalidated' ? 'text-[#d03238] dark:text-[#ff6b6f]' :
-                          s.validation_status === 'expired' ? 'text-[#5a5b58] dark:text-[#8a8d88]' : 'text-[#7a5f00] dark:text-[#f5c842]'
-                        }`}>{s.validation_status}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {s.validation_status === 'confirmed' && s.result_pct != null && (
-                            <span className={`font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                              {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
-                            </span>
-                          )}
-                          {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842]">menunggu</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">
+                {isTrendSignal ? 'Histori Sinyal Trend' : 'Histori Sinyal Grid'}
+              </h2>
+              <div className="flex items-center gap-1 bg-[#f0f1ee] dark:bg-[#252822] rounded-full p-0.5">
+                <button onClick={() => setSignalView('timeline')} className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${signalView === 'timeline' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Timeline</button>
+                <button onClick={() => setSignalView('table')} className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${signalView === 'table' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Tabel</button>
               </div>
             </div>
+
+            {signalView === 'timeline' ? (
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <div className="space-y-0">
+                  {strategySignals.slice(0, 30).map((s, i) => {
+                    const isBuy = s.signal_type === 'buy'
+                    const isLast = i === Math.min(strategySignals.length, 30) - 1
+                    const dotColor = s.validation_status === 'confirmed' ? 'bg-[#9fe870] border-[#9fe870]'
+                      : s.validation_status === 'invalidated' ? 'bg-[#d03238] border-[#d03238]'
+                      : s.validation_status === 'pending' ? 'bg-[#ffd11a] border-[#ffd11a]'
+                      : 'bg-[#f0f1ee] dark:bg-[#252822] border-[rgba(14,15,12,0.2)] dark:border-[rgba(232,235,230,0.2)]'
+                    return (
+                      <div key={s.id} className="flex gap-3">
+                        {/* Timeline line + dot */}
+                        <div className="flex flex-col items-center flex-shrink-0 w-4">
+                          <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 mt-1 ${dotColor}`} />
+                          {!isLast && <div className="w-px flex-1 bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)] my-1" />}
+                        </div>
+                        {/* Content */}
+                        <div className="flex-1 pb-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isBuy ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              {isBuy ? '▲ Beli' : '▼ Jual'}
+                            </span>
+                            {!isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">L{s.grid_level_index}</span>}
+                            {isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">{s.reason === 'golden_cross' ? '🌟 Golden Cross' : s.reason === 'death_cross' ? '💀 Death Cross' : s.reason}</span>}
+                            <span className="text-xs font-mono text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</span>
+                            {s.validation_status === 'confirmed' && s.result_pct != null && (
+                              <span className={`text-xs font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
+                              </span>
+                            )}
+                            {s.validation_status === 'pending' && <span className="text-[10px] font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-1.5 py-0.5 rounded-full animate-pulse">⏳ menunggu</span>}
+                          </div>
+                          <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">
+                            {new Date(s.created_at).toLocaleDateString('id-ID')} {new Date(s.created_at).toLocaleTimeString('id-ID')}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#fafafa] dark:bg-[#252822]">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Waktu</th>
+                        <th className="px-4 py-3 text-left">Sisi</th>
+                        <th className="px-4 py-3 text-left">{isTrendSignal ? 'Cross' : 'Level'}</th>
+                        <th className="px-4 py-3 text-left">Harga</th>
+                        <th className="px-4 py-3 text-left">Qty</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Hasil</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
+                      {strategySignals.slice(0, 30).map(s => (
+                        <tr key={s.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
+                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                            <span className="block">{new Date(s.created_at).toLocaleDateString('id-ID')}</span>
+                            <span className="block text-[10px]">{new Date(s.created_at).toLocaleTimeString('id-ID')}</span>
+                          </td>
+                          <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{s.signal_type}</td>
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
+                            {isTrendSignal
+                              ? (s.reason === 'golden_cross' ? 'Golden Cross' : s.reason === 'death_cross' ? 'Death Cross' : s.reason)
+                              : `#${s.grid_level_index}`}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
+                          <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{s.quantity}</td>
+                          <td className={`px-4 py-3 text-xs font-semibold ${
+                            s.validation_status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]' :
+                            s.validation_status === 'invalidated' ? 'text-[#d03238] dark:text-[#ff6b6f]' :
+                            s.validation_status === 'expired' ? 'text-[#5a5b58] dark:text-[#8a8d88]' : 'text-[#7a5f00] dark:text-[#f5c842]'
+                          }`}>{s.validation_status}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {s.validation_status === 'confirmed' && s.result_pct != null && (
+                              <span className={`font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
+                              </span>
+                            )}
+                            {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842]">menunggu</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -555,7 +752,7 @@ export default function SessionDetailPage() {
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                       {orders.slice(0, 20).map(o => (
-                        <tr key={o.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
+                        <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
                             <span className="block text-[10px]">{new Date(o.created_at).toLocaleTimeString('id-ID')}</span>
