@@ -43,6 +43,14 @@ export default function SessionDetailPage() {
   const [notesSaved, setNotesSaved] = useState(false)
   const [reevalResult, setReevalResult] = useState<any>(null)
   const [reevalLoading, setReevalLoading] = useState(false)
+  const [editingConfig, setEditingConfig] = useState(false)
+  const [editConfigValue, setEditConfigValue] = useState('')
+  const [editConfigSaving, setEditConfigSaving] = useState(false)
+  const [editConfigError, setEditConfigError] = useState('')
+  const [editRec, setEditRec] = useState<any>(null)
+  const [editRecLoading, setEditRecLoading] = useState(false)
+  const [editRecHorizon, setEditRecHorizon] = useState<'short'|'medium'|'long'>('medium')
+  const [editRecCapital, setEditRecCapital] = useState('100')
   const { theme } = useTheme()
   const tooltipStyle = { background: theme === 'dark' ? '#1e201c' : '#fff', border: '1px solid ' + (theme === 'dark' ? 'rgba(232,235,230,0.12)' : 'rgba(14,15,12,0.08)'), borderRadius: 12, fontSize: 11, color: theme === 'dark' ? '#e8ebe6' : '#0e0f0c' }
 
@@ -283,6 +291,43 @@ export default function SessionDetailPage() {
     } catch (e: any) {
       setError(e.message || 'Apply config failed')
     }
+  }
+
+  async function handleSaveEditConfig() {
+    setEditConfigError('')
+    // Validate JSON
+    try { JSON.parse(editConfigValue) } catch {
+      setEditConfigError('JSON tidak valid')
+      return
+    }
+    setEditConfigSaving(true)
+    try {
+      await api.sessions.applyConfig(Number(id), editConfigValue)
+      qc.invalidateQueries({ queryKey: ['session', id] })
+      setEditingConfig(false)
+      setEditRec(null)
+    } catch (e: any) {
+      setEditConfigError(e.message || 'Gagal simpan config')
+    }
+    setEditConfigSaving(false)
+  }
+
+  async function fetchEditRec() {
+    setEditRecLoading(true)
+    try {
+      const rec = await api.grid.recommend({ symbol: session?.symbol ?? '', horizon: editRecHorizon, capital: parseFloat(editRecCapital) || 100 })
+      setEditRec(rec)
+      // Apply recommendation to editor
+      const current = (() => { try { return JSON.parse(editConfigValue) } catch { return {} } })()
+      setEditConfigValue(JSON.stringify({
+        ...current,
+        upper_price: rec.UpperPrice,
+        lower_price: rec.LowerPrice,
+        grid_count: rec.GridCount,
+        quantity: rec.Quantity,
+      }, null, 2))
+    } catch { /* ignore */ }
+    setEditRecLoading(false)
   }
 
   if (sessionLoading) return (
@@ -1007,9 +1052,81 @@ export default function SessionDetailPage() {
                 <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88] leading-relaxed">{JSON.stringify(configDisplay, null, 2)}</pre>
-            </div>
+
+            {/* Config editor */}
+            {editingConfig ? (
+              <div className="space-y-3">
+                {/* Recommendation panel for grid */}
+                {session.strategy === 'grid' && (
+                  <div className="bg-[#fafafa] dark:bg-[#141411] rounded-[16px] p-4 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] space-y-3">
+                    <p className="text-xs font-semibold text-[#686868] dark:text-[#898989]">Rekomendasi otomatis</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs text-[#686868] dark:text-[#898989] block mb-1">Horizon</label>
+                        <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-xs text-[#0e0f0c] dark:text-[#e8ebe6]" value={editRecHorizon} onChange={e => setEditRecHorizon(e.target.value as any)}>
+                          <option value="short">Pendek (±5-10%)</option>
+                          <option value="medium">Menengah (±10-18%)</option>
+                          <option value="long">Panjang (±15-25%)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#686868] dark:text-[#898989] block mb-1">Modal (USDT)</label>
+                        <input type="number" className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-xs text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="100" value={editRecCapital} onChange={e => setEditRecCapital(e.target.value)} />
+                      </div>
+                      <div className="flex items-end">
+                        <button type="button" onClick={fetchEditRec} disabled={editRecLoading} className="w-full px-3 py-1.5 bg-[#9fe870] text-[#163300] font-semibold hover:bg-[#cdffad] rounded-full text-xs transition disabled:opacity-50">
+                          {editRecLoading ? '...' : 'Rekomendasikan'}
+                        </button>
+                      </div>
+                    </div>
+                    {editRec && (
+                      <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[#9fe870] rounded-[12px] p-3 text-xs space-y-1">
+                        <p className="text-[#054d28] dark:text-[#9fe870] font-semibold">Diterapkan ke editor ↓</p>
+                        <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Range: {editRec.LowerPrice?.toLocaleString()} — {editRec.UpperPrice?.toLocaleString()}</p>
+                        <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Grid: {editRec.GridCount} level · Qty: {editRec.Quantity}</p>
+                        <p className="text-[#686868] dark:text-[#898989] italic">{editRec.Reason}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <textarea
+                  value={editConfigValue}
+                  onChange={e => setEditConfigValue(e.target.value)}
+                  rows={10}
+                  className="w-full px-3 py-3 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[16px] text-xs font-mono text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] resize-none"
+                />
+                {editConfigError && <p className="text-xs text-[#d03238]">{editConfigError}</p>}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveEditConfig}
+                    disabled={editConfigSaving || session.status === 'running'}
+                    className="px-4 py-2 text-sm font-semibold bg-[#9fe870] text-[#163300] rounded-full hover:bg-[#cdffad] transition-all disabled:opacity-40"
+                  >
+                    {editConfigSaving ? 'Menyimpan...' : '✓ Simpan'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingConfig(false); setEditConfigError(''); setEditRec(null) }}
+                    className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] rounded-full hover:text-[#d03238] transition-all"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-[#686868] dark:text-[#898989]">JSON Config</span>
+                  <button
+                    onClick={() => { setEditConfigValue(JSON.stringify(configDisplay, null, 2)); setEditingConfig(true); setEditConfigError('') }}
+                    disabled={session.status === 'running'}
+                    className="text-xs font-semibold text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] px-3 py-1 rounded-full border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] hover:border-[rgba(14,15,12,0.3)] transition-all disabled:opacity-0 disabled:pointer-events-none"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+                <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88] leading-relaxed">{JSON.stringify(configDisplay, null, 2)}</pre>
+              </div>
+            )}
           </div>
         </details>
 

@@ -37,14 +37,13 @@ func (d *DCAEngine) Evaluate(session model.Session, configStr string) []Signal {
 		return nil
 	}
 
-	// B1: fetch ticker outside the lock — network call must not block other sessions
+	// fetch ticker outside the lock — network call must not block other sessions
 	ticker, err := d.client.GetTicker(session.Symbol)
 	if err != nil {
 		slog.Error("dca ticker", "session", session.ID, "error", err)
 		return nil
 	}
 	currentPrice, _ := strconv.ParseFloat(ticker.LastPrice, 64)
-	// B2: guard invalid price before entering state-mutation section
 	if currentPrice <= 0 {
 		slog.Warn("dca invalid price", "session", session.ID, "price", ticker.LastPrice)
 		return nil
@@ -57,7 +56,6 @@ func (d *DCAEngine) Evaluate(session model.Session, configStr string) []Signal {
 	now := time.Now().UnixMilli()
 	for i := range signals {
 		signals[i].Symbol = session.Symbol
-		// B3: stamp SessionID and Timestamp so consumers don't get zero values
 		signals[i].SessionID = session.ID
 		signals[i].Timestamp = now
 	}
@@ -75,13 +73,13 @@ func (d *DCAEngine) Reset(sessionID int64) {
 func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) []Signal {
 	signals := []Signal{}
 
+	// buy on interval
 	lastTime, exists := d.lastBuy[session.ID]
 	interval := time.Duration(cfg.IntervalSec) * time.Second
 	if !exists || time.Since(lastTime) >= interval {
 		amount, _ := strconv.ParseFloat(cfg.Amount, 64)
 		qty := amount / currentPrice
 		qtyStr := strconv.FormatFloat(math.Round(qty*1e8)/1e8, 'f', 8, 64)
-
 		signals = append(signals, Signal{
 			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: "dca_interval",
 		})
@@ -90,10 +88,10 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "interval", cfg.IntervalSec)
 	}
 
-	// fetch total filled qty once; reused by both TP and SL checks
-	var totalQty float64
+	// sell on take-profit or stop-loss — fetch totalQty once for both checks
 	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
+			var totalQty float64
 			d.db.Get(&totalQty,
 				d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
 				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
@@ -107,7 +105,6 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 				delete(d.avgBuyPrice, session.ID)
 				slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
 			} else if cfg.StopLossPct > 0 && currentPrice <= avgPrice*(1-cfg.StopLossPct/100) && totalQty > 0 {
-				// ponytail: else-if ensures TP and SL cannot both fire in same tick
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
 				signals = append(signals, Signal{
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",

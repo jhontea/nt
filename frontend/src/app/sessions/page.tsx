@@ -61,14 +61,7 @@ const fieldHelp: Record<string, { short: string; long: string }> = {
     short: 'Jumlah USDT yang dibelikan setiap interval.',
     long: 'Contoh: 10 berarti bot akan membeli $10 worth of asset setiap interval. Sesuaikan dengan modal. Jangan terlalu besar agar tidak cepat habis.',
   },
-  dca_take_profit: {
-    short: 'Persentase kenaikan harga untuk menjual.',
-    long: '5 = jual otomatis saat harga naik 5% dari rata-rata harga beli. 0 = nonaktifkan take profit (hold terus). Disarankan 3-10%.',
-  },
-  dca_stop_loss: {
-    short: 'Persentase penurunan harga untuk cut loss.',
-    long: '10 = jual otomatis saat harga turun 10% dari rata-rata harga beli. 0 = nonaktifkan stop loss. Disarankan 5-15%.',
-  },
+
 }
 
 const DEFAULT_BOUNDARY_PCT = 15 // ±15% around current price
@@ -300,7 +293,7 @@ const [slowPeriod, setSlowPeriod] = useState('30')
 const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('5m')
   const [dcaInterval, setDcaInterval] = useState('3600')
   const [dcaAmount, setDcaAmount] = useState('10')
-  const [dcaTakeProfit, setDcaTakeProfit] = useState('5')
+  const [dcaTakeProfit, setDcaTakeProfit] = useState('')
   const [dcaStopLoss, setDcaStopLoss] = useState('')
   const [initialBalance, setInitialBalance] = useState('1000')
   const [stopLossPct, setStopLossPct] = useState('')
@@ -425,7 +418,7 @@ fetchPriceAndApply(symbol)
           config.horizon = horizon
         }
       } else {
-        config = { interval_sec: parseInt(dcaInterval), amount: parseFloat(dcaAmount), take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0 }
+        config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0 }
       }
       await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify({
         ...config,
@@ -592,22 +585,23 @@ fetchPriceAndApply(symbol)
               </div>
 
               {mode === 'paper' && (
-                <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
+                  <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                </div>
+              )}
+
+              {mode === 'paper' && (
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
-                    <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                    <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Stop Loss % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
+                    <input type="number" min="0" max="100" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(208,50,56,0.4)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 10" value={stopLossPct} onChange={e => setStopLossPct(e.target.value)} />
+                    <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Hentikan session jika total value turun {stopLossPct ? stopLossPct : 'X'}% dari modal</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Stop Loss % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
-                      <input type="number" min="0" max="100" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(208,50,56,0.4)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 10" value={stopLossPct} onChange={e => setStopLossPct(e.target.value)} />
-                      <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Stop jika total value turun {stopLossPct ? stopLossPct : 'X'}% dari modal</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Take Profit % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
-                      <input type="number" min="0" max="1000" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 20" value={takeProfitPct} onChange={e => setTakeProfitPct(e.target.value)} />
-                      <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Stop jika total value naik {takeProfitPct ? takeProfitPct : 'Y'}% dari modal</p>
-                    </div>
+                  <div>
+                    <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Take Profit % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>
+                    <input type="number" min="0" max="1000" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. 20" value={takeProfitPct} onChange={e => setTakeProfitPct(e.target.value)} />
+                    <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Hentikan session jika total value naik {takeProfitPct ? takeProfitPct : 'Y'}% dari modal</p>
                   </div>
                 </div>
               )}
@@ -840,12 +834,14 @@ fetchPriceAndApply(symbol)
                                          <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
-                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jual saat untung %</span></div>
+                    <input type="number" min="0" max="1000" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0 = nonaktif" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                    <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Jual semua lalu beli lagi saat harga naik X% dari rata-rata beli</p>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Stop Loss %</span>{renderConfigHelp('dca_stop_loss')}</div>
-                                         <input type="number" min="0" max="99.99" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0" value={dcaStopLoss} onChange={e => setDcaStopLoss(e.target.value)} />
+                    <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jual saat rugi %</span></div>
+                    <input type="number" min="0" max="99.99" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(208,50,56,0.4)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0 = nonaktif" value={dcaStopLoss} onChange={e => setDcaStopLoss(e.target.value)} />
+                    <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Jual semua lalu beli lagi saat harga turun X% dari rata-rata beli</p>
                   </div>
                 </div>
               </div>

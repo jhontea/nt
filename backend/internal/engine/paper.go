@@ -30,22 +30,33 @@ func NewPaperEngine(db *sqlx.DB, client *tokocrypto.Client, hub *WSHub, notifier
 
 func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	ticker, err := p.client.GetTicker(session.Symbol)
 	if err != nil {
+		p.mu.Unlock()
 		return fmt.Errorf("fetch ticker: %w", err)
 	}
 	marketPrice := ticker.LastPrice
 	qty := signal.Quantity
 
+	var notifSide, notifPrice, notifQty string
 	switch signal.Side {
 	case string(model.SideBuy):
-		return p.executeBuy(session, signal.Price, marketPrice, qty)
+		err = p.executeBuy(session, signal.Price, marketPrice, qty)
+		if err == nil {
+			notifSide = string(model.SideBuy)
+			notifPrice = marketPrice
+			notifQty = qty
+		}
 	case string(model.SideSell):
-		return p.executeSell(session, signal.Price, marketPrice, qty)
+		err = p.executeSell(session, signal.Price, marketPrice, qty)
 	}
-	return nil
+	p.mu.Unlock()
+
+	// Send notif outside lock to avoid holding mutex during network call
+	if err == nil && notifSide != "" && p.notifier != nil {
+		p.notifier.SendTrade(session.Symbol, notifSide, notifPrice, notifQty, "")
+	}
+	return err
 }
 
 func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qty string) error {
@@ -97,9 +108,6 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 	}
 
 	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "grid_price", gridPrice, "exec_price", execPrice, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
-	if p.notifier != nil {
-		p.notifier.SendTrade(session.Symbol, string(model.SideBuy), execPrice, qty, "")
-	}
 	return nil
 }
 
