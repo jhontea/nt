@@ -704,7 +704,7 @@ setFastPeriod(String(p.config.fast_period || 10))
             <div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" />
             <span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span>
           </div>
-        ) : sessions?.length ? (
+        ) : filteredSessions?.length ? (
           <>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Sessions aktif · {filteredSessions?.length || 0}</h2>
