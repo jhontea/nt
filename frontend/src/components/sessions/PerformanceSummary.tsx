@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { Bot, Zap, TrendingUp, Trophy, TrendingDown, DollarSign } from 'lucide-react'
+import { TrendingUp, Trophy, TrendingDown, DollarSign } from 'lucide-react'
 import type { Session } from '@/types'
 
 const strategyLabel = (s: Session) =>
@@ -34,8 +34,6 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
     .reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0)
 
   const cards = [
-    { icon: <Bot size={18} />, label: 'Total Sessions', value: String(total), sub: `${running} running`, color: 'text-[#9fe870]' },
-    { icon: <Zap size={18} />, label: 'Sedang Running', value: String(running), sub: running > 0 ? 'aktif' : 'tidak ada', color: 'text-[#9fe870]' },
     {
       icon: <TrendingUp size={18} />, label: 'Paper P&L',
       value: `$${totalCurrent.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
@@ -65,7 +63,7 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       {cards.map((c, i) => (
         <div key={i} onClick={c.href ? () => router.push(c.href as string) : undefined} role={c.href ? 'button' : undefined} tabIndex={c.href ? 0 : undefined}
           className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] ${c.href ? 'hover:border-[#9fe870] dark:hover:border-[#9fe870] cursor-pointer transition-colors' : 'cursor-default'}`}>
