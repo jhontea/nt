@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { useMarketTicker } from '@/lib/useMarketTicker'
 import { Navbar } from '@/components/Navbar'
 
+
 const MARKET_SYMBOLS = [
   { label: 'Bitcoin', symbol: 'BTC_USDT' },
   { label: 'Ethereum', symbol: 'ETH_USDT' },
@@ -68,8 +69,11 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
             {symbol.split('_')[0].slice(0, 3)}
           </div>
           <div>
-            <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{label}</p>
-            <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{label}</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse flex-shrink-0" title="Data langsung" />
+            </div>
+            <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol.replace('_', '/')}</p>
           </div>
         </div>
         <div className={`px-2.5 py-1 rounded-full text-sm font-bold ${isUp ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
@@ -133,9 +137,16 @@ export default function MarketPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-6 mt-0 flex-wrap gap-3">
           <div>
-            <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Market</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989]">Pasar Kripto</p>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(159,232,112,0.15)] border border-[rgba(159,232,112,0.3)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#054d28] dark:text-[#9fe870]">Live</span>
+              </span>
+            </div>
+            <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Harga Pasar</h1>
             <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">
-              Harga live TokoCrypto{usdtIdrRate ? <> · <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-medium">USDT = {formatIDR(usdtIdrRate)}</span></> : ''}
+              Harga kripto terkini langsung dari TokoCrypto{usdtIdrRate ? <> · <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-medium">USDT = {formatIDR(usdtIdrRate)}</span></> : ''}
             </p>
           </div>
         </div>

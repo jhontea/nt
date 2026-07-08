@@ -3,13 +3,15 @@ import React from 'react'
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { api } from '@/lib/api'
-import { Bot, BarChart2, FileText, Zap, BookOpen } from 'lucide-react'
+import { BarChart2, FileText, Zap, BookOpen, AlertCircle } from 'lucide-react'
 
-const modes: { name: string; desc: string; icon: React.ReactNode; border: string }[] = [
-  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: <BarChart2 size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(56,200,255,0.8)]' },
-  { name: 'Paper', desc: 'Trading simulasi dengan uang virtual $1000 — tanpa risiko', icon: <FileText size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(159,232,112,0.8)]' },
-  { name: 'Live', desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati', icon: <Zap size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[rgba(255,209,26,0.8)]' },
+const modes: { name: string; desc: string; icon: React.ReactNode; border: string; nameColor: string }[] = [
+  { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: <BarChart2 size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[#38c8ff]', nameColor: 'text-[#38c8ff]' },
+  { name: 'Paper',  desc: 'Trading simulasi dengan uang virtual $1.000 — tanpa risiko',  icon: <FileText size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[#9fe870]',  nameColor: 'text-[#163300] dark:text-[#9fe870]' },
+  { name: 'Live',   desc: 'Trading sungguhan via API TokoCrypto — gunakan dengan hati-hati', icon: <Zap size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[#ffd11a]',  nameColor: 'text-[#ffd11a]' },
 ]
+
+const inputCls = 'w-full px-4 py-3 bg-[#f0f1ee] dark:bg-[#252822] rounded-[12px] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] focus:ring-2 focus:ring-[rgba(159,232,112,0.35)] outline-none text-[#0e0f0c] dark:text-[#e8ebe6] placeholder:text-[#a0a39e] dark:placeholder:text-[#5a5d58] transition'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -30,7 +32,7 @@ export default function LoginPage() {
       const res = await fn(username, password)
       login(res.token, rememberMe)
     } catch (err: any) {
-      setError(err.message || 'Authentication failed')
+      setError(err.message || 'Autentikasi gagal')
     } finally {
       setSubmitting(false)
     }
@@ -38,13 +40,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#fafafa] dark:bg-[#141411]">
-      <div className="flex flex-col-reverse sm:flex-row gap-8 max-w-3xl w-full">
+      <div className="flex flex-col-reverse sm:flex-row gap-6 max-w-3xl w-full">
+
         {/* Info Panel */}
-         <div className="bg-white dark:bg-[#1e201c] rounded-[16px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-           <div className="flex items-center gap-3 mb-2">
-             <div className="w-10 h-10 rounded-[12px] bg-[rgba(159,232,112,0.15)] flex items-center justify-center"><Bot size={20} className="text-[#163300] dark:text-[#9fe870]" /></div>
-             <h1 className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trading Bot</h1>
-           </div>
+        <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-6 flex-1 space-y-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+          {/* Brand — matches Navbar style */}
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-8 h-8 rounded-[10px] bg-[#9fe870] flex items-center justify-center">
+              <span className="text-[#163300] font-black text-base leading-none">N</span>
+            </div>
+            <span className="text-xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">NeuralTrade</span>
+          </div>
           <p className="text-sm text-[#686868] dark:text-[#898989]">
             Bot trading otomatis untuk TokoCrypto. Mulai dari sinyal, uji coba kertas, hingga trading sungguhan.
           </p>
@@ -52,28 +58,55 @@ export default function LoginPage() {
             <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] uppercase tracking-wider font-semibold">3 Mode Trading</p>
             {modes.map(m => (
               <div key={m.name} className={`bg-[#f0f1ee] dark:bg-[#252822] rounded-[12px] p-3 ${m.border}`}>
-                <p className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6]">{m.icon} {m.name}</p>
-                <p className="text-xs text-[#686868] dark:text-[#898989]">{m.desc}</p>
+                <p className={`text-sm font-semibold ${m.nameColor}`}>{m.icon}{m.name}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">{m.desc}</p>
               </div>
             ))}
           </div>
           <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">* 3 strategi: Grid, Trend Following, DCA</p>
-          <a href="/glossary" className="block text-xs text-[#2d7a1a] dark:text-[#b3f08a] hover:text-[#054d28] dark:hover:text-[#cdffad] mt-2"><BookOpen size={14} className="inline mr-1" /> Lihat Glosarium istilah trading &rarr;</a>
+          <a href="/glossary" className="block text-xs text-[#2d7a1a] dark:text-[#b3f08a] hover:text-[#054d28] dark:hover:text-[#cdffad] transition">
+            <BookOpen size={13} className="inline mr-1" />Lihat Glosarium istilah trading →
+          </a>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[16px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-          <h2 className="text-2xl font-black tracking-tight text-center text-[#0e0f0c] dark:text-[#e8ebe6]">{isRegister ? 'Register' : 'Login'}</h2>
-          {error && <p className="text-[#d03238] dark:text-[#ff6b6f] text-sm" role="alert" aria-live="polite">{error}</p>}
+        {/* Login / Register Form */}
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[24px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
 
+          {/* Form header */}
+          <div className="text-center mb-2">
+            <div className="inline-flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-[10px] bg-[#9fe870] flex items-center justify-center">
+                <span className="text-[#163300] font-black text-base leading-none">N</span>
+              </div>
+              <span className="text-xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">NeuralTrade</span>
+            </div>
+            <h2 className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">
+              {isRegister ? 'Buat Akun Baru' : 'Masuk ke Akun Anda'}
+            </h2>
+            <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">
+              {isRegister ? 'Isi data di bawah untuk mendaftar' : 'Selamat datang kembali!'}
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-2 bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(255,107,111,0.08)] border border-[rgba(208,50,56,0.2)] dark:border-[rgba(255,107,111,0.2)] rounded-[10px] px-3 py-2" role="alert" aria-live="polite">
+              <AlertCircle size={15} className="text-[#d03238] dark:text-[#ff6b6f] mt-0.5 shrink-0" />
+              <p className="text-sm text-[#d03238] dark:text-[#ff6b6f]">{error}</p>
+            </div>
+          )}
+
+          {/* Username */}
           <div>
-            <label htmlFor="username" className="block text-sm text-[#686868] dark:text-[#898989] mb-1">Username</label>
+            <label htmlFor="username" className="block text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] mb-1.5">
+              Username
+            </label>
             <input
               id="username"
               name="username"
               type="text"
-              className="w-full px-4 py-3 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
-              placeholder="Username"
+              className={inputCls}
+              placeholder="contoh: trader123"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
@@ -81,14 +114,17 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm text-[#686868] dark:text-[#898989] mb-1">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] mb-1.5">
+              Password
+            </label>
             <input
               id="password"
               name="password"
-              className="w-full px-4 py-3 bg-[#f0f1ee] dark:bg-[#252822] rounded-lg border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] focus:border-[#9fe870] focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] outline-none text-[#0e0f0c] dark:text-[#e8ebe6]"
+              className={inputCls}
               type="password"
-              placeholder="Password"
+              placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -96,25 +132,40 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Ingat Saya checkbox */}
+          {/* Remember me */}
           <label htmlFor="rememberMe" className="flex items-center gap-2 cursor-pointer select-none">
             <input
               id="rememberMe"
               type="checkbox"
               checked={rememberMe}
               onChange={e => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded-[4px] border-[rgba(14,15,12,0.3)] dark:border-[rgba(232,235,230,0.3)] bg-[#f0f1ee] dark:bg-[#252822] text-[#9fe870] focus:ring-[#9fe870] focus:ring-offset-white dark:focus:ring-offset-[#252822]"
+              className="w-4 h-4 rounded-[4px] border-[rgba(14,15,12,0.3)] dark:border-[rgba(232,235,230,0.3)] bg-[#f0f1ee] dark:bg-[#252822] accent-[#9fe870]"
             />
             <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
-          <button type="submit" disabled={submitting} className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.4)] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitting ? 'Loading...' : isRegister ? 'Register' : 'Login'}
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-3 bg-[#9fe870] hover:bg-[#b8f080] rounded-full font-bold transition text-[#163300] shadow-[0_2px_12px_rgba(159,232,112,0.35)] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Memproses...' : isRegister ? 'Daftar' : 'Masuk'}
           </button>
-          <button type="button" className="w-full py-2 text-sm text-[#686868] dark:text-[#898989] hover:text-[#9fe870] dark:hover:text-[#9fe870] transition font-medium" onClick={() => setIsRegister(!isRegister)}>
-            {isRegister ? 'Sudah punya akun? Login' : 'Belum punya akun? Register'}
-          </button>
+
+          {/* Toggle login/register */}
+          <p className="text-center text-sm text-[#686868] dark:text-[#898989]">
+            {isRegister ? 'Sudah punya akun? ' : 'Belum punya akun? '}
+            <button
+              type="button"
+              className="font-semibold text-[#163300] dark:text-[#9fe870] hover:underline transition"
+              onClick={() => { setIsRegister(!isRegister); setError('') }}
+            >
+              {isRegister ? 'Masuk' : 'Daftar'}
+            </button>
+          </p>
         </form>
+
       </div>
     </div>
   )

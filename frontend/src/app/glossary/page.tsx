@@ -170,31 +170,32 @@ export default function GlossaryPage() {
       <Navbar active="glossary" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight mb-1">Glosarium</h1>
-        <p className="text-sm text-[#686868] dark:text-[#898989] mb-8">Menampilkan {filtered.length} dari {terms.length} istilah</p>
+        <p className="text-sm text-[#686868] dark:text-[#898989] mb-1">Panduan istilah-istilah yang digunakan dalam trading bot — strategi, indikator, mode, dan order.</p>
+        <p className="text-xs text-[#686868] dark:text-[#898989] mb-8">{filtered.length} dari {terms.length} istilah</p>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {(['all', 'strategi', 'mode', 'indikator', 'order', 'umum'] as const).map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                activeCategory === cat
-                  ? 'bg-[#9fe870] text-[#163300] shadow-[0_2px_8px_rgba(159,232,112,0.3)]'
-                  : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.08)] dark:hover:bg-[rgba(232,235,230,0.08)]'
-              }`}>
-              {cat === 'all' ? 'Semua' : cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative mb-6">
+        <div className="relative mb-5">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] pointer-events-none" />
           <input
             type="text"
             placeholder="Cari istilah..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             aria-label="Cari istilah trading"
-            className="w-full px-4 py-3 pl-10 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[14px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] focus:border-[#9fe870]"
+            className="w-full pl-9 pr-4 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[12px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] focus:border-[#9fe870]"
           />
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] pointer-events-none" />
+        </div>
+
+        <div className="inline-flex items-center gap-1 p-1 bg-[#f0f1ee] dark:bg-[#252822] rounded-[14px] mb-6 flex-wrap">
+          {(['all', 'strategi', 'mode', 'indikator', 'order', 'umum'] as const).map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-all ${
+                activeCategory === cat
+                  ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm'
+                  : 'text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'
+              }`}>
+              {cat === 'all' ? 'Semua' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </button>
+          ))}
         </div>
 
         {filtered.length === 0 && (
@@ -211,22 +212,17 @@ export default function GlossaryPage() {
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filtered.map(t => (
-            <details key={t.term} className="bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] overflow-hidden group">
-              <summary className="px-5 py-4 cursor-pointer hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm flex items-center justify-between list-none gap-4">
-                <span className="flex-1 min-w-0 flex items-center gap-2">
-                  {t.term}
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${categoryColors[t.category]}`}>
-                    {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
-                  </span>
+            <div key={t.term} className="bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-5 py-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm">{t.term}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${categoryColors[t.category]}`}>
+                  {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
                 </span>
-                <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform duration-200 text-xs flex-shrink-0">▼</span>
-              </summary>
-              <div className="px-5 pt-1 pb-4 text-sm text-[#0e0f0c] dark:text-[#e8ebe6] leading-relaxed border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                {t.desc}
               </div>
-            </details>
+              <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{t.desc}</p>
+            </div>
           ))}
         </div>
       </div>
