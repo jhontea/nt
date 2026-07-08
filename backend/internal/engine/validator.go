@@ -148,3 +148,108 @@ type validationResult struct {
 func parseFloatStr(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
+
+// TrendValidator validates pending trend signals against percent + SMA hold rules.
+type TrendValidator struct{}
+
+func NewTrendValidator() *TrendValidator {
+	return &TrendValidator{}
+}
+
+// ValidatePendingTrend evaluates pending trend signals.
+// currentPrice is the latest candle close.
+// smaFast and smaSlow are the current SMA values computed on the latest batch.
+func (v *TrendValidator) ValidatePendingTrend(
+	pending []model.StrategySignal,
+	currentPrice float64,
+	smaFast float64, smaSlow float64,
+) []validationResult {
+	results := []validationResult{}
+	now := time.Now()
+
+	for _, sig := range pending {
+		if sig.ValidationStatus != "pending" {
+			continue
+		}
+		// 60-second grace period before auto-validating (matches grid validator)
+		if now.Sub(sig.CreatedAt) < 60*time.Second {
+			continue
+		}
+
+		signalPrice, err := parseFloatStr(sig.GridLevelPrice)
+		if err != nil || signalPrice == 0 {
+			continue
+		}
+
+		movePct := ((currentPrice - signalPrice) / signalPrice) * 100
+
+		var favPct, advPct float64
+		smaHeld := false
+		if sig.SignalType == "buy" {
+			favPct = movePct
+			if movePct < 0 {
+				advPct = -movePct
+				favPct = 0
+			}
+			smaHeld = smaFast > smaSlow
+		} else {
+			favPct = -movePct
+			if movePct > 0 {
+				advPct = movePct
+				favPct = 0
+			}
+			smaHeld = smaFast < smaSlow
+		}
+
+		windowDuration := time.Duration(sig.ValidationWindowMinutes) * time.Minute
+		if now.Sub(sig.CreatedAt) >= windowDuration {
+			results = append(results, validationResult{
+				signalID:  sig.ID,
+				status:    "expired",
+				resultPct: movePct,
+				maxFavPct: favPct,
+				maxAdvPct: advPct,
+				note:      "validation window expired",
+			})
+			continue
+		}
+
+		targetHit := favPct >= sig.ValidationTargetValue
+		invalidHit := advPct >= sig.ValidationInvalidValue
+
+		if targetHit && smaHeld {
+			results = append(results, validationResult{
+				signalID:  sig.ID,
+				status:    "confirmed",
+				resultPct: favPct,
+				maxFavPct: favPct,
+				maxAdvPct: advPct,
+				note:      "target reached",
+			})
+			continue
+		}
+		if targetHit && !smaHeld {
+			results = append(results, validationResult{
+				signalID:  sig.ID,
+				status:    "invalidated",
+				resultPct: movePct,
+				maxFavPct: favPct,
+				maxAdvPct: advPct,
+				note:      "percent hit but SMA reversed",
+			})
+			continue
+		}
+		if invalidHit {
+			results = append(results, validationResult{
+				signalID:  sig.ID,
+				status:    "invalidated",
+				resultPct: movePct,
+				maxFavPct: favPct,
+				maxAdvPct: advPct,
+				note:      "invalid threshold reached",
+			})
+			continue
+		}
+	}
+	return results
+}
