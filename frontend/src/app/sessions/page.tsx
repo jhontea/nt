@@ -109,7 +109,7 @@ function StatsRow({ stats, activeFilter, onFilterChange }: {
             {hasRunning && (
               <span className="absolute top-3 right-3 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
-                <span className="text-[10px] font-bold text-[#9fe870]">{stat.running}</span>
+                <span className="text-[10px] font-bold text-[#9fe870] hidden sm:inline">{stat.running}</span>
               </span>
             )}
             <div className="flex items-center gap-2 mb-2">
@@ -703,7 +703,10 @@ fetchPriceAndApply(symbol)
               }
             </p>
             <p className="text-[#686868] dark:text-[#898989] text-sm mt-1">
-              Klik "+ New Session" untuk mulai
+              {activeFilter === 'all'
+                ? 'Klik "+ New Session" untuk membuat session pertama'
+                : 'Klik "+ New Session" untuk mulai'
+              }
             </p>
           </div>
         )}
@@ -763,7 +766,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] text-base leading-tight truncate max-w-[180px] sm:max-w-xs">{session.name}</span>
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] text-base leading-tight truncate max-w-[200px] sm:max-w-[300px] md:max-w-sm">{session.name}</span>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               session.mode === 'live'
                 ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]'
@@ -784,7 +787,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
               {session.status === 'running' ? 'Running' : 'Stopped'}
             </span>
           </div>
-          <p className="text-xs text-[#686868] dark:text-[#898989]">
+          <p className="text-xs text-[#686868] dark:text-[#898989] truncate min-w-0">
             <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
           </p>
         </div>
