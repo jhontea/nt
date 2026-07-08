@@ -76,6 +76,13 @@ function DCABar({ avgBuy, current, tpPct }: { avgBuy: number; current: number; t
         <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">Avg</span>
         <span className="absolute -bottom-3.5 text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePos}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>
       </div>
+      <div className="mt-4 flex items-center justify-between text-[10px]">
+        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}% dari avg
+        </span>
+        {nearTP && <span className="text-[#054d28] dark:text-[#9fe870] font-bold animate-pulse">Mendekati TP!</span>}
+        <span className="text-[#686868] dark:text-[#898989]">Target +{tpPct}%</span>
+      </div>
     </div>
   )
 }
