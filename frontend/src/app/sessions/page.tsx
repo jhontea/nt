@@ -733,7 +733,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
           ) : (
             <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
           )}
-          <button className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+          <button className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
         </div>
       </div>
     </div>

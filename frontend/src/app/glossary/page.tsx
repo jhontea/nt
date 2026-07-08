@@ -127,7 +127,7 @@ export default function GlossaryPage() {
         <div className="space-y-2">
           {terms.map(t => (
             <details key={t.term} className="bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] overflow-hidden group">
-              <summary className="px-5 py-4 cursor-pointer hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm flex items-center justify-between list-none gap-4">
+              <summary className="px-5 py-4 cursor-pointer hover:bg-[#eaece8] dark:hover:bg-[#252822] transition font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm flex items-center justify-between list-none gap-4">
                 <span className="flex-1 min-w-0">{t.term}</span>
                 <span className="text-[#686868] dark:text-[#898989] group-open:rotate-180 transition-transform text-xs flex-shrink-0">▼</span>
               </summary>

@@ -97,7 +97,7 @@ export default function LoginPage() {
             <span className="text-sm text-[#686868] dark:text-[#898989]">Ingat Saya</span>
           </label>
 
-          <button type="submit" className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] rounded-full font-semibold transition text-[#163300]">
+          <button type="submit" className="w-full py-3 bg-[#9fe870] hover:bg-[#cdffad] dark:hover:bg-[#b8f080] rounded-full font-semibold transition text-[#163300]">
             {isRegister ? 'Register' : 'Login'}
           </button>
           <button type="button" className="w-full py-2 block text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition" onClick={() => setIsRegister(!isRegister)}>
