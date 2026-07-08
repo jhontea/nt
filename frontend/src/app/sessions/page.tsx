@@ -74,21 +74,6 @@ function calcGridDefaults(price: number) {
   return { upper: String(upper), lower: String(lower) }
 }
 
-type Preset = {
-  label: string
-  desc: string
-  strategy: 'grid' | 'trend' | 'dca'
-  mode: 'signal' | 'paper' | 'live'
-  symbol: string
-  config: Record<string, any>
-}
-
-const presets: Preset[] = [
-  { label: '🚀 Grid Signal', desc: 'Pasang grid di sekitar harga pasar. Bot akan beli murah jual mahal secara otomatis.', strategy: 'grid', mode: 'signal', symbol: 'BTC_USDT', config: { grid_count: 10, quantity: '0.001' } },
-  { label: '📈 Trend Signal', desc: 'Deteksi golden cross & death cross dengan SMA. Ikuti arah tren pasar.', strategy: 'trend', mode: 'signal', symbol: 'BTC_USDT', config: { fast_period: 10, slow_period: 30, quantity: '0.001' } },
-  { label: '🪙 DCA Paper', desc: 'Simulasi DCA dengan uang virtual $1000. Beli rutin, jual otomatis saat profit.', strategy: 'dca', mode: 'paper', symbol: 'BTC_USDT', config: { interval_sec: 3600, amount: '10', take_profit_pct: 5 } },
-  { label: '📊 Grid Paper', desc: 'Simulasi Grid Trading dengan uang virtual $1000.', strategy: 'grid', mode: 'paper', symbol: 'ETH_USDT', config: { grid_count: 8, quantity: '0.01' } },
-]
 
 function StatsRow({ stats, activeFilter, onFilterChange }: {
   stats: { all: { total: number; running: number }; grid: { total: number; running: number }; trend: { total: number; running: number }; dca: { total: number; running: number } }
@@ -267,22 +252,7 @@ fetchPriceAndApply(symbol)
 	if (strategy === 'grid' || strategy === 'trend') setTimeout(() => fetchRecommendation(strategy), 300)
   }, [showCreate, symbol, strategy])
 
-  function applyPreset(p: Preset) {
-    setStrategy(p.strategy)
-    setMode(p.mode)
-    setSymbol(p.symbol)
-    setName(p.label)
-    setQuantity(p.config.quantity || '0.001')
-    setGridCount(String(p.config.grid_count || 10))
-setFastPeriod(String(p.config.fast_period || 10))
-	setSlowPeriod(String(p.config.slow_period || 30))
-	setTrendInterval((p.config.interval as '5m' | '15m' | '1h' | '4h') || '5m')
-    setDcaInterval(String(p.config.interval_sec || 3600))
-    setDcaAmount(p.config.amount || '10')
-    setDcaTakeProfit(String(p.config.take_profit_pct || 5))
-    setShowCreate(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -692,35 +662,7 @@ setFastPeriod(String(p.config.fast_period || 10))
           </div>
         )}
 
-        {/* Presets — hidden when form is open */}
-        {!showCreate && (
-          <div className="mb-8">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Mulai Cepat</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {presets.map(p => {
-                const iconBg = p.strategy === 'grid'
-                  ? 'bg-[rgba(159,232,112,0.15)]'
-                  : p.strategy === 'trend'
-                  ? 'bg-[rgba(56,200,255,0.12)]'
-                  : 'bg-[rgba(255,209,26,0.12)]'
-                const icon = p.label.split(' ')[0]
-                const labelText = p.label.split(' ').slice(1).join(' ')
-                return (
-                  <button key={p.label} onClick={() => applyPreset(p)}
-                    className="bg-white dark:bg-[#1e201c] hover:bg-[rgba(159,232,112,0.04)] dark:hover:bg-[rgba(159,232,112,0.08)] rounded-[24px] p-4 text-left transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(159,232,112,0.5)] hover:shadow-[0_4px_16px_rgba(159,232,112,0.12)] group flex flex-col gap-2">
-                    <div className={`w-10 h-10 rounded-full ${iconBg} flex items-center justify-center text-xl flex-shrink-0`}>
-                      {icon}
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-[#0e0f0c] dark:text-[#e8ebe6] mb-0.5 group-hover:text-[#163300] dark:group-hover:text-[#9fe870]">{labelText}</p>
-                      <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] leading-snug">{p.desc}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
+
 
         {/* Session list or empty state */}
         {isLoading ? (
