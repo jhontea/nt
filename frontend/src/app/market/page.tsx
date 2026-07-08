@@ -13,7 +13,7 @@ const MARKET_SYMBOLS = [
   { label: 'Dogecoin', symbol: 'DOGE_USDT' },
   { label: 'Bitcoin', symbol: 'BTC_USDT' },
   { label: 'BNB', symbol: 'BNB_USDT' },
-  { label: 'Tether', symbol: 'USDT_IDR' },
+  { label: 'USDT → IDR', symbol: 'USDT_IDR' },
 ]
 
 function formatUSDTPrice(value: number) {
@@ -79,7 +79,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
 
       <div className="mt-4">
         <p className="text-2xl sm:text-3xl font-black font-mono text-[#0e0f0c] dark:text-[#e8ebe6] truncate">
-          {isIDRPair ? formatIDR(last) : `$${formatUSDTPrice(last)}`}
+          {isIDRPair ? formatIDR(last) : `${formatUSDTPrice(last)} USDT`}
         </p>
         {approxIDR && (
           <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">~ {formatIDR(approxIDR)}</p>
@@ -96,8 +96,11 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
           <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
         </div>
         <div>
-          <p className="text-[#686868] dark:text-[#898989]">Vol</p>
-          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <p className="text-[#686868] dark:text-[#898989]">Vol (24h)</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">
+            {parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            <span className="text-[#686868] dark:text-[#898989] ml-1 font-normal text-[10px]">{symbol.split('_')[0]}</span>
+          </p>
         </div>
       </div>
     </div>
