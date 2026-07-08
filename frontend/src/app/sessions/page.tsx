@@ -97,10 +97,10 @@ function StatsRow({ stats, activeFilter, onFilterChange }: {
           <button
             key={f.key}
             onClick={() => onFilterChange(f.key)}
-            className={`relative bg-white dark:bg-[#1e201c] rounded-[16px] p-4 text-left transition-all border-2 ${
+            className={`relative bg-white dark:bg-[#1e201c] rounded-[16px] p-3 text-left transition-all border-2 ${
               isActive
                 ? 'border-[#9fe870] bg-gradient-to-br from-[rgba(159,232,112,0.08)] to-transparent dark:from-[rgba(159,232,112,0.12)] shadow-[0_4px_16px_rgba(159,232,112,0.2)]'
-                : hasRunning
+                : hasRunning && f.key !== 'all'
                 ? 'border-[rgba(159,232,112,0.35)] dark:border-[rgba(159,232,112,0.3)] hover:border-[rgba(159,232,112,0.5)]'
                 : 'border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)]'
             }`}
@@ -123,7 +123,7 @@ function StatsRow({ stats, activeFilter, onFilterChange }: {
                 {stat.total}
               </span>
               <span className="text-xs text-[#686868] dark:text-[#898989]">
-                sesi
+                total
               </span>
             </div>
           </button>
@@ -316,7 +316,12 @@ fetchPriceAndApply(symbol)
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Sessions</h1>
-            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Bot trading otomatis Anda</p>
+            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">
+              {sessions?.length
+                ? <>{stats.all.total} session{stats.all.total !== 1 ? 's' : ''}{stats.all.running > 0 ? <> · <span className="text-[#9fe870] font-semibold">{stats.all.running} running</span></> : ''}</>
+                : 'Bot trading otomatis Anda'
+              }
+            </p>
           </div>
           <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
             {showCreate ? '✕ Tutup' : '+ New Session'}
@@ -325,7 +330,10 @@ fetchPriceAndApply(symbol)
 
         {/* Market Ticker */}
         <div className="relative flex items-center gap-3 bg-white dark:bg-[#1e201c] rounded-[24px] px-5 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-8 overflow-x-auto shadow-[0_1px_4px_rgba(14,15,12,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-          <span className="text-[10px] font-bold text-[#9fe870] tracking-widest uppercase flex-shrink-0">Live</span>
+          <span className="text-[10px] font-bold text-[#9fe870] tracking-widest uppercase flex-shrink-0 flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-[#9fe870] animate-pulse" />
+            Live
+          </span>
           <div className="w-px h-4 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)] flex-shrink-0" />
           <div className="flex gap-5">
             <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">BTC</span><PriceBadge symbol="BTC_USDT" compact /></div>
@@ -333,6 +341,8 @@ fetchPriceAndApply(symbol)
             <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">ETH</span><PriceBadge symbol="ETH_USDT" compact /></div>
             <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)] self-center" />
             <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">BNB</span><PriceBadge symbol="BNB_USDT" compact /></div>
+            <div className="w-px h-4 bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)] self-center" />
+            <div className="flex-shrink-0 flex items-center gap-1.5"><span className="text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">SOL</span><PriceBadge symbol="SOL_USDT" compact /></div>
           </div>
           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent rounded-r-[24px] pointer-events-none" />
         </div>
@@ -753,7 +763,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] text-base leading-tight">{session.name}</span>
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] text-base leading-tight truncate max-w-[180px] sm:max-w-xs">{session.name}</span>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               session.mode === 'live'
                 ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]'
@@ -781,7 +791,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
         {/* Actions — stop propagation agar tidak trigger onDetail */}
         <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
           {session.status === 'running' ? (
-            <button className="px-4 py-2 text-xs font-semibold bg-[#d03238] text-white hover:bg-[#d94a4f] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
+            <button className="px-4 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
           ) : (
             <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
           )}
