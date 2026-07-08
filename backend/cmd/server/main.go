@@ -312,9 +312,7 @@ func main() {
 
 		results := make([]sessionStatus, 0, len(sessions))
 		for _, s := range sessions {
-			slog.Info("trend status compute", "session", s.ID, "symbol", s.Symbol, "config", s.Config)
 			status := engine.ComputeTrendStatus(tokoClient, s, s.Config)
-			slog.Info("trend status result", "session", s.ID, "status_nil", status == nil)
 			entry := sessionStatus{
 				SessionID:   s.ID,
 				SessionName: s.Name,
