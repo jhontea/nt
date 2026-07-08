@@ -693,10 +693,7 @@ fetchPriceAndApply(symbol)
               }
             </p>
             <p className="text-[#686868] dark:text-[#898989] text-sm mt-1">
-              {activeFilter === 'all'
-                ? 'Pilih preset di atas atau klik "+ New Session"'
-                : 'Klik "+ New Session" atau pilih preset di atas'
-              }
+              Klik "+ New Session" untuk mulai
             </p>
           </div>
         )}
