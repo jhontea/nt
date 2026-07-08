@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Search } from 'lucide-react'
 import { Navbar } from '@/components/Navbar'
 
 type Category = 'strategi' | 'mode' | 'indikator' | 'order' | 'umum'
@@ -193,7 +194,7 @@ export default function GlossaryPage() {
             aria-label="Cari istilah trading"
             className="w-full px-4 py-3 pl-10 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[14px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] focus:border-[#9fe870]"
           />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] text-sm pointer-events-none">🔍</span>
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989] pointer-events-none" />
         </div>
 
         {filtered.length === 0 && (
