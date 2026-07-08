@@ -81,7 +81,9 @@ function DCABar({ avgBuy, current, tpPct }: { avgBuy: number; current: number; t
           {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}% dari avg
         </span>
         {nearTP && <span className="text-[#054d28] dark:text-[#9fe870] font-bold animate-pulse">Mendekati TP!</span>}
-        <span className="text-[#686868] dark:text-[#898989]">Target +{tpPct}%</span>
+        <span className="text-[#686868] dark:text-[#898989]">
+          Target +{tpPct}% = <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+        </span>
       </div>
     </div>
   )
