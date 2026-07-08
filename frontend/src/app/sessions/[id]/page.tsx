@@ -288,21 +288,56 @@ export default function SessionDetailPage() {
                 const isPercent = s.validation_mode === 'percent'
                 const confirmPrice = isPercent ? (isBuy ? price * (1 + t / 100) : price * (1 - t / 100)) : null
                 const invalidPrice = isPercent ? (isBuy ? price * (1 - inv / 100) : price * (1 + inv / 100)) : null
-                const border = isBuy 
-                  ? 'border-[rgba(5,77,40,0.6)] dark:border-[rgba(159,232,112,0.5)]' 
+                const borderColor = isBuy
+                  ? 'border-[rgba(5,77,40,0.6)] dark:border-[rgba(159,232,112,0.5)]'
                   : 'border-[rgba(208,50,56,0.6)] dark:border-[rgba(208,50,56,0.5)]'
                 const badge = isBuy
                   ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]'
                   : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'
                 return (
-                  <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border-2 ${border} shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]`}>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${badge}`}>{isBuy ? '▲ Beli' : '▼ Jual'}</span>
-                        <span className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index} · {fmt(price)}</span>
+                  <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border-2 ${borderColor} shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]`}>
+
+                    {/* Header row */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-sm font-black px-3 py-1 rounded-full uppercase ${badge}`}>
+                          {isBuy ? '▲ Beli' : '▼ Jual'}
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(price)}</p>
+                          <p className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index}</p>
+                        </div>
                       </div>
-                      <span className="text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-2 py-0.5 rounded-full animate-pulse">⏳ menunggu</span>
+                      <span className="text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-2.5 py-1 rounded-full animate-pulse">⏳ menunggu</span>
                     </div>
+
+                    {/* Progress bar: invalid — entry — target */}
+                    {isPercent && confirmPrice && invalidPrice && (
+                      <div className="mb-4">
+                        <div className="relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                          {isBuy ? (
+                            <>
+                              <div className="absolute left-0 top-0 h-full w-1/2 bg-gradient-to-r from-[rgba(208,50,56,0.3)] to-transparent rounded-full" />
+                              <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-[rgba(159,232,112,0.4)] to-transparent rounded-full" />
+                            </>
+                          ) : (
+                            <>
+                              <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-[rgba(208,50,56,0.3)] to-transparent rounded-full" />
+                              <div className="absolute left-0 top-0 h-full w-1/2 bg-gradient-to-r from-[rgba(159,232,112,0.4)] to-transparent rounded-full" />
+                            </>
+                          )}
+                          {/* Entry dot */}
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#ffd11a] border-2 border-white dark:border-[#1e201c]" />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-[#686868] dark:text-[#898989] mt-1.5">
+                          <span className="text-[#d03238] dark:text-[#ff6b6f]">✗ {fmt(invalidPrice)}</span>
+                          <span className="text-[#686868] dark:text-[#898989]">Entry</span>
+                          <span className="text-[#054d28] dark:text-[#9fe870]">✓ {fmt(confirmPrice)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Target / Invalid boxes */}
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.08)] rounded-[12px] p-3">
                         <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✓ Target Confirmed</p>
@@ -311,12 +346,11 @@ export default function SessionDetailPage() {
                       </div>
                       <div className="bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] rounded-[12px] p-3">
                         <p className="text-[#686868] dark:text-[#898989] mb-1 font-medium">✗ Batas Invalid</p>
-                         <p className="font-bold text-[#d03238] dark:text-[#ff6b6f]">{invalidPrice ? fmt(invalidPrice) : `-${inv} step`}</p>
+                        <p className="font-bold text-[#d03238] dark:text-[#ff6b6f]">{invalidPrice ? fmt(invalidPrice) : `-${inv} step`}</p>
                         <p className="text-[#686868] dark:text-[#898989] mt-0.5">{isPercent ? `${isBuy ? '-' : '+'}${inv}%` : `${inv} level`}</p>
                       </div>
                     </div>
                     <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-2">Window: {s.validation_window_minutes} menit · Sejak {new Date(s.created_at).toLocaleTimeString('id-ID')}</p>
-
                   </div>
                 )
               })}
@@ -383,11 +417,31 @@ export default function SessionDetailPage() {
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Performa Sinyal</h2>
             <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              {/* Summary stats */}
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <div>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed</p>
+                  <p className="text-xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{pnlChartData.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Avg Result</p>
+                  <p className={`text-xl font-black mt-0.5 ${(pnlChartData.reduce((s, d) => s + d.result, 0) / pnlChartData.length) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {((pnlChartData.reduce((s, d) => s + d.result, 0) / pnlChartData.length) >= 0 ? '+' : '')}{(pnlChartData.reduce((s, d) => s + d.result, 0) / pnlChartData.length).toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Kumulatif</p>
+                  <p className={`text-xl font-black mt-0.5 ${pnlChartData[pnlChartData.length - 1].cumulative >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {pnlChartData[pnlChartData.length - 1].cumulative >= 0 ? '+' : ''}{pnlChartData[pnlChartData.length - 1].cumulative}%
+                  </p>
+                </div>
+              </div>
+              {/* Legend */}
               <div className="flex items-center gap-4 mb-4 text-xs text-[#686868] dark:text-[#898989]">
                 <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#9fe870] inline-block rounded-full" />Kumulatif</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-[rgba(159,232,112,0.3)] inline-block rounded-sm" />Per Sinyal</span>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={pnlChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,100,100,0.15)" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgba(104,104,104,1)' }} tickLine={false} axisLine={false} stroke="none" />
