@@ -36,6 +36,8 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState('')
   const [signalView, setSignalView] = useState<'timeline' | 'table'>('timeline')
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [notesSaved, setNotesSaved] = useState(false)
 
   // Fetch all sessions for navigation
   const { data: allSessions } = useQuery({
@@ -81,11 +83,14 @@ export default function SessionDetailPage() {
   const isTrendSignal = session?.strategy === 'trend' && session?.mode === 'signal'
   const isStrategySignal = isGridSignal || isTrendSignal
   const isGridPaper = session?.strategy === 'grid' && session?.mode === 'paper'
+  const isTrendPaper = session?.strategy === 'trend' && session?.mode === 'paper'
+  const isDCAPaper = session?.strategy === 'dca' && session?.mode === 'paper'
+  const isPaperMode = session?.mode === 'paper'
 
   const { data: strategySignals } = useQuery({
     queryKey: ['signals', id],
     queryFn: () => api.sessions.getSignals(Number(id)),
-    enabled: isAuthenticated && isStrategySignal,
+    enabled: isAuthenticated && (isStrategySignal || isGridPaper),
     refetchInterval: 15000,
   })
 
@@ -134,6 +139,95 @@ export default function SessionDetailPage() {
       setError(e.message || 'Failed to stop')
     }
     setLoading('')
+  }
+
+  function handleCopySummary() {
+    if (!session) return
+    let configDisplay: any = {}
+    try { configDisplay = JSON.parse(session.config) } catch {}
+
+    const lines: string[] = []
+    const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+    lines.push(`## Session: ${session.name}`)
+    lines.push(`Tanggal: ${dateStr} | Status: ${session.status} | Mode: ${session.mode}`)
+    lines.push('')
+
+    // Config
+    lines.push('### Konfigurasi')
+    lines.push(`- Pair: ${session.symbol}`)
+    lines.push(`- Strategi: ${session.strategy}`)
+    if (session.strategy === 'grid') {
+      lines.push(`- Range: ${configDisplay.lower_price} — ${configDisplay.upper_price}`)
+      lines.push(`- Grid: ${configDisplay.grid_count} level`)
+      lines.push(`- Qty per order: ${configDisplay.quantity}`)
+    } else if (session.strategy === 'trend') {
+      lines.push(`- SMA Cepat: ${configDisplay.fast_period}`)
+      lines.push(`- SMA Lambat: ${configDisplay.slow_period}`)
+      lines.push(`- Qty: ${configDisplay.quantity}`)
+    } else if (session.strategy === 'dca') {
+      lines.push(`- Interval: ${configDisplay.interval_sec}s`)
+      lines.push(`- Amount: $${configDisplay.amount}`)
+      lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
+    }
+    lines.push('')
+
+    // Portfolio (paper only)
+    if (session.mode === 'paper' && portfolio) {
+      lines.push('### Portfolio Virtual')
+      if (portfolio.initial_balance != null) lines.push(`- Modal awal: $${portfolio.initial_balance.toFixed(2)}`)
+      lines.push(`- Saldo saat ini: $${portfolio.virtual_balance.toFixed(2)}`)
+      const used = (portfolio.initial_balance ?? portfolio.virtual_balance) - portfolio.virtual_balance
+      if (used > 0) lines.push(`- Modal terpakai: $${used.toFixed(2)}`)
+      lines.push(`- Unrealized P&L: ${(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}$${(portfolio.unrealized_pnl ?? 0).toFixed(2)}`)
+      lines.push('')
+
+      if ((portfolio.holdings?.length ?? 0) > 0) {
+        lines.push(`### Posisi Terbuka (${portfolio.holdings.length})`)
+        portfolio.holdings.forEach((h, i) => {
+          lines.push(`${i + 1}. Beli ${h.qty} @ ${h.avg_price}`)
+        })
+        lines.push('')
+      }
+    }
+
+    // P&L
+    if (pnl) {
+      lines.push('### Performa')
+      lines.push(`- Realized P&L: $${pnl.realized_pnl}`)
+      lines.push(`- Total P&L: $${pnl.total_pnl}`)
+      lines.push(`- Win Rate: ${pnl.win_rate?.toFixed(1) ?? 0}%`)
+      lines.push(`- Total Trades: ${pnl.trade_count ?? 0}`)
+      if (session.mode === 'paper' && pnl.balance) lines.push(`- Balance: $${pnl.balance.toFixed(2)}`)
+      lines.push('')
+    }
+
+    // Orders (last 5)
+    if (orders && orders.length > 0) {
+      lines.push(`### Order Terakhir (${Math.min(orders.length, 5)} dari ${orders.length})`)
+      orders.slice(0, 5).forEach(o => {
+        const t = new Date(o.created_at).toLocaleString('id-ID')
+        lines.push(`- ${o.side.toUpperCase()} ${o.executed_qty || o.quantity} @ ${o.executed_price || o.price} | ${o.status} | ${t}`)
+      })
+    }
+
+    navigator.clipboard.writeText(lines.join('\n'))
+    setLoading('copied')
+    setTimeout(() => setLoading(''), 2000)
+  }
+
+  // Sync notes from session data
+  useEffect(() => {
+    if (session?.notes !== undefined) setNotes(session.notes ?? '')
+  }, [session?.notes])
+
+  async function handleSaveNotes(value: string) {
+    setNotes(value)
+    try {
+      await api.sessions.updateNotes(Number(id), value)
+      setNotesSaved(true)
+      setTimeout(() => setNotesSaved(false), 2000)
+    } catch { /* ignore */ }
   }
 
   if (sessionLoading) return (
@@ -368,6 +462,12 @@ export default function SessionDetailPage() {
                     {loading === 'start' ? 'Starting...' : 'Start Bot'}
                   </button>
                 )}
+                <button
+                  onClick={handleCopySummary}
+                  className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all"
+                >
+                  {loading === 'copied' ? '✓ Copied!' : '📋 Copy Summary'}
+                </button>
               </div>
             </div>
           </div>
@@ -530,6 +630,100 @@ export default function SessionDetailPage() {
           </div>
         ) : null}
 
+        {/* Grid Paper Portfolio */}
+        {isGridPaper && portfolio && (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Virtual Portfolio</h2>
+
+            {/* Hero row: Saldo + Unrealized side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div className="rounded-[24px] p-5 border-2 border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-white dark:bg-[#1e201c]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Saldo Virtual</p>
+                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</p>
+                {portfolio.initial_balance != null && (
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal ${fmt(portfolio.initial_balance)}</p>
+                )}
+              </div>
+              <div className={`rounded-[24px] p-5 border-2 ${
+                (portfolio.unrealized_pnl ?? 0) >= 0
+                  ? 'border-[rgba(5,77,40,0.3)] dark:border-[rgba(159,232,112,0.2)] bg-gradient-to-br from-[rgba(5,77,40,0.05)] to-transparent dark:from-[rgba(159,232,112,0.08)]'
+                  : 'border-[rgba(208,50,56,0.3)] dark:border-[rgba(208,50,56,0.2)] bg-gradient-to-br from-[rgba(208,50,56,0.05)] to-transparent dark:from-[rgba(208,50,56,0.08)]'
+              }`}>
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Unrealized P&L</p>
+                <p className={`text-3xl font-black ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
+                </p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">{portfolio.holdings?.length ?? 0} posisi terbuka</p>
+              </div>
+            </div>
+
+            {/* Holdings card */}
+            {(portfolio.holdings?.length ?? 0) > 0 && (
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <div className="flex flex-col sm:flex-row gap-6">
+                  {/* Donut chart */}
+                  <div className="flex-shrink-0 flex items-center justify-center w-[160px] h-[160px] mx-auto sm:mx-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            ...portfolio.holdings.map((h, i) => ({
+                              name: `${session.symbol.split('_')[0]} #${i + 1}`,
+                              value: parseFloat(h.qty) * parseFloat(h.avg_price),
+                              color: HOLDING_COLORS[i % HOLDING_COLORS.length],
+                            })),
+                            { name: 'Cash', value: portfolio.virtual_balance, color: 'rgba(140,140,140,0.2)' }
+                          ]}
+                          cx="50%" cy="50%"
+                          innerRadius={48} outerRadius={68}
+                          paddingAngle={2} dataKey="value"
+                        >
+                          {[
+                            ...portfolio.holdings.map((_, i) => ({ color: HOLDING_COLORS[i % HOLDING_COLORS.length] })),
+                            { color: 'rgba(140,140,140,0.2)' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 10, fontSize: 11 }}
+                          formatter={(value: number) => [`$${fmt(value)}`, '']}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Holdings list */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Holdings</p>
+                    <div className="space-y-2">
+                      {portfolio.holdings.map((h, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
+                            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
+                            <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{h.qty}</span>
+                          </div>
+                          <div className="flex items-center gap-3 font-mono">
+                            <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
+                            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between text-xs py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
+                          <span className="text-[#686868] dark:text-[#898989]">Cash</span>
+                        </div>
+                        <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {isStrategySignal && pnlChartData.length >= 2 && (
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Performa Sinyal</h2>
@@ -627,6 +821,16 @@ export default function SessionDetailPage() {
                   Take profit {configDisplay.take_profit_pct}%
                 </span>
               )}
+              {session.mode === 'paper' && configDisplay.stop_loss_pct > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
+                  🛑 SL {configDisplay.stop_loss_pct}%
+                </span>
+              )}
+              {session.mode === 'paper' && configDisplay.take_profit_pct > 0 && session.strategy !== 'dca' && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
+                  🎯 TP {configDisplay.take_profit_pct}%
+                </span>
+              )}
             </>)}
           </div>
         </div>
@@ -686,99 +890,21 @@ export default function SessionDetailPage() {
           </div>
         </details>
 
-        {/* Grid Paper Portfolio */}
-        {isGridPaper && portfolio && (
-          <div className="mb-8">
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Virtual Portfolio</h2>
-
-            {/* Hero row: Saldo + Unrealized side by side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <div className="rounded-[24px] p-5 border-2 border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-white dark:bg-[#1e201c]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Saldo Virtual</p>
-                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</p>
-                {portfolio.initial_balance != null && (
-                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal ${fmt(portfolio.initial_balance)}</p>
-                )}
-              </div>
-              <div className={`rounded-[24px] p-5 border-2 ${
-                (portfolio.unrealized_pnl ?? 0) >= 0
-                  ? 'border-[rgba(5,77,40,0.3)] dark:border-[rgba(159,232,112,0.2)] bg-gradient-to-br from-[rgba(5,77,40,0.05)] to-transparent dark:from-[rgba(159,232,112,0.08)]'
-                  : 'border-[rgba(208,50,56,0.3)] dark:border-[rgba(208,50,56,0.2)] bg-gradient-to-br from-[rgba(208,50,56,0.05)] to-transparent dark:from-[rgba(208,50,56,0.08)]'
-              }`}>
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Unrealized P&L</p>
-                <p className={`text-3xl font-black ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
-                </p>
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">{portfolio.holdings?.length ?? 0} posisi terbuka</p>
-              </div>
-            </div>
-
-            {/* Holdings card */}
-            {(portfolio.holdings?.length ?? 0) > 0 && (
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  {/* Donut chart */}
-                  <div className="flex-shrink-0 flex items-center justify-center w-[160px] h-[160px] mx-auto sm:mx-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            ...portfolio.holdings.map((h, i) => ({
-                              name: `${session.symbol.split('_')[0]} #${i + 1}`,
-                              value: parseFloat(h.qty) * parseFloat(h.avg_price),
-                              color: HOLDING_COLORS[i % HOLDING_COLORS.length],
-                            })),
-                            { name: 'Cash', value: portfolio.virtual_balance, color: 'rgba(140,140,140,0.2)' }
-                          ]}
-                          cx="50%" cy="50%"
-                          innerRadius={48} outerRadius={68}
-                          paddingAngle={2} dataKey="value"
-                        >
-                          {[
-                            ...portfolio.holdings.map((_, i) => ({ color: HOLDING_COLORS[i % HOLDING_COLORS.length] })),
-                            { color: 'rgba(140,140,140,0.2)' }
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ background: '#fff', border: '1px solid rgba(14,15,12,0.08)', borderRadius: 10, fontSize: 11 }}
-                          formatter={(value: number) => [`$${fmt(value)}`, '']}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  {/* Holdings list */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Holdings</p>
-                    <div className="space-y-2">
-                      {portfolio.holdings.map((h, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
-                            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
-                            <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{h.qty}</span>
-                          </div>
-                          <div className="flex items-center gap-3 font-mono">
-                            <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
-                            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
-                          </div>
-                        </div>
-                      ))}
-                      <div className="flex items-center justify-between text-xs py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
-                          <span className="text-[#686868] dark:text-[#898989]">Cash</span>
-                        </div>
-                        <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Session Notes */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Catatan</h2>
+            {notesSaved && <span className="text-xs text-[#054d28] dark:text-[#9fe870]">✓ Tersimpan</span>}
           </div>
-        )}
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            onBlur={e => handleSaveNotes(e.target.value)}
+            placeholder="Tulis catatan, reasoning, atau evaluasi untuk session ini..."
+            rows={4}
+            className="w-full px-4 py-3 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[16px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] placeholder-[#686868] dark:placeholder-[#898989] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.4)] resize-none"
+          />
+        </div>
 
         {/* Grid Level Visual */}
         {(isGridSignal || isGridPaper) && strategySignals && Object.keys(signalsByLevel).length > 0 && (
@@ -976,7 +1102,9 @@ export default function SessionDetailPage() {
         {/* Orders Table — hidden when strategy signal history is shown */}
         {!isStrategySignal && (
           <>
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Riwayat Signal & Order</h2>
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">
+              {isPaperMode ? 'Riwayat Order Virtual' : 'Riwayat Order'}
+            </h2>
             {ordersLoading ? (
               <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse py-4">
                 <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
