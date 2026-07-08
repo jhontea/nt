@@ -79,7 +79,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		// recover lastBuy from DB after restart — use epoch seconds to avoid datetime parse issues
 		var lastEpoch int64
 		_ = d.db.Get(&lastEpoch, d.db.Rebind(
-			`SELECT COALESCE(CAST(strftime('%s', created_at) AS INTEGER), 0) FROM orders
+			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) FROM orders
 			 WHERE session_id=? AND symbol=? AND side='buy' ORDER BY created_at DESC LIMIT 1`,
 		), session.ID, session.Symbol)
 		if lastEpoch > 0 {
