@@ -289,7 +289,7 @@ export default function SessionDetailPage() {
               title={prevSession ? prevSession.name : ''}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
             >
-              ← {prevSession ? <span className="hidden sm:inline truncate max-w-[80px]">{prevSession.name}</span> : <span>Prev</span>}
+              ← {prevSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{prevSession.name}</span> : <span>Prev</span>}
             </button>
             <button
               onClick={() => nextSession && router.push(`/sessions/${nextSession.id}`)}
@@ -297,7 +297,7 @@ export default function SessionDetailPage() {
               title={nextSession ? nextSession.name : ''}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
             >
-              {nextSession ? <span className="hidden sm:inline truncate max-w-[80px]">{nextSession.name}</span> : <span>Next</span>} →
+              {nextSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{nextSession.name}</span> : <span>Next</span>} →
             </button>
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function SessionDetailPage() {
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6] truncate mb-2">{session.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6] truncate mb-2 w-full">{session.name}</h1>
 
               {/* Chips row */}
               <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -635,7 +635,7 @@ export default function SessionDetailPage() {
         {isTrendSignal && configDisplay.validation_mode && (
           <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-4">
             <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-3">Validasi Otomatis</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-w-full">
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
                 Target +{configDisplay.validation_target_value || 2}%
               </span>
@@ -911,8 +911,8 @@ export default function SessionDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <div className="overflow-x-auto">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] relative">
+                <div className="overflow-x-auto relative">
                   <table className="w-full text-sm">
                     <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#f0f1ee] dark:bg-[#252822]">
                       <tr>
@@ -963,10 +963,11 @@ export default function SessionDetailPage() {
                             {s.validation_status === 'pending' && <span className="text-[#7a5f00] dark:text-[#f5c842] text-[10px]">—</span>}
                           </td>
                         </tr>
-                      ))}
+                       ))}
                     </tbody>
                   </table>
                 </div>
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent pointer-events-none rounded-r-[24px]" />
               </div>
             )}
           </div>
@@ -984,8 +985,8 @@ export default function SessionDetailPage() {
             ) : !orders?.length ? (
               <p className="text-[#686868] dark:text-[#898989] mb-6 text-sm">Belum ada order. Mulai session untuk melihat sinyal.</p>
             ) : (
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6">
-                <div className="overflow-x-auto">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6 relative">
+                <div className="overflow-x-auto relative">
                   <table className="w-full text-sm">
                     <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#f0f1ee] dark:bg-[#252822]">
                       <tr>
@@ -1019,12 +1020,13 @@ export default function SessionDetailPage() {
                               'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
                             }`}>{o.status}</span>
                           </td>
-                          <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
+                           <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent pointer-events-none rounded-r-[24px]" />
               </div>
             )}
           </>
