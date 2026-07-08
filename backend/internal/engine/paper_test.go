@@ -41,7 +41,7 @@ func TestPaperEngine_Buy_DeductsBalance(t *testing.T) {
 	p := setupPaperDB(t)
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
 
-	err := p.executeBuy(session, "50000", "0.01")
+	err := p.executeBuy(session, "50000", "50000", "0.01")
 	if err != nil {
 		t.Fatalf("executeBuy failed: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestPaperEngine_Buy_InsufficientBalance(t *testing.T) {
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
 
 	// Try to buy more than balance allows: 0.1 BTC @ 50000 = 5000 > 1000
-	err := p.executeBuy(session, "50000", "0.1")
+	err := p.executeBuy(session, "50000", "50000", "0.1")
 	if err != nil {
 		t.Fatalf("executeBuy failed (should not return error for insufficient): %v", err)
 	}
@@ -78,13 +78,13 @@ func TestPaperEngine_Buy_Deduplicate(t *testing.T) {
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
 
 	// First buy should succeed
-	err := p.executeBuy(session, "50000", "0.01")
+	err := p.executeBuy(session, "50000", "50000", "0.01")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Second buy at same price should be skipped (dedup)
-	err = p.executeBuy(session, "50000", "0.01")
+	err = p.executeBuy(session, "50000", "50000", "0.01")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestPaperEngine_BuySell_Profit(t *testing.T) {
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
 
 	// Buy 0.01 BTC @ 50000
-	err := p.executeBuy(session, "50000", "0.01")
+	err := p.executeBuy(session, "50000", "50000", "0.01")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -24,7 +24,9 @@ const pnlHelp: Record<string, string> = {
 }
 
 export default function SessionDetailPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const sessionId = parseInt(params.id as string, 10)
+  const id = params.id // keep for queryKey strings
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
@@ -97,10 +99,6 @@ export default function SessionDetailPage() {
       qc.invalidateQueries({ queryKey: ['signals', id] })
       qc.invalidateQueries({ queryKey: ['signalSummary', id] })
     }
-    if (data.type === 'paper_alert') {
-      qc.invalidateQueries({ queryKey: ['portfolio', id] })
-      qc.invalidateQueries({ queryKey: ['pnl', id] })
-    }
   })
 
   async function handleStart() {
@@ -130,7 +128,7 @@ export default function SessionDetailPage() {
   if (sessionLoading) return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse">
           <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
           <span className="text-sm">Memuat session...</span>
@@ -141,7 +139,7 @@ export default function SessionDetailPage() {
   if (!session) return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <p className="text-sm text-[#686868] dark:text-[#898989]">Session not found</p>
       </div>
     </div>
@@ -155,7 +153,7 @@ export default function SessionDetailPage() {
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
         {/* Back navigation */}
         <button
@@ -170,7 +168,7 @@ export default function SessionDetailPage() {
           <div className="flex justify-between items-start gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-2">
-                <h1 className="text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
                 {session.mode === 'signal' && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>
                 )}
@@ -181,7 +179,7 @@ export default function SessionDetailPage() {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>
                 )}
                 {session.status === 'running' ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(5,77,40,0.06)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] dark:bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
                     Running
                   </span>
@@ -191,14 +189,14 @@ export default function SessionDetailPage() {
               </div>
               <p className="text-sm text-[#686868] dark:text-[#898989]">{session.symbol} · {strategyLabel} · {modeInfo[session.mode]}</p>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-end">
               <PriceBadge symbol={session.symbol} compact />
-              {error && <span className="text-[#d03238] text-sm">{error}</span>}
+              {error && <span className="text-[#d03238] dark:text-[#ff6b6f] text-sm">{error}</span>}
               {session.status === 'running' ? (
                 <button
                   onClick={handleStop}
                   disabled={loading === 'stop'}
-                  className="bg-[#d03238] text-white border-2 border-[#d03238] hover:bg-[#d94a4f] dark:hover:bg-[#b22a30] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
+                  className="bg-[#d03238] text-white border-2 border-[#d03238] hover:bg-[#d94a4f] dark:hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
                 >
                   {loading === 'stop' ? '...' : 'Stop'}
                 </button>
@@ -252,7 +250,7 @@ export default function SessionDetailPage() {
                   : 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]'
                 return (
                   <div key={s.id} className={`bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border-2 ${border} shadow-[0_4px_16px_rgba(14,15,12,0.08)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]`}>
-                    <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${badge}`}>{isBuy ? '▲ Beli' : '▼ Jual'}</span>
                         <span className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index} · {fmt(price)}</span>
@@ -286,10 +284,10 @@ export default function SessionDetailPage() {
             <div className="mb-3">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Performa</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3">
               <div className="col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total P&L</p>
-                <p className={`text-2xl font-black mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+                <p className={`text-2xl font-black mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
                 </p>
               </div>
@@ -299,7 +297,7 @@ export default function SessionDetailPage() {
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized P&L <HelpIcon text={pnlHelp.realized} /></p>
-                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
                 </p>
               </div>
@@ -321,7 +319,7 @@ export default function SessionDetailPage() {
         ) : null}
 
         {/* Strategy Description */}
-        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-r-[16px] px-4 py-3 mb-4 text-xs text-[#454745] dark:text-[#8a8d88]">
+        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-r-[16px] px-4 py-3 mb-4 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
           {session.strategy === 'grid' ? (
             <p>
               <span className="text-[#163300] dark:text-[#9fe870] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
@@ -329,7 +327,7 @@ export default function SessionDetailPage() {
             </p>
           ) : session.strategy === 'trend' ? (
             <p>
-              <span className="text-[#454745] dark:text-[#d0d3ce] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
+              <span className="text-[#5a5b58] dark:text-[#d0d3ce] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
               Golden cross = sinyal <span className="text-[#054d28] dark:text-[#9fe870] font-medium">beli</span>. Death cross = sinyal <span className="text-[#d03238] dark:text-[#ff6b6f] font-medium">jual</span>.
             </p>
           ) : (
@@ -371,7 +369,7 @@ export default function SessionDetailPage() {
                 <p className={`font-semibold mt-1 ${session.status === 'running' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#5a5b58] dark:text-[#8a8d88]'}`}>{session.status}</p>
               </div>
             </div>
-            <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#454745] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
+            <pre className="bg-[#f0f1ee] dark:bg-[#252822] p-3 rounded-[16px] text-xs text-[#5a5b58] dark:text-[#8a8d88] overflow-x-auto">{JSON.stringify(configDisplay, null, 2)}</pre>
           </div>
         </details>
 
@@ -379,32 +377,58 @@ export default function SessionDetailPage() {
         {isGridPaper && portfolio && (
           <div className="mb-8">
             <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Virtual Portfolio</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+              <div className="col-span-1 sm:col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Saldo Virtual</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${fmt(portfolio.virtual_balance)}</p>
+                <p className="text-2xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${fmt(portfolio.virtual_balance)}</p>
                 {portfolio.initial_balance != null && (
-                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">dari ${fmt(portfolio.initial_balance)}</p>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Modal awal ${fmt(portfolio.initial_balance)}</p>
                 )}
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Posisi Terbuka</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{portfolio.holdings.length}</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Unrealized P&L</p>
+                <p className={`text-2xl font-black mt-1 ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
+                </p>
               </div>
-              {portfolio.holdings.length > 0 && (
-                <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] col-span-2 md:col-span-1">
-                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Holdings</p>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {portfolio.holdings.map((h, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">{h.qty}</span>
-                        <span className="text-[#686868] dark:text-[#898989]">@ {h.avg_price}</span>
-                      </div>
-                    ))}
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Posisi Terbuka</p>
+                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{portfolio.holdings?.length ?? 0}</p>
+              </div>
+            </div>
+            {(portfolio.holdings?.length ?? 0) > 0 && (
+              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Holdings</p>
+                  <div className="flex items-center gap-4 text-xs text-[#686868] dark:text-[#898989]">
+                    <span>Total aset: <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty), 0))} {session.symbol.split('_')[0]}</span></span>
+                    <span>Total dikeluarkan: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.qty) * parseFloat(h.avg_price), 0))}</span></span>
                   </div>
                 </div>
-              )}
-            </div>
+                {/* Column headers */}
+                <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1 px-0">
+                  <span>Aset</span>
+                  <div className="flex items-center flex-wrap gap-2 font-mono">
+                    <span className="text-right">Harga Rata-rata</span>
+                    <span className="text-right">Total Biaya</span>
+                  </div>
+                </div>
+                <div className="space-y-0 max-h-48 overflow-y-auto">
+                  {portfolio.holdings.map((h, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs py-2 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.split('_')[0]}</span>
+                        <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">{h.qty}</span>
+                      </div>
+                      <div className="flex items-center flex-wrap gap-2 font-mono text-right">
+                        <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
+                        <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -419,12 +443,12 @@ export default function SessionDetailPage() {
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Success Rate</p>
-                  <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
+                <p className={`text-lg font-bold mt-1 ${signalSummary.success_rate >= 50 ? 'text-[#054d28] dark:text-[#9fe870]' : signalSummary.success_rate > 0 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#686868] dark:text-[#898989]'}`}>
                   {signalSummary.success_rate.toFixed(1)}%
                 </p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed / Invalid / Expired</p>
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Confirmed/Invalid/Exp</p>
                 <p className="text-lg font-bold mt-1">
                   <span className="text-[#054d28] dark:text-[#9fe870]">{signalSummary.confirmed_count}</span>
                   <span className="text-[#686868] dark:text-[#898989] mx-1">/</span>
@@ -470,7 +494,7 @@ export default function SessionDetailPage() {
                         <td className={`px-4 py-3 font-semibold text-xs ${s.signal_type === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{s.signal_type}</td>
                         <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">#{s.grid_level_index}</td>
                         <td className="px-4 py-3 font-mono text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
-                        <td className="px-4 py-3 text-xs text-[#454745] dark:text-[#8a8d88]">{s.quantity}</td>
+                        <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{s.quantity}</td>
                         <td className={`px-4 py-3 text-xs font-semibold ${
                           s.validation_status === 'confirmed' ? 'text-[#054d28] dark:text-[#9fe870]' :
                           s.validation_status === 'invalidated' ? 'text-[#d03238] dark:text-[#ff6b6f]' :
@@ -521,11 +545,11 @@ export default function SessionDetailPage() {
                     <tbody className="divide-y divide-[rgba(14,15,12,0.08)] dark:divide-[rgba(232,235,230,0.08)]">
                       {orders.slice(0, 20).map(o => (
                         <tr key={o.id} className="hover:bg-[#fafafa] dark:hover:bg-[#141411] transition-colors">
-                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(o.created_at).toLocaleTimeString('id-ID')}</td>
+                          <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">{new Date(o.created_at).toLocaleString('id-ID')}</td>
                           <td className={`px-4 py-3 font-semibold text-xs ${o.side === 'buy' ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{o.side}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
-                          <td className="px-4 py-3 text-xs text-[#454745] dark:text-[#8a8d88]">{o.status}</td>
+                          <td className="px-4 py-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">{o.status}</td>
                           <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
                         </tr>
                       ))}

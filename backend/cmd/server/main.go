@@ -72,7 +72,7 @@ func main() {
 		AllowOrigins: []string{"http://localhost:3100", "http://localhost:3000"},
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
-	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(60)))
 	e.Use(middleware.Recover())
 
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
@@ -110,7 +110,7 @@ func main() {
 	// Auto-restart sessions that were running before shutdown
 	recoverRunningSessions(db, engMgr)
 
-	sessionH := handler.NewSessionHandler(sessionSvc, engMgr, db)
+	sessionH := handler.NewSessionHandler(sessionSvc, engMgr, db, tokoClient)
 
 	v1.GET("/ticker/:symbol", func(c echo.Context) error {
 		ticker, err := tokoClient.GetTicker(c.Param("symbol"))

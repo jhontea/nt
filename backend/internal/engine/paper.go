@@ -40,25 +40,25 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 
 	switch signal.Side {
 	case string(model.SideBuy):
-		return p.executeBuy(session, marketPrice, qty)
+		return p.executeBuy(session, signal.Price, marketPrice, qty)
 	case string(model.SideSell):
 		return p.executeSell(session, signal.Price, marketPrice, qty)
 	}
 	return nil
 }
 
-func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error {
-	cost, _ := strconv.ParseFloat(price, 64)
+func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qty string) error {
+	cost, _ := strconv.ParseFloat(execPrice, 64)
 	qtyF, _ := strconv.ParseFloat(qty, 64)
 	notional := cost * qtyF
 
 	var existing int
 	if err := p.db.Get(&existing, p.db.Rebind("SELECT COUNT(*) FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled' AND price=?"),
-		session.ID, session.Symbol, price); err != nil {
+		session.ID, session.Symbol, gridPrice); err != nil {
 		slog.Warn("check existing buys", "session", session.ID, "error", err)
 	}
 	if existing > 0 {
-		slog.Debug("buy already open, skip", "session", session.ID, "price", price)
+		slog.Debug("buy already open, skip", "session", session.ID, "price", gridPrice)
 		return nil
 	}
 
@@ -89,13 +89,13 @@ func (p *PaperEngine) executeBuy(session model.Session, price, qty string) error
 		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_buy_%d", time.Now().UnixNano()),
-		session.Symbol, string(model.SideBuy), price, qty, qty, price,
+		session.Symbol, string(model.SideBuy), gridPrice, qty, qty, execPrice,
 	)
 	if err != nil {
 		return fmt.Errorf("save buy order: %w", err)
 	}
 
-	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "price", price, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
+	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "grid_price", gridPrice, "exec_price", execPrice, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
 	return nil
 }
 

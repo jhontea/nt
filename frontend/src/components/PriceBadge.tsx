@@ -19,7 +19,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
     const change = parseFloat(data.priceChange)
     const isUp = change >= 0
     return (
-      <span className={`text-xs font-mono ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+      <span className={`text-xs font-mono ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
         {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
         <span className="ml-1">{isUp ? '▲' : '▼'} {Math.abs(parseFloat(data.priceChangePct))}%</span>
       </span>
@@ -27,7 +27,7 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
   }
 
   return (
-    <div className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[16px] p-4 dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
+    <div className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[16px] p-4 dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
       {!connected && !data ? (
         <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88]">⏳ Menghubungkan ke TokoCrypto untuk harga {symbol}...</p>
       ) : timeout && !data ? (
@@ -42,11 +42,11 @@ export function PriceBadge({ symbol, compact }: { symbol: string; compact?: bool
           <div className="flex items-baseline justify-between">
             <div>
               <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mb-1">{symbol}</p>
-              <p className={`text-2xl font-bold font-mono ${parseFloat(data.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+              <p className={`text-2xl font-bold font-mono ${parseFloat(data.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                 {parseFloat(data.lastPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
               </p>
             </div>
-            <div className={`text-right ${parseFloat(data.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+            <div className={`text-right ${parseFloat(data.priceChange) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
               <p className="text-lg font-semibold">{parseFloat(data.priceChange) >= 0 ? '+' : ''}{data.priceChangePct}%</p>
               <p className="text-xs">{parseFloat(data.priceChange) >= 0 ? '+' : ''}{data.priceChange}</p>
             </div>

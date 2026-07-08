@@ -250,7 +250,7 @@ export default function SessionsPage() {
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="sessions" />
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
         {/* Page header */}
         <div className="flex justify-between items-center mb-6">
@@ -258,7 +258,7 @@ export default function SessionsPage() {
             <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Sessions</h1>
             <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Bot trading otomatis Anda</p>
           </div>
-          <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-2.5 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
+          <button onClick={() => setShowCreate(!showCreate)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] hover:scale-[1.03] active:scale-[0.97] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)]">
             {showCreate ? '✕ Tutup' : '+ New Session'}
           </button>
         </div>
@@ -278,14 +278,14 @@ export default function SessionsPage() {
 
         {/* Form panel — slide-down, full width, max-w-3xl */}
         {showCreate && (
-          <div className="mb-8 rounded-[24px] bg-white dark:bg-[#1e201c] shadow-[0_0_0_1px_rgba(14,15,12,0.08),0_8px_32px_rgba(14,15,12,0.06)] dark:shadow-[0_0_0_1px_rgba(232,235,230,0.1),0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden" style={{borderTop: '3px solid #9fe870'}}>
+          <div className="mb-8 rounded-[24px] bg-white dark:bg-[#1e201c] shadow-[0_0_0_1px_rgba(14,15,12,0.08),0_8px_32px_rgba(14,15,12,0.06)] dark:shadow-[0_0_0_1px_rgba(232,235,230,0.1),0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden border-t-[3px] border-t-[#9fe870]">
             <form onSubmit={handleCreate} className="p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-black text-xl text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">New Session</h2>
                   <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">Konfigurasi bot trading baru</p>
                 </div>
-                <button type="button" onClick={() => { setShowCreate(false); setNameEdited(false) }} className="w-8 h-8 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full transition">✕</button>
+                <button type="button" onClick={() => { setShowCreate(false); setNameEdited(false) }} className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full transition">✕</button>
               </div>
 
               {/* Info harga saat ini */}
@@ -317,7 +317,7 @@ export default function SessionsPage() {
               )}
 
               {/* Main fields — 2 column grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Nama Session <HelpIcon text="Nama bebas untuk membedakan session satu dengan lainnya" /></label>
                   <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="mis. Grid Signal BTC/USDT 07 Jul" value={name} onChange={e => { setNameEdited(true); setName(e.target.value) }} />
@@ -354,7 +354,7 @@ export default function SessionsPage() {
               {mode === 'paper' && (
                 <div>
                   <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
-                  <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+                                     <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
                 </div>
               )}
 
@@ -367,20 +367,20 @@ export default function SessionsPage() {
                 <label className="text-xs text-[#686868] dark:text-[#898989] font-medium">Mode:</label>
                 <button type="button"
                   onClick={() => { setIsBeginner(true); fetchRecommendation() }}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#e8ebe6] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
                   🎓 Pemula
                 </button>
                 <button type="button"
                   onClick={() => setIsBeginner(false)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#e8ebe6] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${!isBeginner ? 'bg-[#9fe870] text-[#163300]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#2a2c27] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6]'}`}>
                   ⚙️ Manual
                 </button>
               </div>
 
               {/* Beginner Controls */}
               {isBeginner && (
-                <div className="bg-[#fafafa] dark:bg-[#141411] rounded-[16px] p-4 space-y-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#f0f1ee] dark:bg-[#252822] rounded-[16px] p-4 space-y-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Horizon</label>
                       <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" value={horizon} onChange={e => { setHorizon(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
@@ -394,7 +394,7 @@ export default function SessionsPage() {
                       <input className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="100" value={capital} onChange={e => { setCapital(e.target.value); setTimeout(fetchRecommendation, 0) }} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-[#686868] dark:text-[#898989] font-medium block mb-1">Validasi</label>
                       <select className="w-full px-2 py-1.5 bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-sm text-[#0e0f0c] dark:text-[#e8ebe6]" value={validationMode} onChange={e => { setValidationMode(e.target.value as any); setTimeout(fetchRecommendation, 0) }}>
@@ -411,7 +411,7 @@ export default function SessionsPage() {
 
                   {/* Recommendation Preview */}
                   {recommendation && (
-                    <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[#9fe870] rounded-[12px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)] dark:shadow-[0_1px_4px_rgba(232,235,230,0.06)]">
+                    <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[#9fe870] rounded-[16px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)] dark:shadow-[0_1px_4px_rgba(232,235,230,0.06)]">
                       <p className="text-[#054d28] dark:text-[#9fe870] font-semibold">Rekomendasi untuk {symbol}</p>
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Range: {recommendation.LowerPrice?.toLocaleString()} — {recommendation.UpperPrice?.toLocaleString()}</p>
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Grid: {recommendation.GridCount} level, step {recommendation.StepSize?.toFixed(8)}</p>
@@ -423,7 +423,7 @@ export default function SessionsPage() {
 
                   {/* Historical Insights */}
                   {insights.length > 0 && (
-                    <div className="bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[10px] p-3 text-xs space-y-1">
+                    <div className="bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-[16px] p-3 text-xs space-y-1">
                       <p className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">📈 Hasil Sebelumnya untuk {symbol}</p>
                       {insights.slice(0, 3).map((h: any) => {
                         try {
@@ -433,7 +433,7 @@ export default function SessionsPage() {
                               <span className="text-[#686868] dark:text-[#898989]">
                                 {h.name} · grid {cfg.grid_count || '?'}
                               </span>
-                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28] dark:text-[#9fe870]' : h.success_rate >= 30 ? 'text-[#b0630f] dark:text-[#f5a53a]' : 'text-[#991b1b] dark:text-[#f87171]'}`}>
+                              <span className={`font-semibold ${h.success_rate >= 60 ? 'text-[#054d28] dark:text-[#9fe870]' : h.success_rate >= 30 ? 'text-[#7a5f00] dark:text-[#f5c842]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                 {h.success_rate.toFixed(0)}% ({h.confirmed}/{h.total})
                               </span>
                             </div>
@@ -454,24 +454,24 @@ export default function SessionsPage() {
               )}
               <div>
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi Grid</label>
-                <div className="grid grid-cols-3 gap-3">
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Harga Atas (jual)</span>{renderConfigHelp('upper_price')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="70000" value={upperPrice} onChange={e => setUpperPrice(e.target.value)} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Harga Bawah (beli)</span>{renderConfigHelp('lower_price')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="60000" value={lowerPrice} onChange={e => setLowerPrice(e.target.value)} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah Grid</span>{renderConfigHelp('grid_count')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={gridCount} onChange={e => setGridCount(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={gridCount} onChange={e => setGridCount(e.target.value)} />
                   </div>
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Quantity per Order {renderConfigHelp('quantity')}</label>
-                <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                     <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
               </div>
             </>
           ) : strategy === 'trend' ? (
@@ -484,18 +484,18 @@ export default function SessionsPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi SMA</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Cepat</span>{renderConfigHelp('fast_period')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={fastPeriod} onChange={e => setFastPeriod(e.target.value)} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">SMA Lambat</span>{renderConfigHelp('slow_period')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="30" value={slowPeriod} onChange={e => setSlowPeriod(e.target.value)} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Qty per Order</span>{renderConfigHelp('quantity')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -509,10 +509,10 @@ export default function SessionsPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Konfigurasi DCA</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
-                    <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
+                                         <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
                       <option value="3600">Setiap 1 Jam</option>
                       <option value="7200">Setiap 2 Jam</option>
                       <option value="21600">Setiap 6 Jam</option>
@@ -523,11 +523,11 @@ export default function SessionsPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Take Profit %</span>{renderConfigHelp('dca_take_profit')}</div>
-                    <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] dark:text-[#e8ebe6] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
+                                         <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="5" value={dcaTakeProfit} onChange={e => setDcaTakeProfit(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -546,7 +546,7 @@ export default function SessionsPage() {
               {presets.map(p => (
                 <button key={p.label} onClick={() => applyPreset(p)}
                   className="bg-white dark:bg-[#1e201c] hover:bg-[rgba(159,232,112,0.04)] dark:hover:bg-[rgba(159,232,112,0.08)] rounded-[24px] p-4 text-left transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(159,232,112,0.5)] hover:shadow-[0_4px_16px_rgba(159,232,112,0.12)] group">
-                  <p className="font-bold text-sm text-[#0e0f0c] dark:text-[#e8ebe6] mb-1 group-hover:text-[#163300]">{p.label}</p>
+                  <p className="font-bold text-sm text-[#0e0f0c] dark:text-[#e8ebe6] mb-1 group-hover:text-[#163300] dark:group-hover:text-[#9fe870]">{p.label}</p>
                   <p className="text-xs text-[#686868] dark:text-[#898989] leading-snug">{p.desc}</p>
                 </button>
               ))}
@@ -557,7 +557,7 @@ export default function SessionsPage() {
         {/* Session list or empty state */}
         {isLoading ? (
           <div className="py-8 flex items-center gap-2 animate-pulse">
-            <div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2b27]" />
+            <div className="w-4 h-4 rounded-full bg-[#e8ebe6] dark:bg-[#2a2c27]" />
             <span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span>
           </div>
         ) : sessions?.length ? (
@@ -632,7 +632,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
             </span>
           </div>
           <p className="text-xs text-[#686868] dark:text-[#898989]">
-            <span className="font-medium text-[#454745] dark:text-[#8a8d88]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
+            <span className="font-medium text-[#5a5b58] dark:text-[#8a8d88]">{session.symbol}</span> · {strategyLabel} · <PriceBadge symbol={session.symbol} compact />
           </p>
         </div>
         {/* Actions — stop propagation agar tidak trigger onDetail */}
@@ -642,7 +642,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
           ) : (
             <button className="px-4 py-2 text-xs font-semibold bg-[#9fe870] text-[#163300] hover:bg-[#cdffad] rounded-full transition shadow-[0_2px_8px_rgba(159,232,112,0.3)]" onClick={() => onStart(session.id)}>Start</button>
           )}
-          <button className="w-8 h-8 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
+          <button className="w-10 h-10 flex items-center justify-center text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">✕</button>
         </div>
       </div>
     </div>

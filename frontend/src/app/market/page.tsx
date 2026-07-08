@@ -57,13 +57,13 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
           <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>
           <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-1">{symbol}</p>
         </div>
-        <div className={`text-sm font-semibold ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238]'}`}>
+        <div className={`text-sm font-semibold ${isUp ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {isUp ? '+' : ''}{changePct.toFixed(2)}%
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-2xl font-bold font-mono text-[#0e0f0c] dark:text-[#e8ebe6]">
+        <p className="text-xl sm:text-2xl font-bold font-mono text-[#0e0f0c] dark:text-[#e8ebe6] truncate">
           {isIDRPair ? formatIDR(last) : `$${formatUSDTPrice(last)}`}
         </p>
         {approxIDR && (
@@ -71,7 +71,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
+      <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
         <div>
           <p>24h High</p>
           <p className="text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
@@ -104,7 +104,7 @@ export default function MarketPage() {
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="market" />
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Market Price</h1>
         <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Harga pasar aktual untuk pair utama di TokoCrypto</p>
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/service"
+	"github.com/user/nt/internal/tokocrypto"
 	"github.com/user/nt/internal/validator"
 )
 
@@ -17,10 +19,11 @@ type SessionHandler struct {
 	svc    *service.SessionService
 	engine *engine.Manager
 	db     *sqlx.DB
+	client *tokocrypto.Client
 }
 
-func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB) *SessionHandler {
-	return &SessionHandler{svc: svc, engine: engine, db: db}
+func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB, client *tokocrypto.Client) *SessionHandler {
+	return &SessionHandler{svc: svc, engine: engine, db: db, client: client}
 }
 
 type createSessionRequest struct {
@@ -230,9 +233,24 @@ func (h *SessionHandler) GetPortfolio(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 
+	// Compute unrealized PnL from live ticker
+	unrealizedPnL := 0.0
+	if len(holdings) > 0 && h.client != nil {
+		if ticker, err := h.client.GetTicker(session.Symbol); err == nil {
+			currentPrice, _ := strconv.ParseFloat(ticker.LastPrice, 64)
+			for _, h := range holdings {
+				buyPrice, _ := strconv.ParseFloat(h.Price, 64)
+				qty, _ := strconv.ParseFloat(h.Quantity, 64)
+				unrealizedPnL += (currentPrice - buyPrice) * qty
+			}
+			unrealizedPnL = math.Round(unrealizedPnL*1e8) / 1e8
+		}
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"virtual_balance": balance,
 		"initial_balance": initialBalance,
 		"holdings":        holdings,
+		"unrealized_pnl":  unrealizedPnL,
 	})
 }

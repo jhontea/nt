@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useRef } from 'react'
 
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8100'
+const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ||
+  (typeof window !== 'undefined' ? `ws://${window.location.hostname}:8100` : 'ws://localhost:8100')
 const MAX_RETRIES = 5
 
 type WSMessageHandler = (data: any) => void
@@ -12,47 +13,44 @@ function getToken(): string | null {
 }
 
 export function useSessionWS(sessionId: number | null, onMessage: WSMessageHandler) {
-  const wsRef = useRef<WebSocket | null>(null)
   const onMessageRef = useRef(onMessage)
-  const retriesRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   onMessageRef.current = onMessage
 
   useEffect(() => {
     if (!sessionId) return
-    retriesRef.current = 0
+    let retries = 0
+    let activeWs: WebSocket | null = null
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let dead = false
 
     function connect() {
       const token = getToken()
-      if (!token) return
+      if (!token || dead) return
 
       const ws = new WebSocket(`${WS_BASE}/ws/sessions/${sessionId}?token=${token}`)
-      wsRef.current = ws
+      activeWs = ws
 
       ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          onMessageRef.current(data)
-        } catch { /* ignore parse errors */ }
+        try { onMessageRef.current(JSON.parse(e.data)) } catch { /* ignore */ }
       }
-
+      ws.onopen = () => { retries = 0 }
       ws.onclose = () => {
-        if (retriesRef.current < MAX_RETRIES) {
-          const delay = Math.min(1000 * Math.pow(2, retriesRef.current), 15000)
-          retriesRef.current++
-          timerRef.current = setTimeout(connect, delay)
+        if (dead || ws !== activeWs) return
+        if (retries < MAX_RETRIES) {
+          timer = setTimeout(connect, Math.min(1000 * 2 ** retries++, 15000))
         }
       }
-
-      ws.onopen = () => { retriesRef.current = 0 }
     }
 
-    connect()
+    // ponytail: 50ms debounce prevents Strict Mode double-connect in dev
+    const init = setTimeout(connect, 50)
 
     return () => {
-      clearTimeout(timerRef.current)
-      wsRef.current?.close()
-      wsRef.current = null
+      dead = true
+      clearTimeout(init)
+      clearTimeout(timer)
+      activeWs?.close()
+      activeWs = null
     }
   }, [sessionId])
 }

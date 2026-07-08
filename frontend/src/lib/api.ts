@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8100'
+const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/backend'
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -49,7 +49,7 @@ export const api = {
     getTickersBulk: (symbols: string[]) => request<Record<string, import('@/types').Ticker>>(`/v1/tickers?symbols=${symbols.join(',')}`),
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
     getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
-    getPortfolio: (id: number) => request<{ virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[] }>(`/v1/sessions/${id}/portfolio`),
+    getPortfolio: (id: number) => request<{ virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[]; unrealized_pnl: number }>(`/v1/sessions/${id}/portfolio`),
   },
   grid: {
     recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
