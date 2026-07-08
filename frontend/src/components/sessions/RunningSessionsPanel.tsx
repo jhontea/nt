@@ -21,7 +21,7 @@ const modeBadge = (m: Session['mode']) => {
 }
 
 export function RunningSessionsPanel({ sessions, router }: { sessions: Session[]; router: AppRouterInstance }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const running = sessions.filter(s => s.status === 'running')
   if (running.length === 0) return null
 
