@@ -193,51 +193,72 @@ export default function SessionDetailPage() {
         </button>
 
         {/* Hero Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-start gap-4 flex-wrap">
+        <div className={`mb-8 rounded-[28px] p-6 border ${
+          session.strategy === 'grid'
+            ? 'bg-gradient-to-br from-[rgba(159,232,112,0.08)] to-transparent border-[rgba(159,232,112,0.2)] dark:from-[rgba(159,232,112,0.1)] dark:border-[rgba(159,232,112,0.15)]'
+            : session.strategy === 'trend'
+            ? 'bg-gradient-to-br from-[rgba(56,200,255,0.08)] to-transparent border-[rgba(56,200,255,0.2)] dark:from-[rgba(56,200,255,0.1)] dark:border-[rgba(56,200,255,0.15)]'
+            : 'bg-gradient-to-br from-[rgba(255,209,26,0.08)] to-transparent border-[rgba(255,209,26,0.2)] dark:from-[rgba(255,209,26,0.1)] dark:border-[rgba(255,209,26,0.15)]'
+        }`}>
+          <div className="flex items-start gap-4">
+            {/* Strategy icon */}
+            <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center text-3xl flex-shrink-0 ${
+              session.strategy === 'grid'
+                ? 'bg-[rgba(159,232,112,0.15)]'
+                : session.strategy === 'trend'
+                ? 'bg-[rgba(56,200,255,0.12)]'
+                : 'bg-[rgba(255,209,26,0.12)]'
+            }`}>
+              {session.strategy === 'grid' ? '📐' : session.strategy === 'trend' ? '📈' : '🪙'}
+            </div>
+
+            {/* Content */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-2">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6]">{session.name}</h1>
-                {session.mode === 'signal' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>
-                )}
-                {session.mode === 'paper' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>
-                )}
-                {session.mode === 'live' && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>
-                )}
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6] truncate mb-2">{session.name}</h1>
+
+              {/* Chips row */}
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                {/* Mode */}
+                {session.mode === 'signal' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">📊 Signal</span>}
+                {session.mode === 'paper' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">📝 Paper</span>}
+                {session.mode === 'live' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">⚡ Live</span>}
+                {/* Status */}
                 {session.status === 'running' ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] dark:bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse inline-block" />
                     Running
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
+                )}
+                {/* Symbol + price */}
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                  {session.symbol.replace('_', '/')}
+                </span>
+                <PriceBadge symbol={session.symbol} compact />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {error && <span className="text-[#d03238] dark:text-[#ff6b6f] text-sm truncate">{error}</span>}
+                {session.status === 'running' ? (
+                  <button
+                    onClick={handleStop}
+                    disabled={loading === 'stop'}
+                    className="px-5 py-2 text-sm font-bold bg-[rgba(208,50,56,0.08)] text-[#d03238] border border-[rgba(208,50,56,0.2)] hover:bg-[#d03238] hover:text-white hover:border-[#d03238] rounded-full transition-all disabled:opacity-50"
+                  >
+                    {loading === 'stop' ? '...' : 'Stop'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStart}
+                    disabled={loading === 'start'}
+                    className="px-6 py-2 text-sm font-bold bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all disabled:opacity-50 shadow-[0_2px_8px_rgba(159,232,112,0.4)]"
+                  >
+                    {loading === 'start' ? '...' : 'Start Bot'}
+                  </button>
                 )}
               </div>
-              <p className="text-sm text-[#686868] dark:text-[#898989] break-all sm:break-normal">{session.symbol} · {strategyLabel} · {modeInfo[session.mode]}</p>
-            </div>
-            <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-              <PriceBadge symbol={session.symbol} compact />
-              {error && <span className="text-[#d03238] dark:text-[#ff6b6f] text-sm min-w-0 truncate flex-1">{error}</span>}
-              {session.status === 'running' ? (
-                <button
-                  onClick={handleStop}
-                  disabled={loading === 'stop'}
-                  className="bg-[#d03238] text-white dark:text-white border-2 border-[#d03238] hover:bg-[#d94a4f] dark:hover:bg-[#d94a4f] rounded-full px-4 py-2 font-semibold transition-all disabled:opacity-50"
-                >
-                  {loading === 'stop' ? '...' : 'Stop'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleStart}
-                  disabled={loading === 'start'}
-                  className="bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full px-5 py-2 font-semibold transition-all disabled:opacity-50 shadow-[0_2px_8px_rgba(159,232,112,0.4)]"
-                >
-                  {loading === 'start' ? '...' : 'Start'}
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -309,30 +330,45 @@ export default function SessionDetailPage() {
             <div className="mb-3">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Performa</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              <div className="sm:col-span-2 md:col-span-1 bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Total P&L</p>
-                <p className={`text-2xl font-black mt-1 ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+            
+            {/* Total P&L Hero Card */}
+            <div className={`rounded-[24px] p-6 mb-3 border-2 ${
+              parseFloat(pnl.total_pnl) >= 0
+                ? 'bg-gradient-to-br from-[rgba(5,77,40,0.08)] to-transparent border-[rgba(5,77,40,0.3)] dark:from-[rgba(159,232,112,0.1)] dark:border-[rgba(159,232,112,0.2)]'
+                : 'bg-gradient-to-br from-[rgba(208,50,56,0.08)] to-transparent border-[rgba(208,50,56,0.3)] dark:from-[rgba(208,50,56,0.1)] dark:border-[rgba(208,50,56,0.2)]'
+            }`}>
+              <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Total P&L</p>
+              <div className="flex items-baseline gap-3">
+                <p className={`text-4xl font-black ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
                 </p>
+                {pnl.balance && (
+                  <p className="text-sm text-[#686868] dark:text-[#898989]">
+                    {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{((parseFloat(pnl.total_pnl) / Number(pnl.balance)) * 100).toFixed(1)}%
+                  </p>
+                )}
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+            </div>
+
+            {/* Secondary Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
+                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
-                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized P&L <HelpIcon text={pnlHelp.realized} /></p>
-                <p className={`text-xl font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized <HelpIcon text={pnlHelp.realized} /></p>
+                <p className={`text-lg font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
                 </p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Win Rate <HelpIcon text={pnlHelp.winRate} /></p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.win_rate?.toFixed(1) || '0'}%</p>
+                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.win_rate?.toFixed(1) || '0'}%</p>
               </div>
-              <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+              <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider">Trades</p>
-                <p className="text-xl font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.trade_count || 0}</p>
+                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{pnl.trade_count || 0}</p>
               </div>
             </div>
           </div>
@@ -374,25 +410,54 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Strategy Description */}
-        <div className="border-l-4 border-[#9fe870] bg-[rgba(159,232,112,0.06)] dark:bg-[rgba(159,232,112,0.1)] rounded-r-[16px] px-4 py-3 mb-4 text-xs text-[#5a5b58] dark:text-[#8a8d88]">
-          {session.strategy === 'grid' ? (
-            <p>
-              <span className="text-[#163300] dark:text-[#9fe870] font-semibold">Grid Trading</span>: Bot akan memasang order beli dan jual di {configDisplay.grid_count || '?'} level harga antara {configDisplay.lower_price || '?'} dan {configDisplay.upper_price || '?'}.
-              Setiap order {configDisplay.quantity || '?'} {session.symbol.split('_')[0]}. Bot mengevaluasi setiap 30 detik.
-            </p>
-          ) : session.strategy === 'trend' ? (
-            <p>
-              <span className="text-[#5a5b58] dark:text-[#e8ebe6] font-semibold">Trend Following (SMA)</span>: Bot menghitung SMA {configDisplay.fast_period || '?'} (cepat) dan SMA {configDisplay.slow_period || '?'} (lambat).
-              Golden cross = sinyal <span className="text-[#054d28] dark:text-[#9fe870] font-medium">beli</span>. Death cross = sinyal <span className="text-[#d03238] dark:text-[#ff6b6f] font-medium">jual</span>.
-            </p>
-          ) : (
-            <p>
-              <span className="text-[#0994b3] dark:text-[#5dd8f5] font-semibold">DCA</span>: Bot membeli <strong>${configDisplay.amount || '?'}</strong> setiap{' '}
-              {configDisplay.interval_sec === 3600 ? '1 jam' : configDisplay.interval_sec === 7200 ? '2 jam' : configDisplay.interval_sec === 21600 ? '6 jam' : configDisplay.interval_sec === 43200 ? '12 jam' : configDisplay.interval_sec === 86400 ? '1 hari' : configDisplay.interval_sec === 604800 ? '1 minggu' : `${configDisplay.interval_sec || '?'} detik`}.
-              {configDisplay.take_profit_pct > 0 ? ` Take profit ${configDisplay.take_profit_pct}%.` : ' Akumulasi terus.'}
-            </p>
-          )}
+        {/* Strategy Config Card */}
+        <div className="bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-5 mb-4">
+          <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">
+            {session.strategy === 'grid' ? '📐 Konfigurasi Grid' : session.strategy === 'trend' ? '📈 Konfigurasi Trend' : '🪙 Konfigurasi DCA'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {session.strategy === 'grid' && (<>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
+                {configDisplay.grid_count || '?'} grid level
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                Bawah {configDisplay.lower_price?.toLocaleString() || '?'}
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                Atas {configDisplay.upper_price?.toLocaleString() || '?'}
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                {configDisplay.quantity || '?'} {session.symbol.split('_')[0]} / order
+              </span>
+            </>)}
+            {session.strategy === 'trend' && (<>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]">
+                SMA Cepat {configDisplay.fast_period || 10}
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.08)] text-[#0994b3] dark:text-[#5dd8f5]">
+                SMA Lambat {configDisplay.slow_period || 30}
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                {configDisplay.interval || '5m'} candle
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                {configDisplay.quantity || '?'} {session.symbol.split('_')[0]} / sinyal
+              </span>
+            </>)}
+            {session.strategy === 'dca' && (<>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]">
+                ${configDisplay.amount || '?'} / interval
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                {configDisplay.interval_sec === 3600 ? 'Setiap 1 jam' : configDisplay.interval_sec === 7200 ? 'Setiap 2 jam' : configDisplay.interval_sec === 21600 ? 'Setiap 6 jam' : configDisplay.interval_sec === 43200 ? 'Setiap 12 jam' : configDisplay.interval_sec === 86400 ? 'Setiap 1 hari' : configDisplay.interval_sec === 604800 ? 'Setiap 1 minggu' : `${configDisplay.interval_sec || '?'}s`}
+              </span>
+              {configDisplay.take_profit_pct > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
+                  Take profit {configDisplay.take_profit_pct}%
+                </span>
+              )}
+            </>)}
+          </div>
         </div>
 
         {/* Trend Signal Overview */}
