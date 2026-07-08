@@ -174,7 +174,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) error {
 	var openCount int
 	if err := p.db.Get(&openCount, p.db.Rebind("SELECT COUNT(*) FROM orders WHERE session_id=? AND side='buy' AND status='filled'"), session.ID); err != nil {
-		slog.Warn("trend: check open position", "session", session.ID, "error", err)
+		return fmt.Errorf("trend: check open position: %w", err)
 	}
 	if openCount > 0 {
 		slog.Debug("trend: open position exists, skip buy", "session", session.ID)
