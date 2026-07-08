@@ -310,6 +310,7 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
   const [insights, setInsights] = useState<any[]>([])
   const [nameEdited, setNameEdited] = useState(false)
   const [activeFilter, setActiveFilter] = useState<'all' | 'grid' | 'trend' | 'dca'>('all')
+  const [creating, setCreating] = useState(false)
 
   const stats = sessions ? {
     all: { total: sessions.length, running: sessions.filter(s => s.status === 'running').length },
@@ -345,6 +346,7 @@ const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('
         const { upper, lower } = calcGridDefaults(price)
         setUpperPrice(upper)
         setLowerPrice(lower)
+        setPriceLoading(false)
         return price
       }
     } catch (e: any) {
@@ -394,36 +396,42 @@ fetchPriceAndApply(symbol)
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    let config: any
-    if (strategy === 'grid') {
-      config = { upper_price: parseFloat(upperPrice), lower_price: parseFloat(lowerPrice), grid_count: parseInt(gridCount), quantity }
-      if (isBeginner) {
-        config.validation_mode = validationMode
-        config.validation_target_value = recommendation?.ValidationTargetValue || 2
-        config.validation_invalid_value = recommendation?.ValidationInvalidValue || 1
-        config.validation_window_minutes = recommendation?.ValidationWindowMinutes || 120
+    if (creating) return
+    setCreating(true)
+    try {
+      let config: any
+      if (strategy === 'grid') {
+        config = { upper_price: parseFloat(upperPrice), lower_price: parseFloat(lowerPrice), grid_count: parseInt(gridCount), quantity }
+        if (isBeginner) {
+          config.validation_mode = validationMode
+          config.validation_target_value = recommendation?.ValidationTargetValue || 2
+          config.validation_invalid_value = recommendation?.ValidationInvalidValue || 1
+          config.validation_window_minutes = recommendation?.ValidationWindowMinutes || 120
+        }
+      } else if (strategy === 'trend') {
+        config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), interval: trendInterval, quantity }
+        if (isBeginner && recommendation) {
+          config.validation_mode = 'percent'
+          config.validation_target_value = recommendation.validation_target_value || 2
+          config.validation_invalid_value = recommendation.validation_invalid_value || 1
+          config.validation_window_minutes = recommendation.validation_window_minutes || 120
+          config.capital = parseFloat(capital) || 0
+          config.horizon = horizon
+        }
+      } else {
+        config = { interval_sec: parseInt(dcaInterval), amount: parseFloat(dcaAmount), take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
       }
-} else if (strategy === 'trend') {
-	config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), interval: trendInterval, quantity }
-	if (isBeginner && recommendation) {
-	  config.validation_mode = 'percent'
-	  config.validation_target_value = recommendation.validation_target_value || 2
-	  config.validation_invalid_value = recommendation.validation_invalid_value || 1
-	  config.validation_window_minutes = recommendation.validation_window_minutes || 120
-	  config.capital = parseFloat(capital) || 0
-	  config.horizon = horizon
-	}
-  } else {
-      config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0 }
+      await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify({
+        ...config,
+        ...(mode === 'paper' && stopLossPct ? { stop_loss_pct: parseFloat(stopLossPct) } : {}),
+        ...(mode === 'paper' && takeProfitPct ? { take_profit_pct: parseFloat(takeProfitPct) } : {}),
+      }), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
+      setShowCreate(false)
+      setNameEdited(false)
+      refetch()
+    } finally {
+      setCreating(false)
     }
-    await api.sessions.create({ name: name || `${strategy}-${symbol}`, strategy, mode, symbol, config: JSON.stringify({
-      ...config,
-      ...(mode === 'paper' && stopLossPct ? { stop_loss_pct: parseFloat(stopLossPct) } : {}),
-      ...(mode === 'paper' && takeProfitPct ? { take_profit_pct: parseFloat(takeProfitPct) } : {}),
-    }), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
-    setShowCreate(false)
-    setNameEdited(false)
-    refetch()
   }
 
   async function handleStart(id: number) {
@@ -833,7 +841,7 @@ fetchPriceAndApply(symbol)
               </div>
             </>
           )}
-              <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-4 border-t border-[rgba(14,15,12,0.06)] pt-5">Buat Session</button>
+              <button type="submit" disabled={creating} className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] mt-4 border-t border-[rgba(14,15,12,0.06)] pt-5 disabled:opacity-60 disabled:cursor-not-allowed">{creating ? 'Membuat...' : 'Buat Session'}</button>
             </form>
           </div>
         )}
@@ -923,7 +931,7 @@ function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
       } ${
         session.status === 'running'
           ? 'bg-[rgba(159,232,112,0.015)] dark:bg-[rgba(159,232,112,0.03)]'
-          : 'opacity-90'
+          : ''
       }`}
       onClick={() => onDetail(session.id)}
     >
