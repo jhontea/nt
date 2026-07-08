@@ -247,7 +247,7 @@ export default function SessionDetailPage() {
                     disabled={loading === 'stop'}
                     className="px-5 py-2 text-sm font-bold bg-[rgba(208,50,56,0.08)] text-[#d03238] border border-[rgba(208,50,56,0.2)] hover:bg-[#d03238] hover:text-white hover:border-[#d03238] rounded-full transition-all disabled:opacity-50"
                   >
-                    {loading === 'stop' ? '...' : 'Stop'}
+                    {loading === 'stop' ? 'Stopping...' : 'Stop'}
                   </button>
                 ) : (
                   <button
@@ -255,7 +255,7 @@ export default function SessionDetailPage() {
                     disabled={loading === 'start'}
                     className="px-6 py-2 text-sm font-bold bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all disabled:opacity-50 shadow-[0_2px_8px_rgba(159,232,112,0.4)]"
                   >
-                    {loading === 'start' ? '...' : 'Start Bot'}
+                    {loading === 'start' ? 'Starting...' : 'Start Bot'}
                   </button>
                 )}
               </div>
@@ -266,7 +266,11 @@ export default function SessionDetailPage() {
         {/* Active Signals — empty state */}
         {isStrategySignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
           <div className="mb-6">
-            <p className="text-sm text-[#686868] dark:text-[#898989]">Belum ada sinyal aktif. Bot akan memunculkan sinyal saat kondisi pasar sesuai.</p>
+            <p className="text-sm text-[#686868] dark:text-[#898989]">
+              {session.status === 'running'
+                ? 'Belum ada sinyal aktif. Bot sedang memantau pasar...'
+                : 'Belum ada sinyal aktif. Klik "Start Bot" untuk memulai analisis pasar.'}
+            </p>
           </div>
         )}
 
@@ -361,8 +365,11 @@ export default function SessionDetailPage() {
         {/* P&L Cards */}
         {pnl ? (
           <div className="mb-6 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-8">
-            <div className="mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">Performa</h2>
+              <span className="text-xs text-[#686868] dark:text-[#898989]">
+                {session.mode === 'signal' ? 'P&L teoritis (Signal)' : session.mode === 'paper' ? 'P&L virtual (Paper)' : 'P&L real (Live)'}
+              </span>
             </div>
             
             {/* Total P&L Hero Card */}
