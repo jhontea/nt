@@ -14,7 +14,7 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import type { DCAConfig, Order } from '@/types'
+import type { DCAConfig, Order, Ticker } from '@/types'
 import { Coins, Plus, Clock, TrendingUp } from 'lucide-react'
 
 function parseDCAConfig(config: string): DCAConfig | null {
@@ -34,6 +34,58 @@ function formatCountdown(ms: number): string {
   if (s < 60) return `${s}d lagi`
   if (s < 3600) return `${Math.floor(s / 60)}m lagi`
   return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
+}
+
+// Progress bar: 0% (avg buy price) → current gain → TP target
+function DCABar({ avgBuy, current, tpPct }: { avgBuy: number; current: number; tpPct: number }) {
+  if (avgBuy <= 0 || tpPct <= 0) return null
+  const gainPct = ((current - avgBuy) / avgBuy) * 100
+  // bar range: -tpPct/2 to +tpPct (with some padding)
+  const rangeMin = -tpPct * 0.5
+  const rangeMax = tpPct * 1.1
+  const range = rangeMax - rangeMin
+  const markerPct = Math.max(0, Math.min(100, ((gainPct - rangeMin) / range) * 100))
+  const tpPctPos = Math.max(0, Math.min(100, ((tpPct - rangeMin) / range) * 100))
+  const isProfit = gainPct >= 0
+  const nearTP = gainPct >= tpPct * 0.8
+
+  return (
+    <div className="w-full mt-1 mb-2">
+      <div className="relative w-full h-5 flex items-center">
+        {/* Track */}
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] rounded-full overflow-hidden">
+          {/* Fill from zero to current */}
+          <div
+            className={`absolute inset-y-0 rounded-full transition-all ${isProfit ? 'bg-gradient-to-r from-[rgba(159,232,112,0.2)] to-[rgba(159,232,112,0.5)]' : 'bg-gradient-to-r from-[rgba(208,50,56,0.2)] to-[rgba(208,50,56,0.4)]'}`}
+            style={{
+              left: `${Math.min(markerPct, ((0 - rangeMin) / range) * 100)}%`,
+              right: `${100 - Math.max(markerPct, ((0 - rangeMin) / range) * 100)}%`,
+            }}
+          />
+        </div>
+        {/* Zero line */}
+        <div className="absolute top-0 bottom-0 w-px bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]" style={{ left: `${((0 - rangeMin) / range) * 100}%` }} />
+        {/* TP target line */}
+        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(159,232,112,0.6)] dark:bg-[rgba(159,232,112,0.5)] rounded-full" style={{ left: `${tpPctPos}%` }} title={`TP: +${tpPct}%`} />
+        {/* Current price marker */}
+        <div
+          className={`absolute top-0 bottom-0 w-0.5 rounded-full transition-all ${nearTP ? 'bg-[#9fe870]' : isProfit ? 'bg-[#163300] dark:bg-[#9fe870]' : 'bg-[#d03238] dark:bg-[#ff6b6f]'}`}
+          style={{ left: `${markerPct}%` }}
+          title={`Gain: ${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%`}
+        />
+        {/* Labels */}
+        <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">Avg</span>
+        <span className="absolute -bottom-3.5 text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpPctPos}%`, transform: 'translateX(-50%)' }}>TP</span>
+      </div>
+      <div className="mt-4 flex items-center justify-between text-[10px]">
+        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}% dari avg
+        </span>
+        {nearTP && <span className="text-[#054d28] dark:text-[#9fe870] font-bold animate-pulse">Mendekati TP!</span>}
+        <span className="text-[#686868] dark:text-[#898989]">Target +{tpPct}%</span>
+      </div>
+    </div>
+  )
 }
 
 export default function DcaPage() {
@@ -73,6 +125,21 @@ export default function DcaPage() {
   const ordersBySession = useMemo(() =>
     Object.fromEntries(sessionIds.map((id, i) => [id, orderQueries[i]?.data ?? []])) as Record<number, Order[]>,
     [sessionIds, orderQueries]
+  )
+
+  // Ticker per unique symbol — refetch every 1s for live bar
+  const tickerQueries = useQueries({
+    queries: uniqueSymbols.map(symbol => ({
+      queryKey: ['ticker', symbol],
+      queryFn: () => api.sessions.getTicker(symbol),
+      enabled: isAuthenticated && uniqueSymbols.length > 0,
+      staleTime: 5_000,
+      refetchInterval: 1_000,
+    })),
+  })
+  const tickerBySymbol = useMemo(() =>
+    Object.fromEntries(uniqueSymbols.map((sym, i) => [sym, tickerQueries[i]?.data ?? null])) as Record<string, Ticker | null>,
+    [uniqueSymbols, tickerQueries]
   )
 
   const filteredSessions = useMemo(() =>
@@ -143,8 +210,10 @@ export default function DcaPage() {
                 ? new Date(lastBuy.created_at).getTime() + cfg.interval_sec * 1000 - now
                 : null
               const totalBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal')).length
-              const totalInvested = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
-                .reduce((sum, o) => sum + parseFloat(o.quantity) * parseFloat(o.price || '0'), 0)
+              const filledBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+              const totalInvested = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity) * parseFloat(o.price || '0'), 0)
+              const totalQty = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity), 0)
+              const avgBuy = totalQty > 0 ? filledBuys.reduce((sum, o) => sum + parseFloat(o.executed_price || o.price) * parseFloat(o.quantity), 0) / totalQty : 0
 
               return (
                 <div key={s.id}>
@@ -152,26 +221,36 @@ export default function DcaPage() {
 
                   {/* DCA config strip */}
                   {cfg && (
-                    <div className="mx-1 -mt-1 bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border border-t-0 border-[rgba(255,209,26,0.15)] rounded-b-[16px] px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
-                        <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
-                        <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                        <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
-                        {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
+                    <div className="mx-1 -mt-1 bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border border-t-0 border-[rgba(255,209,26,0.15)] rounded-b-[16px] px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                          <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
                           <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                          <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
-                        </>)}
-                        {totalBuys > 0 && (<>
-                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                          <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested</span>
-                        </>)}
+                          <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
+                          {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
+                            <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                            <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
+                          </>)}
+                          {totalBuys > 0 && (<>
+                            <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested</span>
+                          </>)}
+                        </div>
+                        {/* Next buy countdown */}
+                        {nextBuyMs !== null && (
+                          <span className="flex items-center gap-1 text-xs text-[#686868] dark:text-[#898989]">
+                            <Clock size={11} />
+                            {formatCountdown(nextBuyMs)}
+                          </span>
+                        )}
                       </div>
-                      {/* Next buy countdown */}
-                      {nextBuyMs !== null && (
-                        <span className="flex items-center gap-1 text-xs text-[#686868] dark:text-[#898989]">
-                          <Clock size={11} />
-                          {formatCountdown(nextBuyMs)}
-                        </span>
+                      {/* DCA progress bar toward TP */}
+                      {cfg.take_profit_pct && cfg.take_profit_pct > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] && (
+                        <DCABar
+                          avgBuy={avgBuy}
+                          current={parseFloat(tickerBySymbol[s.symbol]!.lastPrice)}
+                          tpPct={cfg.take_profit_pct}
+                        />
                       )}
                     </div>
                   )}
