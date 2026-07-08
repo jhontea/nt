@@ -403,6 +403,13 @@ export default function SessionDetailPage() {
               Sessions
             </button>
             <span className="text-[#686868] dark:text-[#898989] text-sm flex-shrink-0">/</span>
+            <button
+              onClick={() => router.push(`/sessions/${session.strategy}`)}
+              className="text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors flex-shrink-0"
+            >
+              {strategyLabel}
+            </button>
+            <span className="text-[#686868] dark:text-[#898989] text-sm flex-shrink-0">/</span>
 
             {/* Session switcher dropdown */}
             <div className="relative min-w-0">
