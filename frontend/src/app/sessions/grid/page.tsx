@@ -160,10 +160,11 @@ export default function GridPage() {
   const sessionExtras = useMemo(() => {
     const map: Record<number, SessionExtra> = {}
     sessionIds.forEach((id, i) => {
+      const pIdx = paperIds.indexOf(id)
       map[id] = {
         orders: orderQueries[i]?.data ?? [],
         summary: summaryQueries[i]?.data ?? null,
-        portfolio: portfolioQueries.find(q => q.data && paperIds.includes(id))?.data ?? null,
+        portfolio: pIdx >= 0 ? (portfolioQueries[pIdx]?.data ?? null) : null,
       }
     })
     return map
