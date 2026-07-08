@@ -41,6 +41,13 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	c.JSON(code, ErrorResponse{Error: msg})
 }
 
+func withStrategy(strat string, h echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Set("strategy", strat)
+		return h(c)
+	}
+}
+
 func main() {
 	cfg := config.Load()
 
@@ -150,7 +157,15 @@ func main() {
 	v1.PATCH("/sessions/:id/notes", sessionH.UpdateNotes)
 	v1.GET("/sessions/:id/reevaluate", sessionH.Reevaluate)
 	v1.PATCH("/sessions/:id/config", sessionH.ApplyConfig)
-	v1.DELETE("/sessions/:id", sessionH.Delete)
+  v1.DELETE("/sessions/:id", sessionH.Delete)
+
+	// Per-strategy scoped routes — strategy injected from path so the same
+	// handler serves /v1/{strategy}/sessions with filtering and create override.
+	for _, strat := range []string{"grid", "trend", "dca"} {
+		g := v1.Group("/" + strat)
+		g.GET("/sessions", withStrategy(strat, sessionH.List))
+		g.POST("/sessions", withStrategy(strat, sessionH.Create))
+	}
 	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 		signals, err := signalRepo.ListBySession(c.Request().Context(), id, 100)

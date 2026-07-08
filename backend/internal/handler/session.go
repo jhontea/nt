@@ -49,6 +49,19 @@ func (h *SessionHandler) reqContext(c echo.Context) context.Context {
 	return ctx
 }
 
+func filterSessionsByStrategy(sessions []model.Session, strategy string) []model.Session {
+	if strategy == "" {
+		return sessions
+	}
+	out := make([]model.Session, 0, len(sessions))
+	for _, s := range sessions {
+		if string(s.Strategy) == strategy {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func (h *SessionHandler) checkOwnership(c echo.Context, sessionID int64) (*model.Session, error) {
 	session, err := h.svc.GetByID(h.reqContext(c), sessionID)
 	if err != nil {
@@ -64,6 +77,9 @@ func (h *SessionHandler) Create(c echo.Context) error {
 	var req createSessionRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("invalid request"))
+	}
+	if strat, ok := c.Get("strategy").(string); ok && strat != "" {
+		req.Strategy = strat
 	}
 	if req.Mode == "" {
 		req.Mode = string(model.ModeSignal)
@@ -86,6 +102,9 @@ func (h *SessionHandler) List(c echo.Context) error {
 	sessions, err := h.svc.List(h.reqContext(c), h.userID(c))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	if strat, ok := c.Get("strategy").(string); ok && strat != "" {
+		sessions = filterSessionsByStrategy(sessions, strat)
 	}
 	type sessionWithStatus struct {
 		*model.Session
