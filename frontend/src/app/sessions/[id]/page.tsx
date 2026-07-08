@@ -1,4 +1,5 @@
 ﻿'use client'
+import { Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, Clipboard, Search, Lock, Star, Skull, Loader, Target, OctagonX } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -463,7 +464,7 @@ export default function SessionDetailPage() {
                 ? 'bg-[rgba(56,200,255,0.12)]'
                 : 'bg-[rgba(255,209,26,0.12)]'
             }`}>
-              {session.strategy === 'grid' ? '📐' : session.strategy === 'trend' ? '📈' : '🪙'}
+              {session.strategy === 'grid' ? <Grid2x2 size={28} /> : session.strategy === 'trend' ? <TrendingUp size={28} /> : <Coins size={28} />}
             </div>
 
             {/* Content */}
@@ -473,9 +474,9 @@ export default function SessionDetailPage() {
               {/* Chips row */}
               <div className="flex items-center gap-2 flex-wrap mb-3">
                 {/* Mode */}
-                {session.mode === 'signal' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">📊 Signal</span>}
-                {session.mode === 'paper' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">📝 Paper</span>}
-                {session.mode === 'live' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">⚡ Live</span>}
+                {session.mode === 'signal' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>}
+                {session.mode === 'paper' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>}
+                {session.mode === 'live' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>}
                 {/* Status */}
                 {session.status === 'running' ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] dark:bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]">
@@ -516,7 +517,7 @@ export default function SessionDetailPage() {
                   onClick={handleCopySummary}
                   className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all"
                 >
-                  {copied ? '✓ Copied!' : '📋 Copy Summary'}
+                  {copied ? '✓ Copied!' : <><Clipboard size={14} className="inline mr-1" />Copy Summary</>}
                 </button>
                 {session.strategy === 'grid' && (
                   <button
@@ -524,7 +525,7 @@ export default function SessionDetailPage() {
                     disabled={reevalLoading}
                     className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all disabled:opacity-50"
                   >
-                    {reevalLoading ? '...' : '🔍 Reevaluate'}
+                    {reevalLoading ? '...' : <><Search size={14} className="inline mr-1" />Reevaluate</>}
                   </button>
                 )}
               </div>
@@ -581,7 +582,7 @@ export default function SessionDetailPage() {
                           <p className="text-xs text-[#686868] dark:text-[#898989]">Level #{s.grid_level_index}</p>
                         </div>
                       </div>
-                      <span className="text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-2.5 py-1 rounded-full animate-pulse">⏳ menunggu</span>
+                      <span className="text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-2.5 py-1 rounded-full animate-pulse"><Loader size={10} className="inline mr-1 animate-spin" />menunggu</span>
                     </div>
 
                     {/* Progress bar: invalid — entry — target */}
@@ -739,7 +740,7 @@ export default function SessionDetailPage() {
                     className="px-4 py-2 text-sm font-semibold bg-[#9fe870] text-[#163300] rounded-full hover:bg-[#cdffad] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     title={session.status === 'running' ? 'Stop session dulu sebelum apply' : ''}
                   >
-                    {session.status === 'running' ? '🔒 Stop Dulu untuk Apply' : '✓ Terapkan Saran'}
+                    {session.status === 'running' ? <><Lock size={14} className="inline mr-1" />Stop Dulu untuk Apply</> : '✓ Terapkan Saran'}
                   </button>
                 </div>
               )}
@@ -894,8 +895,9 @@ export default function SessionDetailPage() {
 
         {/* Strategy Config Card */}
         <div className="bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-5 mb-4">
-          <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">
-            {session.strategy === 'grid' ? '📐 Konfigurasi Grid' : session.strategy === 'trend' ? '📈 Konfigurasi Trend' : '🪙 Konfigurasi DCA'}
+          <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            {session.strategy === 'grid' ? <Grid2x2 size={12} /> : session.strategy === 'trend' ? <TrendingUp size={12} /> : <Coins size={12} />}
+            {session.strategy === 'grid' ? 'Konfigurasi Grid' : session.strategy === 'trend' ? 'Konfigurasi Trend' : 'Konfigurasi DCA'}
           </p>
           <div className="flex flex-wrap gap-2">
             {session.strategy === 'grid' && (<>
@@ -940,12 +942,12 @@ export default function SessionDetailPage() {
               )}
               {session.mode === 'paper' && configDisplay.stop_loss_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
-                  🛑 SL {configDisplay.stop_loss_pct}%
+                  <OctagonX size={12} className="inline mr-1" />SL {configDisplay.stop_loss_pct}%
                 </span>
               )}
               {session.mode === 'paper' && configDisplay.take_profit_pct > 0 && session.strategy !== 'dca' && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
-                  🎯 TP {configDisplay.take_profit_pct}%
+                  <Target size={12} className="inline mr-1" />TP {configDisplay.take_profit_pct}%
                 </span>
               )}
             </>)}
@@ -1135,14 +1137,14 @@ export default function SessionDetailPage() {
                               {isBuy ? '▲ Beli' : '▼ Jual'}
                             </span>
                             {!isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">L{s.grid_level_index}</span>}
-                            {isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">{s.reason === 'golden_cross' ? '🌟 Golden Cross' : s.reason === 'death_cross' ? '💀 Death Cross' : s.reason}</span>}
+                            {isTrendSignal && <span className="text-xs text-[#686868] dark:text-[#898989]">{s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden Cross</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1" />Death Cross</> : s.reason}</span>}
                             <span className="text-xs font-mono text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</span>
                             {s.validation_status === 'confirmed' && s.result_pct != null && (
                               <span className={`text-xs font-semibold ${s.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                 {s.result_pct >= 0 ? '+' : ''}{s.result_pct.toFixed(2)}%
                               </span>
                             )}
-                            {s.validation_status === 'pending' && <span className="text-[10px] font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-1.5 py-0.5 rounded-full animate-pulse">⏳ menunggu</span>}
+                            {s.validation_status === 'pending' && <span className="text-[10px] font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842] px-1.5 py-0.5 rounded-full animate-pulse"><Loader size={10} className="inline mr-1 animate-spin" />menunggu</span>}
                           </div>
                           <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">
                             {new Date(s.created_at).toLocaleDateString('id-ID')} {new Date(s.created_at).toLocaleTimeString('id-ID')}
@@ -1182,7 +1184,7 @@ export default function SessionDetailPage() {
                           </td>
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs">
                             {isTrendSignal
-                              ? (s.reason === 'golden_cross' ? '🌟 Golden' : s.reason === 'death_cross' ? '💀 Death' : s.reason)
+                              ? (s.reason === 'golden_cross' ? <><Star size={12} className="inline mr-1 text-[#ffd11a]" />Golden</> : s.reason === 'death_cross' ? <><Skull size={12} className="inline mr-1" />Death</> : s.reason)
                               : `#${s.grid_level_index}`}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmt(parseFloat(s.grid_level_price))}</td>
@@ -1194,7 +1196,7 @@ export default function SessionDetailPage() {
                               s.validation_status === 'pending' ? 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]' :
                               'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]'
                             }`}>
-                              {s.validation_status === 'confirmed' ? '✓ confirmed' : s.validation_status === 'invalidated' ? '✗ invalid' : s.validation_status === 'pending' ? '⏳ pending' : 'expired'}
+                              {s.validation_status === 'confirmed' ? '✓ confirmed' : s.validation_status === 'invalidated' ? '✗ invalid' : s.validation_status === 'pending' ? <><Loader size={10} className="inline mr-1 animate-spin" />pending</> : 'expired'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-xs text-right">
