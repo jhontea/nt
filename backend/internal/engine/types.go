@@ -21,9 +21,16 @@ type GridConfig struct {
 
 // TrendConfig defines the parameters for the SMA crossover strategy.
 type TrendConfig struct {
-	FastPeriod int    `json:"fast_period"` // short SMA period (e.g. 10)
-	SlowPeriod int    `json:"slow_period"` // long SMA period (e.g. 30)
-	Quantity   string `json:"quantity"`    // base asset amount per order
+	FastPeriod              int     `json:"fast_period"`          // short SMA period (e.g. 10)
+	SlowPeriod              int     `json:"slow_period"`          // long SMA period (e.g. 30)
+	Interval                string  `json:"interval,omitempty"`   // "5m","15m","1h","4h"; default "5m"
+	Quantity                string  `json:"quantity"`             // base asset amount per order
+	Capital                 float64 `json:"capital,omitempty"`    // optional: capital -> quantity
+	Horizon                 string  `json:"horizon,omitempty"`    // "short","medium","long"
+	ValidationMode          string  `json:"validation_mode,omitempty"`           // trend: always "percent"
+	ValidationTargetValue   float64 `json:"validation_target_value,omitempty"`
+	ValidationInvalidValue  float64 `json:"validation_invalid_value,omitempty"`
+	ValidationWindowMinutes int     `json:"validation_window_minutes,omitempty"`
 }
 
 // DCAConfig defines the parameters for the Dollar-Cost Average strategy.

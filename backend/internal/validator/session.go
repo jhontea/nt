@@ -41,9 +41,14 @@ func GridConfig(s string) error {
 
 func TrendConfig(s string) error {
 	var cfg struct {
-		FastPeriod int    `json:"fast_period"`
-		SlowPeriod int    `json:"slow_period"`
-		Quantity   string `json:"quantity"`
+		FastPeriod              int     `json:"fast_period"`
+		SlowPeriod              int     `json:"slow_period"`
+		Interval                string  `json:"interval"`
+		Quantity                string  `json:"quantity"`
+		ValidationMode          string  `json:"validation_mode"`
+		ValidationTargetValue   float64 `json:"validation_target_value"`
+		ValidationInvalidValue  float64 `json:"validation_invalid_value"`
+		ValidationWindowMinutes int     `json:"validation_window_minutes"`
 	}
 	if err := json.Unmarshal([]byte(s), &cfg); err != nil {
 		return err
@@ -58,8 +63,24 @@ func TrendConfig(s string) error {
 	if cfg.SlowPeriod > 200 {
 		e.Add(ErrField("slow_period", "maximum 200"))
 	}
+	validIntervals := map[string]bool{"": true, "5m": true, "15m": true, "1h": true, "4h": true}
+	if !validIntervals[cfg.Interval] {
+		e.Add(ErrField("interval", "must be one of 5m, 15m, 1h, 4h"))
+	}
 	if f, _ := strconv.ParseFloat(cfg.Quantity, 64); f <= 0 {
 		e.Add(ErrField("quantity", "must be > 0"))
+	}
+	if cfg.ValidationMode != "" && cfg.ValidationMode != "percent" {
+		e.Add(ErrField("validation_mode", "trend only supports 'percent'"))
+	}
+	if cfg.ValidationTargetValue < 0 {
+		e.Add(ErrField("validation_target_value", "cannot be negative"))
+	}
+	if cfg.ValidationInvalidValue < 0 {
+		e.Add(ErrField("validation_invalid_value", "cannot be negative"))
+	}
+	if cfg.ValidationWindowMinutes < 0 || cfg.ValidationWindowMinutes > 10080 {
+		e.Add(ErrField("validation_window_minutes", "must be between 0 and 10080"))
 	}
 	return e.Err()
 }

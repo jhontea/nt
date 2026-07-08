@@ -112,3 +112,39 @@ func TestValidateSession(t *testing.T) {
 		t.Errorf("valid DCA config rejected: %v", err)
 	}
 }
+
+func TestTrendConfig_RejectsInvalidInterval(t *testing.T) {
+	if err := ValidateSession("signal", "trend", `{"fast_period":3,"slow_period":10,"quantity":"0.001","interval":"1d"}`); err == nil {
+		t.Fatal("expected error for invalid interval")
+	}
+}
+
+func TestTrendConfig_AcceptsValidInterval(t *testing.T) {
+	cases := []string{
+		`{"fast_period":3,"slow_period":10,"quantity":"0.001","interval":"5m"}`,
+		`{"fast_period":3,"slow_period":10,"quantity":"0.001","interval":"1h"}`,
+	}
+	for _, c := range cases {
+		if err := ValidateSession("signal", "trend", c); err != nil {
+			t.Errorf("expected ok for %s, got %v", c, err)
+		}
+	}
+}
+
+func TestTrendConfig_DefaultsIntervalTo5m(t *testing.T) {
+	if err := ValidateSession("signal", "trend", `{"fast_period":3,"slow_period":10,"quantity":"0.001"}`); err != nil {
+		t.Errorf("expected ok without interval, got %v", err)
+	}
+}
+
+func TestTrendConfig_RejectsEmptyQuantity(t *testing.T) {
+	if err := ValidateSession("signal", "trend", `{"fast_period":3,"slow_period":10,"quantity":"0"}`); err == nil {
+		t.Fatal("expected error for zero quantity")
+	}
+}
+
+func TestTrendConfig_RejectsNonPercentValidationMode(t *testing.T) {
+	if err := ValidateSession("signal", "trend", `{"fast_period":3,"slow_period":10,"quantity":"0.001","validation_mode":"grid_steps"}`); err == nil {
+		t.Fatal("expected error for non-percent validation_mode on trend")
+	}
+}
