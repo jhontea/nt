@@ -194,7 +194,7 @@ func TestGetCandles_Success(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		json.NewEncoder(w).Encode(CandleResponse{
-			Code: 0, Data: [][]any{{"t", "o", "h", "l", "c", "v"}},
+			Code: 0, Data: CandleData{List: [][]any{{"t", "o", "h", "l", "c", "v"}}},
 		})
 	})
 

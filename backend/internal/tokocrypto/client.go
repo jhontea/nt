@@ -267,7 +267,7 @@ func (c *Client) GetCandles(symbol, interval string, limit int) ([][]any, error)
 	if res.Code != 0 {
 		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
 	}
-	return res.Data, nil
+	return res.Data.List, nil
 }
 
 func (c *Client) GetAccount() (*Account, error) {

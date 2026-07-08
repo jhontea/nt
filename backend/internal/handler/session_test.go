@@ -30,7 +30,7 @@ func setupSessionTest(t *testing.T) (*SessionHandler, *mockrepo.MockSessionRepos
 	wsHub := engine.NewWSHub("test")
 	notifier := service.NewNotifier("", "")
 	mgr := engine.NewManager(client, nil, notifier, wsHub, nil)
-	h := NewSessionHandler(svc, mgr, nil)
+	h := NewSessionHandler(svc, mgr, nil, nil)
 
 	e := echo.New()
 	rec := httptest.NewRecorder()
@@ -71,7 +71,7 @@ func setupSessionTestWithPnL(t *testing.T) (*SessionHandler, *mockrepo.MockSessi
 	wsHub := engine.NewWSHub("test")
 	notifier := service.NewNotifier("", "")
 	mgr := engine.NewManager(client, nil, notifier, wsHub, nil)
-	h := NewSessionHandler(svc, mgr, nil)
+	h := NewSessionHandler(svc, mgr, nil, nil)
 
 	e := echo.New()
 	rec := httptest.NewRecorder()

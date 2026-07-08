@@ -37,9 +37,19 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
   if (!data) {
     return (
       <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] animate-pulse">
-        <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>
-        <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88] mt-1">{symbol}</p>
-        <p className="text-sm text-[#5a5b58] dark:text-[#8a8d88] mt-4">Mengambil harga...</p>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <div className="h-3 w-20 bg-[#f0f1ee] dark:bg-[#252822] rounded-full mb-2" />
+            <div className="h-2 w-16 bg-[#f0f1ee] dark:bg-[#252822] rounded-full" />
+          </div>
+          <div className="h-4 w-10 bg-[#f0f1ee] dark:bg-[#252822] rounded-full" />
+        </div>
+        <div className="h-7 w-32 bg-[#f0f1ee] dark:bg-[#252822] rounded-full mb-4" />
+        <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-3">
+          <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full" />
+          <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full" />
+          <div className="h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full" />
+        </div>
       </div>
     )
   }
@@ -51,7 +61,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
   const approxIDR = !isIDRPair && usdtIdrRate ? last * usdtIdrRate : null
 
   return (
-    <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.2)] hover:shadow-[0_4px_20px_rgba(14,15,12,0.06)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all">
+    <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.2)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-[#686868] dark:text-[#898989]">{label}</p>

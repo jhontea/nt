@@ -57,7 +57,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 leading-tight">
           Bot Trading Otomatis<br className="hidden sm:block" /> untuk TokoCrypto
         </h2>

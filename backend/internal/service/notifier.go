@@ -68,19 +68,40 @@ func (n *Notifier) Send(text string) error {
 	return nil
 }
 
-func (n *Notifier) SendSignal(sessionName, symbol, side, price, reason string) {
-	emoji := fmt.Sprintf("🟢 %s", "BELI")
+func (n *Notifier) SendSignal(sessionName, strategy, mode, symbol, side, price, reason string) {
+	sideEmoji := "🟢"
+	sideLabel := "BELI"
 	if side == string(model.SideSell) {
-		emoji = fmt.Sprintf("🔴 %s", "JUAL")
+		sideEmoji = "🔴"
+		sideLabel = "JUAL"
+	}
+	strategyLabel := map[string]string{
+		"grid":  "📐 Grid",
+		"trend": "📈 Trend",
+		"dca":   "🪙 DCA",
+	}[strategy]
+	if strategyLabel == "" {
+		strategyLabel = strategy
+	}
+	modeLabel := map[string]string{
+		"signal": "📊 Signal",
+		"paper":  "📝 Paper",
+		"live":   "⚡ Live",
+	}[mode]
+	if modeLabel == "" {
+		modeLabel = mode
 	}
 	msg := fmt.Sprintf(
 		"%s <b>%s</b>\n"+
-			"📋 Session: <b>%s</b>\n"+
+			"📋 <b>%s</b> · %s · %s\n"+
 			"📊 Pair: <b>%s</b>\n"+
 			"💵 Harga: <code>%s</code>\n"+
-			"📝 Alasan: <i>%s</i>\n"+
+			"📝 <i>%s</i>\n"+
 			"🕐 %s",
-		emoji, side, sessionName, symbol, price, reason, time.Now().Format("15:04:05"),
+		sideEmoji, sideLabel,
+		sessionName, strategyLabel, modeLabel,
+		symbol, price, reason,
+		time.Now().Format("15:04:05"),
 	)
 	if err := n.sendHTML(msg); err != nil {
 		slog.Warn("telegram send signal", "error", err)

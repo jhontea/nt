@@ -52,7 +52,7 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <form action="#" method="post" onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[16px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e201c] p-8 rounded-[16px] w-full max-w-sm space-y-4 flex-shrink-0 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
           <h2 className="text-xl font-semibold text-center text-[#0e0f0c] dark:text-[#e8ebe6]">{isRegister ? 'Register' : 'Login'}</h2>
           {error && <p className="text-[#d03238] dark:text-[#ff6b6f] text-sm">{error}</p>}
 
