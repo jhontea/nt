@@ -42,17 +42,17 @@ export interface TrendConfig {
 }
 
 export interface TrendRecommendation {
-  Symbol: string
-  CurrentPrice: number
-  FastPeriod: number
-  SlowPeriod: number
-  Interval: string
-  Quantity: string
-  ValidationMode: 'percent'
-  ValidationTargetValue: number
-  ValidationInvalidValue: number
-  ValidationWindowMinutes: number
-  Reason: string
+  symbol: string
+  current_price: number
+  fast_period: number
+  slow_period: number
+  interval: string
+  quantity: string
+  validation_mode: 'percent'
+  validation_target_value: number
+  validation_invalid_value: number
+  validation_window_minutes: number
+  reason: string
 }
 
 export interface DCAConfig {

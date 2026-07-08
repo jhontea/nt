@@ -177,10 +177,10 @@ async function fetchRecommendation(strat?: string) {
 	  try {
 		const rec = await api.trend.recommend({ symbol, horizon, capital: parseFloat(capital) || 100 })
 		setRecommendation(rec)
-		setFastPeriod(String(rec.FastPeriod))
-		setSlowPeriod(String(rec.SlowPeriod))
-		setQuantity(rec.Quantity)
-		setTrendInterval(rec.Interval as '5m' | '15m' | '1h' | '4h')
+		setFastPeriod(String(rec.fast_period))
+		setSlowPeriod(String(rec.slow_period))
+		setQuantity(rec.quantity)
+		setTrendInterval(rec.interval as '5m' | '15m' | '1h' | '4h')
 	  } catch { /* ignore */ }
 	}
   }
@@ -229,9 +229,9 @@ setFastPeriod(String(p.config.fast_period || 10))
 	config = { fast_period: parseInt(fastPeriod), slow_period: parseInt(slowPeriod), interval: trendInterval, quantity }
 	if (isBeginner && recommendation) {
 	  config.validation_mode = 'percent'
-	  config.validation_target_value = recommendation.ValidationTargetValue || 2
-	  config.validation_invalid_value = recommendation.ValidationInvalidValue || 1
-	  config.validation_window_minutes = recommendation.ValidationWindowMinutes || 120
+	  config.validation_target_value = recommendation.validation_target_value || 2
+	  config.validation_invalid_value = recommendation.validation_invalid_value || 1
+	  config.validation_window_minutes = recommendation.validation_window_minutes || 120
 	  config.capital = parseFloat(capital) || 0
 	  config.horizon = horizon
 	}
@@ -542,10 +542,10 @@ setFastPeriod(String(p.config.fast_period || 10))
                   {recommendation && (
                     <div className="bg-white dark:bg-[#1e201c] border-l-4 border-[rgba(56,200,255,0.85)] rounded-[16px] p-4 text-xs space-y-1.5 shadow-[0_1px_4px_rgba(14,15,12,0.06)] dark:shadow-[0_1px_4px_rgba(232,235,230,0.06)]">
                       <p className="text-[#0994b3] dark:text-[#5dd8f5] font-semibold">Rekomendasi untuk {symbol}</p>
-                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">SMA: cepat {recommendation.FastPeriod}, lambat {recommendation.SlowPeriod} pada interval {recommendation.Interval}</p>
-                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Qty: {recommendation.Quantity} ({horizon}, modal ${capital})</p>
-                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Validasi: target +{recommendation.ValidationTargetValue}%, invalid -{recommendation.ValidationInvalidValue}% dalam {recommendation.ValidationWindowMinutes} menit</p>
-                      <p className="text-[#686868] dark:text-[#898989] italic">{recommendation.Reason}</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">SMA: cepat {recommendation.fast_period}, lambat {recommendation.slow_period} pada interval {recommendation.interval}</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Qty: {recommendation.quantity} ({horizon}, modal ${capital})</p>
+                      <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">Validasi: target +{recommendation.validation_target_value}%, invalid -{recommendation.validation_invalid_value}% dalam {recommendation.validation_window_minutes} menit</p>
+                      <p className="text-[#686868] dark:text-[#898989] italic">{recommendation.reason}</p>
                     </div>
                   )}
                 </div>
