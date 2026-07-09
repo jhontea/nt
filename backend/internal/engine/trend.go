@@ -90,6 +90,7 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 
 	signals := []Signal{}
 	if len(prices) < config.SlowPeriod {
+		slog.Debug("trend: not enough candles", "session", sessionID, "have", len(prices), "need", config.SlowPeriod)
 		return signals
 	}
 
@@ -104,6 +105,8 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 	golden := prevFast <= prevSlow && currFast > currSlow
 	death := prevFast >= prevSlow && currFast < currSlow
 
+	slog.Debug("trend: evaluate", "session", sessionID, "currFast", fmt.Sprintf("%.2f", currFast), "currSlow", fmt.Sprintf("%.2f", currSlow), "golden", golden, "death", death, "lastCross", state.lastCrossType)
+
 	if golden && state.lastCrossType != "golden" {
 		signals = append(signals, Signal{
 			Side:   string(model.SideBuy),
@@ -111,7 +114,11 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 			Reason: "golden_cross",
 		})
 		state.lastCrossType = "golden"
+		slog.Info("trend: golden cross signal", "session", sessionID, "price", prices[len(prices)-1])
+	} else if golden && state.lastCrossType == "golden" {
+		slog.Debug("trend: golden cross skipped (already golden)", "session", sessionID)
 	}
+
 	if death && state.lastCrossType != "death" {
 		signals = append(signals, Signal{
 			Side:   string(model.SideSell),
@@ -119,7 +126,11 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 			Reason: "death_cross",
 		})
 		state.lastCrossType = "death"
+		slog.Info("trend: death cross signal", "session", sessionID, "price", prices[len(prices)-1])
+	} else if death && state.lastCrossType == "death" {
+		slog.Debug("trend: death cross skipped (already death)", "session", sessionID)
 	}
+
 	return signals
 }
 
