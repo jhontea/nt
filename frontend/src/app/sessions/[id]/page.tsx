@@ -12,6 +12,7 @@ import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
+import { TrendEditConfigForm } from '@/components/sessions/TrendEditConfigForm'
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie } from 'recharts'
 
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
@@ -1254,6 +1255,16 @@ export default function SessionDetailPage() {
 
             {/* Config editor */}
             {editingConfig ? (
+              session.strategy === 'trend' ? (
+                <TrendEditConfigForm
+                  sessionId={Number(id)}
+                  symbol={session.symbol}
+                  currentConfig={configDisplay}
+                  sessionRunning={session.status === 'running'}
+                  onSaved={() => { setEditingConfig(false); qc.invalidateQueries({ queryKey: ['session', id] }) }}
+                  onCancel={() => setEditingConfig(false)}
+                />
+              ) : (
               <div className="space-y-3">
                 {/* Recommendation panel for grid */}
                 {session.strategy === 'grid' && (
@@ -1311,6 +1322,7 @@ export default function SessionDetailPage() {
                   </button>
                 </div>
               </div>
+              )
             ) : (
               <div className="overflow-x-auto">
                 <div className="flex items-center justify-between mb-2">
