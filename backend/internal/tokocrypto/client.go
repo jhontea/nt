@@ -304,45 +304,44 @@ func (c *Client) GetMovers() Movers {
 	return Movers{Gainers: gainers, Hot: hot}
 }
 
-type symbolInfo struct {
-	Symbol     string `json:"symbol"`
-	QuoteAsset string `json:"quoteAsset"`
+type idrTicker struct {
+	Symbol             string `json:"symbol"`
+	LastPrice          string `json:"lastPrice"`
+	PriceChangePercent string `json:"priceChangePercent"`
+	QuoteVolume        string `json:"quoteVolume"`
 }
 
-type symbolsResponse struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data struct {
-		List []symbolInfo `json:"list"`
-	} `json:"data"`
-}
-
-// fetchIDRSymbols returns all trading pairs quoted in IDR.
-func (c *Client) fetchIDRSymbols() ([]string, error) {
-	body, err := c.doPublic("/open/v1/common/symbols", nil)
+// fetchIDRTickers returns 24h tickers for all IDR pairs in ONE call to the
+// public ticker/24hr endpoint (covers both USDT and IDR markets), instead
+// of one klines call per pair.
+func (c *Client) fetchIDRTickers() (map[string]*Ticker, error) {
+	body, err := c.doPublic("/api/v3/ticker/24hr", nil)
 	if err != nil {
 		return nil, err
 	}
-	var res symbolsResponse
-	if err := json.Unmarshal(body, &res); err != nil {
+	var raw []idrTicker
+	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, err
 	}
-	if res.Code != 0 {
-		return nil, fmt.Errorf("tokocrypto symbols error %d: %s", res.Code, res.Msg)
-	}
-	var out []string
-	for _, s := range res.Data.List {
-		if s.QuoteAsset == "IDR" {
-			out = append(out, s.Symbol)
+	out := make(map[string]*Ticker)
+	for _, r := range raw {
+		sym := wsSymbolToInternal(r.Symbol)
+		if !strings.HasSuffix(sym, "_IDR") {
+			continue
+		}
+		out[sym] = &Ticker{
+			Symbol:              sym,
+			LastPrice:           r.LastPrice,
+			PriceChangePercent:  r.PriceChangePercent,
+			Volume:              r.QuoteVolume,
 		}
 	}
 	return out, nil
 }
 
 // runIDRRefresh keeps idrTickers populated since the mini-ticker WS only
-// reliably covers USDT pairs.
-// ponytail: 2-min interval — ~40 IDR pairs would mean 40 klines calls per
-// cycle; movers don't need 60s freshness, so 120s keeps rate-limit headroom.
+// reliably covers USDT pairs. One 24hr call per cycle — cheap enough that
+// a 120s interval leaves ample rate-limit headroom.
 func (c *Client) runIDRRefresh() {
 	c.refreshIDRTickers()
 	ticker := time.NewTicker(120 * time.Second)
@@ -353,21 +352,13 @@ func (c *Client) runIDRRefresh() {
 }
 
 func (c *Client) refreshIDRTickers() {
-	symbols, err := c.fetchIDRSymbols()
+	tick, err := c.fetchIDRTickers()
 	if err != nil {
-		slog.Warn("idr symbols fetch failed", "error", err)
+		slog.Warn("idr tickers fetch failed", "error", err)
 		return
 	}
-	next := make(map[string]*Ticker, len(symbols))
-	for _, sym := range symbols {
-		t, err := c.GetTicker(sym)
-		if err != nil {
-			continue
-		}
-		next[sym] = t
-	}
 	c.idrMu.Lock()
-	c.idrTickers = next
+	c.idrTickers = tick
 	c.idrMu.Unlock()
 }
 

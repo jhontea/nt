@@ -311,30 +311,30 @@ func TestGetMovers_FiltersAndRanks(t *testing.T) {
 	}
 }
 
-func TestFetchIDRSymbols(t *testing.T) {
+func TestFetchIDRTickers(t *testing.T) {
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/open/v1/common/symbols" {
+		if r.URL.Path != "/api/v3/ticker/24hr" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{
-			"code": 0,
-			"msg":  "success",
-			"data": map[string]any{
-				"list": []map[string]string{
-					{"symbol": "BTC_IDR", "quoteAsset": "IDR"},
-					{"symbol": "ETH_IDR", "quoteAsset": "IDR"},
-					{"symbol": "BTC_USDT", "quoteAsset": "USDT"},
-				},
-			},
+		json.NewEncoder(w).Encode([]map[string]string{
+			{"symbol": "BTCBIDR", "lastPrice": "1042508253.00", "priceChangePercent": "-2.579", "quoteVolume": "30118180261.72"},
+			{"symbol": "ETHBIDR", "lastPrice": "47041943.00", "priceChangePercent": "-19.717", "quoteVolume": "25593138349.54"},
+			{"symbol": "BTCUSDT", "lastPrice": "50000.00", "priceChangePercent": "5.1", "quoteVolume": "123456.00"},
 		})
 	})
-	syms, err := c.fetchIDRSymbols()
+	tick, err := c.fetchIDRTickers()
 	if err != nil {
-		t.Fatalf("fetchIDRSymbols failed: %v", err)
+		t.Fatalf("fetchIDRTickers failed: %v", err)
 	}
-	if len(syms) != 2 {
-		t.Fatalf("expected 2 IDR symbols, got %d: %v", len(syms), syms)
+	if len(tick) != 2 {
+		t.Fatalf("expected 2 IDR tickers, got %d: %v", len(tick), tick)
+	}
+	if t2, ok := tick["BTCB_IDR"]; !ok || t2.LastPrice != "1042508253.00" || t2.PriceChangePercent != "-2.579" {
+		t.Errorf("BTCB_IDR ticker wrong: %+v", t2)
+	}
+	if _, ok := tick["BTC_USDT"]; ok {
+		t.Error("USDT pair should be filtered out")
 	}
 }
 
