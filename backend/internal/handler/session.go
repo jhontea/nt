@@ -209,7 +209,7 @@ func (h *SessionHandler) GetOrders(c echo.Context) error {
 	cursor, _ := strconv.ParseInt(c.QueryParam("cursor"), 10, 64)
 	limit, _ := strconv.ParseInt(c.QueryParam("limit"), 10, 64)
 	if limit <= 0 || limit > 500 {
-		limit = 50
+		limit = 10
 	}
 	orders, err := h.svc.PnL.GetOrders(h.reqContext(c), id, cursor, limit)
 	if err != nil {

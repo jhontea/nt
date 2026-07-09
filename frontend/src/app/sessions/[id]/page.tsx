@@ -183,7 +183,7 @@ export default function SessionDetailPage() {
       } else {
         setAllOrders(data)
       }
-      setHasMoreOrders(data.length === 50)
+      setHasMoreOrders(data.length === 10)
       if (data.length > 0) setOrderCursor(data[data.length - 1].id)
     } finally {
       setOrdersLoading(false)
