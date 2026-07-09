@@ -160,11 +160,11 @@ export default function DcaPage() {
   const sessionIds = useMemo(() => sessions?.map(s => s.id) ?? [], [sessions])
   const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
 
-  // Orders per session for next-buy countdown
+  // Orders per session for next-buy countdown + stats (limit=500 to get all orders)
   const orderQueries = useQueries({
     queries: sessionIds.map(id => ({
-      queryKey: ['orders', id],
-      queryFn: () => api.sessions.getOrders(id),
+      queryKey: ['orders', id, 500],
+      queryFn: () => api.sessions.getOrders(id, undefined, 500),
       enabled: isAuthenticated && sessionIds.length > 0,
       staleTime: 30_000,
     })),
