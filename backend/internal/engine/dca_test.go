@@ -71,12 +71,16 @@ func TestDCAEngine_NoBuyBeforeInterval(t *testing.T) {
 func TestDCAEngine_Reset(t *testing.T) {
 	d, _ := setupDCA(t)
 	d.lastBuy[1] = time.Now()
+	d.lastBuyPrice[1] = 50000
 	d.avgBuyPrice[1] = 50000
 
 	d.Reset(1)
 
 	if _, ok := d.lastBuy[1]; ok {
 		t.Error("expected lastBuy cleared after Reset")
+	}
+	if _, ok := d.lastBuyPrice[1]; ok {
+		t.Error("expected lastBuyPrice cleared after Reset")
 	}
 	if _, ok := d.avgBuyPrice[1]; ok {
 		t.Error("expected avgBuyPrice cleared after Reset")
@@ -134,5 +138,68 @@ func TestDCAEngine_NoDoubleSell(t *testing.T) {
 	}
 	if sellCount > 1 {
 		t.Errorf("expected at most 1 sell, got %d", sellCount)
+	}
+}
+
+func TestDCAEngine_DropPct_NoBuyAboveThreshold(t *testing.T) {
+	d, _ := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	// last buy at 50000, drop 5% required → threshold = 47500
+	d.lastBuy[session.ID] = time.Now().Add(-2 * time.Hour) // interval ready
+	d.lastBuyPrice[session.ID] = 50000
+
+	cfg := DCAConfig{IntervalSec: 3600, Amount: "100", DropPct: 5}
+	signals := d.evaluate(session, cfg, 48000, "48000.00") // 48000 > 47500, not enough drop
+
+	for _, s := range signals {
+		if s.Side == "buy" {
+			t.Errorf("expected no buy (price not dropped enough), got signal: %+v", s)
+		}
+	}
+}
+
+func TestDCAEngine_DropPct_BuyWhenDropped(t *testing.T) {
+	d, _ := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	// last buy at 50000, drop 5% required → threshold = 47500
+	d.lastBuy[session.ID] = time.Now().Add(-2 * time.Hour) // interval ready
+	d.lastBuyPrice[session.ID] = 50000
+
+	cfg := DCAConfig{IntervalSec: 3600, Amount: "100", DropPct: 5}
+	signals := d.evaluate(session, cfg, 47000, "47000.00") // 47000 < 47500, drop met
+
+	if len(signals) != 1 || signals[0].Side != "buy" || signals[0].Reason != "dca_drop" {
+		t.Errorf("expected 1 dca_drop buy, got %v", signals)
+	}
+}
+
+func TestDCAEngine_DropPct_FirstBuyAllowed(t *testing.T) {
+	d, _ := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	// no prior buy, drop_pct set — should allow first buy
+	cfg := DCAConfig{IntervalSec: 3600, Amount: "100", DropPct: 5}
+	signals := d.evaluate(session, cfg, 50000, "50000.00")
+
+	if len(signals) != 1 || signals[0].Side != "buy" {
+		t.Errorf("expected first buy allowed, got %v", signals)
+	}
+}
+
+func TestDCAEngine_DropPct_DisabledFallsBackToInterval(t *testing.T) {
+	d, _ := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	d.lastBuy[session.ID] = time.Now().Add(-2 * time.Hour)
+	d.lastBuyPrice[session.ID] = 50000
+
+	// drop_pct = 0 → interval only, should buy regardless of price
+	cfg := DCAConfig{IntervalSec: 3600, Amount: "100", DropPct: 0}
+	signals := d.evaluate(session, cfg, 55000, "55000.00") // price went up, no drop
+
+	if len(signals) != 1 || signals[0].Side != "buy" {
+		t.Errorf("expected interval buy regardless of price when drop_pct=0, got %v", signals)
 	}
 }

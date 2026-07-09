@@ -14,19 +14,21 @@ import (
 )
 
 type DCAEngine struct {
-	mu          sync.Mutex
-	lastBuy     map[int64]time.Time
-	avgBuyPrice map[int64]float64
-	client      *tokocrypto.Client
-	db          *sqlx.DB
+	mu            sync.Mutex
+	lastBuy       map[int64]time.Time
+	lastBuyPrice  map[int64]float64 // price at last executed buy, for DropPct check
+	avgBuyPrice   map[int64]float64
+	client        *tokocrypto.Client
+	db            *sqlx.DB
 }
 
 func NewDCAEngine(client *tokocrypto.Client, db *sqlx.DB) *DCAEngine {
 	return &DCAEngine{
-		lastBuy:     make(map[int64]time.Time),
-		avgBuyPrice: make(map[int64]float64),
-		client:      client,
-		db:          db,
+		lastBuy:      make(map[int64]time.Time),
+		lastBuyPrice: make(map[int64]float64),
+		avgBuyPrice:  make(map[int64]float64),
+		client:       client,
+		db:           db,
 	}
 }
 
@@ -67,40 +69,67 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	delete(d.lastBuy, sessionID)
+	delete(d.lastBuyPrice, sessionID)
 	delete(d.avgBuyPrice, sessionID)
 }
 
 func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) []Signal {
 	signals := []Signal{}
 
-	// buy on interval
-	lastTime, exists := d.lastBuy[session.ID]
-	if !exists {
-		// recover lastBuy from DB after restart — use epoch seconds to avoid datetime parse issues
-		var lastEpoch int64
-		if err := d.db.Get(&lastEpoch, d.db.Rebind(
-			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) FROM orders
-			 WHERE session_id=? AND symbol=? AND side='buy' ORDER BY created_at DESC LIMIT 1`,
-		), session.ID, session.Symbol); err != nil {
-			slog.Warn("dca: recover lastBuy from DB", "session", session.ID, "error", err)
+	// recover lastBuy + lastBuyPrice from DB on first tick after restart
+	if _, exists := d.lastBuy[session.ID]; !exists {
+		var row struct {
+			Epoch int64   `db:"epoch"`
+			Price float64 `db:"price_val"`
 		}
-		if lastEpoch > 0 {
-			lastTime = time.Unix(lastEpoch, 0)
-			exists = true
-			d.lastBuy[session.ID] = lastTime
+		if err := d.db.Get(&row, d.db.Rebind(
+			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) AS epoch,
+			        COALESCE(CAST(price AS REAL), 0) AS price_val
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
+			 ORDER BY id DESC LIMIT 1`,
+		), session.ID, session.Symbol); err == nil && row.Epoch > 0 {
+			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
+			d.lastBuyPrice[session.ID] = row.Price
 		}
 	}
+
+	// determine whether to buy
+	lastTime := d.lastBuy[session.ID]
 	interval := time.Duration(cfg.IntervalSec) * time.Second
-	if !exists || time.Since(lastTime) >= interval {
+	intervalReady := lastTime.IsZero() || time.Since(lastTime) >= interval
+
+	shouldBuy := false
+	reason := "dca_interval"
+
+	if cfg.DropPct > 0 {
+		// price-triggered DCA: buy only when price drops DropPct% from last buy price
+		lastPrice := d.lastBuyPrice[session.ID]
+		if lastPrice <= 0 {
+			// no prior buy — allow first buy
+			shouldBuy = intervalReady
+		} else {
+			dropTarget := lastPrice * (1 - cfg.DropPct/100)
+			if currentPrice <= dropTarget && intervalReady {
+				shouldBuy = true
+				reason = "dca_drop"
+			}
+		}
+	} else {
+		// interval-only DCA
+		shouldBuy = intervalReady
+	}
+
+	if shouldBuy {
 		amount, _ := strconv.ParseFloat(cfg.Amount, 64)
 		qty := amount / currentPrice
 		qtyStr := strconv.FormatFloat(math.Round(qty*1e8)/1e8, 'f', 8, 64)
 		signals = append(signals, Signal{
-			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: "dca_interval",
+			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: reason,
 		})
 		d.lastBuy[session.ID] = time.Now()
+		d.lastBuyPrice[session.ID] = currentPrice
 		d.updateAvgPrice(session.ID, session.Symbol, currentPrice, qty)
-		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "interval", cfg.IntervalSec)
+		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "reason", reason)
 	}
 
 	// sell on take-profit or stop-loss — fetch totalQty once for both checks
@@ -120,6 +149,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_take_profit",
 				})
 				delete(d.avgBuyPrice, session.ID)
+				delete(d.lastBuyPrice, session.ID)
 				slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
 			} else if cfg.StopLossPct > 0 && currentPrice <= avgPrice*(1-cfg.StopLossPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
@@ -127,6 +157,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
 				})
 				delete(d.avgBuyPrice, session.ID)
+				delete(d.lastBuyPrice, session.ID)
 				slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
 			}
 		}

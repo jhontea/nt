@@ -199,6 +199,18 @@ func (h *SessionHandler) GetOrders(c echo.Context) error {
 	return c.JSON(http.StatusOK, orders)
 }
 
+func (h *SessionHandler) GetDCAStats(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if _, err := h.checkOwnership(c, id); err != nil {
+		return err
+	}
+	stats, err := h.svc.PnL.GetDCAStats(h.reqContext(c), id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	return c.JSON(http.StatusOK, stats)
+}
+
 func (h *SessionHandler) Stop(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	_, err := h.checkOwnership(c, id)

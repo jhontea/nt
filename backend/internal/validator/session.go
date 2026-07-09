@@ -91,6 +91,7 @@ func DCAConfig(s string) error {
 		Amount        string  `json:"amount"`
 		TakeProfitPct float64 `json:"take_profit_pct"`
 		StopLossPct   float64 `json:"stop_loss_pct"`
+		DropPct       float64 `json:"drop_pct"`
 	}
 	if err := json.Unmarshal([]byte(s), &cfg); err != nil {
 		return err
@@ -113,6 +114,9 @@ func DCAConfig(s string) error {
 	}
 	if cfg.StopLossPct < 0 || cfg.StopLossPct >= 100 {
 		e.Add(ErrField("stop_loss_pct", "must be between 0 and 99.99 (0 = disabled)"))
+	}
+	if cfg.DropPct < 0 || cfg.DropPct >= 100 {
+		e.Add(ErrField("drop_pct", "must be between 0 and 99.99 (0 = disabled)"))
 	}
 	return e.Err()
 }

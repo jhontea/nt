@@ -41,8 +41,9 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	var notifSide, notifPrice, notifQty string
 	switch signal.Side {
 	case string(model.SideBuy):
-		err = p.executeBuy(session, signal.Price, marketPrice, qty)
-		if err == nil {
+		var executed bool
+		err, executed = p.executeBuy(session, signal.Price, marketPrice, qty)
+		if err == nil && executed {
 			notifSide = string(model.SideBuy)
 			notifPrice = marketPrice
 			notifQty = qty
@@ -59,14 +60,14 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	return err
 }
 
-func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qty string) error {
+func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qty string) (error, bool) {
 	cost, err := strconv.ParseFloat(execPrice, 64)
 	if err != nil {
-		return fmt.Errorf("executeBuy: invalid exec price %q: %w", execPrice, err)
+		return fmt.Errorf("executeBuy: invalid exec price %q: %w", execPrice, err), false
 	}
 	qtyF, err := strconv.ParseFloat(qty, 64)
 	if err != nil {
-		return fmt.Errorf("executeBuy: invalid qty %q: %w", qty, err)
+		return fmt.Errorf("executeBuy: invalid qty %q: %w", qty, err), false
 	}
 	notional := cost * qtyF
 
@@ -77,12 +78,12 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 	}
 	if existing > 0 {
 		slog.Debug("buy already open, skip", "session", session.ID, "price", gridPrice)
-		return nil
+		return nil, false
 	}
 
 	balance, err := p.getBalance(session.ID)
 	if err != nil {
-		return err
+		return err, false
 	}
 	if balance < notional {
 		slog.Warn("insufficient paper balance", "session", session.ID, "balance", balance, "needed", notional)
@@ -95,12 +96,12 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 		if p.notifier != nil {
 			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Saldo tidak cukup untuk beli", notional, balance)
 		}
-		return nil
+		return nil, false
 	}
 
 	newBalance := balance - notional
 	if err := p.setBalance(session.ID, newBalance); err != nil {
-		return err
+		return err, false
 	}
 
 	_, err = p.db.Exec(
@@ -110,11 +111,11 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 		session.Symbol, string(model.SideBuy), gridPrice, qty, qty, execPrice,
 	)
 	if err != nil {
-		return fmt.Errorf("save buy order: %w", err)
+		return fmt.Errorf("save buy order: %w", err), false
 	}
 
 	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "grid_price", gridPrice, "exec_price", execPrice, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
-	return nil
+	return nil, true
 }
 
 func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, qty string) error {

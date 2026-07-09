@@ -127,17 +127,59 @@ func (s *PnLService) GetSignalHistory(ctx context.Context, sessionID int64, limi
 	return history, nil
 }
 
+type DCAStats struct {
+	BuyCount      int     `json:"buy_count"`
+	TotalQty      float64 `json:"total_qty"`
+	TotalInvested float64 `json:"total_invested"`
+	AvgBuyPrice   float64 `json:"avg_buy_price"`
+	LastBuyPrice  float64 `json:"last_buy_price"`
+}
+
+func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStats, error) {
+	var row struct {
+		BuyCount      int     `db:"buy_count"`
+		TotalQty      float64 `db:"total_qty"`
+		TotalInvested float64 `db:"total_invested"`
+		LastBuyPrice  float64 `db:"last_buy_price"`
+	}
+	err := s.db.GetContext(ctx, &row, s.db.Rebind(`
+		SELECT
+			COUNT(*) AS buy_count,
+			COALESCE(SUM(CAST(quantity AS REAL)), 0) AS total_qty,
+			COALESCE(SUM(CAST(quantity AS REAL) * CAST(price AS REAL)), 0) AS total_invested,
+			COALESCE((SELECT CAST(price AS REAL) FROM orders
+				WHERE session_id=o.session_id AND symbol=o.symbol AND side='buy'
+				AND status IN ('filled','signal') ORDER BY id DESC LIMIT 1), 0) AS last_buy_price
+		FROM orders o
+		WHERE session_id=? AND side='buy' AND status IN ('filled','signal')
+	`), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	avgBuyPrice := 0.0
+	if row.TotalQty > 0 {
+		avgBuyPrice = row.TotalInvested / row.TotalQty
+	}
+	return &DCAStats{
+		BuyCount:      row.BuyCount,
+		TotalQty:      row.TotalQty,
+		TotalInvested: row.TotalInvested,
+		AvgBuyPrice:   avgBuyPrice,
+		LastBuyPrice:  row.LastBuyPrice,
+	}, nil
+}
+
 func (s *PnLService) GetOrders(ctx context.Context, sessionID, cursor int64) ([]model.Order, error) {
 	var orders []model.Order
 	var err error
 	if cursor > 0 {
 		err = s.db.SelectContext(ctx, &orders,
 			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-			 FROM orders WHERE session_id = ? AND id < ? ORDER BY id DESC LIMIT 50`), sessionID, cursor)
+			 FROM orders WHERE session_id = ? AND id < ? ORDER BY id DESC LIMIT 10`), sessionID, cursor)
 	} else {
 		err = s.db.SelectContext(ctx, &orders,
 			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-			 FROM orders WHERE session_id = ? ORDER BY id DESC LIMIT 50`), sessionID)
+			 FROM orders WHERE session_id = ? ORDER BY id DESC LIMIT 10`), sessionID)
 	}
 	if err != nil {
 		return nil, err

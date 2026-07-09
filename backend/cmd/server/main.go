@@ -153,6 +153,7 @@ func main() {
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
+	v1.GET("/sessions/:id/dca-stats", sessionH.GetDCAStats)
 	v1.GET("/sessions/:id/portfolio", sessionH.GetPortfolio)
 	v1.PATCH("/sessions/:id/notes", sessionH.UpdateNotes)
 	v1.GET("/sessions/:id/reevaluate", sessionH.Reevaluate)

@@ -75,6 +75,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
   const [dcaAmount, setDcaAmount] = useState('10')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('')
   const [dcaStopLoss, setDcaStopLoss] = useState('')
+  const [dcaDropPct, setDcaDropPct] = useState('')
   const [initialBalance, setInitialBalance] = useState('1000')
   const [stopLossPct, setStopLossPct] = useState('')
   const [takeProfitPct, setTakeProfitPct] = useState('')
@@ -180,7 +181,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
           config.horizon = horizon
         }
       } else {
-        config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0 }
+        config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0, drop_pct: parseFloat(dcaDropPct) || 0 }
       }
       const createFn = strategy === 'grid' ? api.grid.sessions.create : strategy === 'trend' ? api.trend.sessions.create : api.dca.sessions.create
       await createFn({ name: name || `${strategy}-${symbol}`, mode, symbol, config: JSON.stringify({
@@ -507,6 +508,11 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
                   <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Beli saat turun %</span></div>
+                  <input type="number" min="0" max="99.99" step="0.1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0 = tiap interval" value={dcaDropPct} onChange={e => setDcaDropPct(e.target.value)} />
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Beli hanya saat harga turun X% dari harga beli terakhir</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jual saat untung %</span></div>
