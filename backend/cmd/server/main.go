@@ -145,6 +145,10 @@ func main() {
 		return c.JSON(200, result)
 	})
 
+	v1.GET("/market/movers", func(c echo.Context) error {
+		return c.JSON(200, tokoClient.GetMovers())
+	})
+
 	v1.POST("/sessions", sessionH.Create)
 	v1.GET("/sessions", sessionH.List)
 	v1.GET("/sessions/:id", sessionH.Get)
