@@ -165,6 +165,21 @@ func (h *SessionHandler) Start(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Pre-flight check for live sessions: validate API key + account trading permission
+	if session.Mode == string(model.ModeLive) {
+		if h.client == nil {
+			return c.JSON(http.StatusBadRequest, ErrorJSON("API key TokoCrypto belum dikonfigurasi di server"))
+		}
+		acc, err := h.client.GetAccount()
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, ErrorJSON("Gagal terhubung ke TokoCrypto: "+err.Error()))
+		}
+		if acc.CanTrade != 1 {
+			return c.JSON(http.StatusBadRequest, ErrorJSON("Akun TokoCrypto tidak diizinkan trading (CanTrade=0). Periksa izin API key."))
+		}
+	}
+
 	if err := h.engine.Start(*session); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}

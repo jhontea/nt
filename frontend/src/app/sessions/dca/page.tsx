@@ -206,15 +206,15 @@ export default function DcaPage() {
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="sessions/dca" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-[14px] bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842] flex items-center justify-center"><Coins size={20} /></span>
-            <div>
-              <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">DCA</h1>
-              <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Beli aset secara berkala dalam jumlah tetap</p>
+        <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 flex-shrink-0 rounded-[14px] bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842] flex items-center justify-center"><Coins size={20} /></span>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">DCA</h1>
+              <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989] mt-1">Beli aset secara berkala dalam jumlah tetap</p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#ffd11a] text-[#3d2f00] font-bold border-2 border-[#ffd11a] hover:bg-[#ffe566] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(255,209,26,0.4)] whitespace-nowrap flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#ffd11a] text-[#3d2f00] font-bold border-2 border-[#ffd11a] hover:bg-[#ffe566] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(255,209,26,0.4)] whitespace-nowrap flex items-center gap-1.5">
             <Plus size={16} /> New Session
           </button>
         </div>
@@ -270,18 +270,32 @@ export default function DcaPage() {
                   {cfg && (
                     <div className="mx-1 -mt-1 bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border border-t-0 border-[rgba(255,209,26,0.15)] rounded-b-[16px] px-4 py-2.5">
                       <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                        <div className="flex items-center gap-2 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
                           <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
-                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                          <span className="opacity-30">·</span>
                           <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
                           {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
-                            <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                            <span className="opacity-30">·</span>
                             <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
                           </>)}
+                          {(cfg.stop_loss_pct ?? 0) > 0 && (<>
+                            <span className="opacity-30">·</span>
+                            <span className="flex items-center gap-1"><span className="text-[#d03238] dark:text-[#ff6b6f]">SL</span> <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cfg.stop_loss_pct}%</span></span>
+                          </>)}
                           {totalBuys > 0 && (<>
-                            <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
+                            <span className="opacity-30">·</span>
                             <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested</span>
                           </>)}
+                          {totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] && (() => {
+                            const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
+                            const unrealized = (currentPrice - avgBuy) * totalQty
+                            return (<>
+                              <span className="opacity-30">·</span>
+                              <span className={`font-semibold ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                {unrealized >= 0 ? '+' : ''}${unrealized.toFixed(2)} unrealized
+                              </span>
+                            </>)
+                          })()}
                         </div>
                         {/* Next buy countdown */}
                         {nextBuyMs !== null && (

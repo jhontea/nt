@@ -186,8 +186,8 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
       const createFn = strategy === 'grid' ? api.grid.sessions.create : strategy === 'trend' ? api.trend.sessions.create : api.dca.sessions.create
       await createFn({ name: name || `${strategy}-${symbol}`, mode, symbol, config: JSON.stringify({
         ...config,
-        ...(mode === 'paper' && stopLossPct ? { stop_loss_pct: parseFloat(stopLossPct) } : {}),
-        ...(mode === 'paper' && takeProfitPct ? { take_profit_pct: parseFloat(takeProfitPct) } : {}),
+        ...((mode === 'paper' || mode === 'live') && stopLossPct ? { stop_loss_pct: parseFloat(stopLossPct) } : {}),
+        ...((mode === 'paper' || mode === 'live') && takeProfitPct ? { take_profit_pct: parseFloat(takeProfitPct) } : {}),
       }), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
       setNameEdited(false)
       onCreated()
@@ -273,7 +273,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
           </div>
         )}
 
-        {mode === 'paper' && (
+        {(mode === 'paper' || mode === 'live') && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Stop Loss % <span className="text-[#686868] dark:text-[#898989] font-normal text-xs">(opsional)</span></label>

@@ -65,17 +65,17 @@ export default function TrendPage() {
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="sessions/trend" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-[14px] bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5] flex items-center justify-center"><TrendingUp size={20} /></span>
-            <div>
-              <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trend Following</h1>
-              <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">
+        <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 flex-shrink-0 rounded-[14px] bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5] flex items-center justify-center"><TrendingUp size={20} /></span>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trend Following</h1>
+              <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989] mt-1">
                 Bot mendeteksi tren dengan SMA crossover — golden cross beli, death cross jual.
               </p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#38c8ff] text-[#003344] font-bold border-2 border-[#38c8ff] hover:bg-[#7de5ff] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(56,200,255,0.4)] whitespace-nowrap flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#38c8ff] text-[#003344] font-bold border-2 border-[#38c8ff] hover:bg-[#7de5ff] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(56,200,255,0.4)] whitespace-nowrap flex items-center gap-1.5">
             <Plus size={16} /> New Session
           </button>
         </div>
@@ -204,7 +204,7 @@ export default function TrendPage() {
                         return (
                           <div className="bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
                             {/* Row 1: Sparkline + Price + Cross Status */}
-                            <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+                            <div className="px-4 pt-3 pb-2 flex items-start gap-3 flex-wrap">
                               {/* Sparkline */}
                               {st.recent_prices && st.recent_prices.length > 0 && (
                                 <div className="flex-shrink-0">
@@ -234,12 +234,12 @@ export default function TrendPage() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <span className="text-[10px] text-[#9fe870] opacity-80">
-                                    SMA{cfg.fast_period || 10} {st.fast_sma?.toFixed(8)}
+                                <div className="flex items-center gap-x-2 gap-y-0.5 mt-0.5 flex-wrap">
+                                  <span className="text-[10px] text-[#9fe870] opacity-80 truncate">
+                                    SMA{cfg.fast_period || 10} {st.fast_sma != null ? (st.fast_sma < 1 ? st.fast_sma.toFixed(6) : st.fast_sma.toFixed(4)) : '-'}
                                   </span>
-                                  <span className="text-[10px] text-[#ff6b6f] opacity-80">
-                                    SMA{cfg.slow_period || 30} {st.slow_sma?.toFixed(8)}
+                                  <span className="text-[10px] text-[#ff6b6f] opacity-80 truncate">
+                                    SMA{cfg.slow_period || 30} {st.slow_sma != null ? (st.slow_sma < 1 ? st.slow_sma.toFixed(6) : st.slow_sma.toFixed(4)) : '-'}
                                   </span>
                                 </div>
                               </div>

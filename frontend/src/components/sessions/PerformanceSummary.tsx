@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Trophy, TrendingDown, DollarSign } from 'lucide-react'
+import { TrendingUp, Trophy, TrendingDown, DollarSign, Zap } from 'lucide-react'
 import type { Session } from '@/types'
 
 const strategyLabel = (s: Session) =>
@@ -8,8 +8,6 @@ const strategyLabel = (s: Session) =>
 
 export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
   const router = useRouter()
-  const total = sessions.length
-  const running = sessions.filter(s => s.status === 'running').length
 
   const paper = sessions.filter(s => s.mode === 'paper' && s.virtual_balance != null)
   const totalInitial = paper.reduce((sum, s) => sum + (s.initial_balance ?? 0), 0)
@@ -29,9 +27,8 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
     if (pct < worstPct) { worstPct = pct; worst = s }
   }
 
-  const runningPaperModal = sessions
-    .filter(s => s.status === 'running' && s.mode === 'paper' && s.virtual_balance != null)
-    .reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0)
+  const liveSessions = sessions.filter(s => s.mode === 'live')
+  const liveRunning = liveSessions.filter(s => s.status === 'running').length
 
   const cards = [
     {
@@ -54,22 +51,40 @@ export function PerformanceSummary({ sessions }: { sessions: Session[] }) {
       color: worst ? (worstPct < 0 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]') : 'text-[#686868] dark:text-[#898989]',
       href: worst ? `/sessions/${worst.id}` : undefined,
     },
-    {
-      icon: <DollarSign size={18} />, label: 'Modal Aktif',
-      value: `$${runningPaperModal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-      sub: 'virtual running',
-      color: runningPaperModal > 0 ? 'text-[#9fe870]' : 'text-[#686868] dark:text-[#898989]',
-    },
+    liveSessions.length > 0
+      ? {
+          icon: <Zap size={18} />, label: 'Live Sessions',
+          value: `${liveSessions.length} session`,
+          sub: liveRunning > 0 ? `${liveRunning} sedang running` : 'semua stopped',
+          color: liveRunning > 0 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#686868] dark:text-[#898989]',
+          isLive: true,
+        }
+      : {
+          icon: <DollarSign size={18} />, label: 'Modal Aktif',
+          value: `$${sessions.filter(s => s.status === 'running' && s.mode === 'paper' && s.virtual_balance != null).reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+          sub: 'virtual running',
+          color: sessions.some(s => s.status === 'running' && s.mode === 'paper') ? 'text-[#9fe870]' : 'text-[#686868] dark:text-[#898989]',
+        },
   ]
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       {cards.map((c, i) => (
-        <div key={i} onClick={c.href ? () => router.push(c.href as string) : undefined} role={c.href ? 'button' : undefined} tabIndex={c.href ? 0 : undefined}
-          className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] ${c.href ? 'hover:border-[#9fe870] dark:hover:border-[#9fe870] cursor-pointer transition-colors' : 'cursor-default'}`}>
+        <div key={i}
+          onClick={c.href ? () => router.push(c.href as string) : undefined}
+          role={c.href ? 'button' : undefined}
+          tabIndex={c.href ? 0 : undefined}
+          className={`bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border ${
+            (c as any).isLive && liveRunning > 0
+              ? 'border-[rgba(208,50,56,0.25)]'
+              : 'border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]'
+          } ${c.href ? 'hover:border-[#9fe870] dark:hover:border-[#9fe870] cursor-pointer transition-colors' : 'cursor-default'}`}>
           <div className="flex items-center gap-2 mb-2 text-[#686868] dark:text-[#898989]">
             <span className={c.color}>{c.icon}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest">{c.label}</span>
+            {(c as any).isLive && liveRunning > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse ml-auto" />
+            )}
           </div>
           <p className={`text-xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] leading-tight truncate ${c.color}`}>{c.value}</p>
           <p className="text-xs text-[#686868] dark:text-[#898989] mt-1 truncate">{c.sub}</p>

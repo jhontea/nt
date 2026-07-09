@@ -265,6 +265,14 @@ export default function SessionDetailPage() {
     staleTime: 5_000,
   })
 
+  const { data: liveBalance } = useQuery({
+    queryKey: ['account-balance'],
+    queryFn: () => api.account.balance(),
+    enabled: isAuthenticated && session?.mode === 'live',
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+
   useSessionWS(Number(id), (data) => {
     if (data.type === 'signal') {
       qc.invalidateQueries({ queryKey: ['pnl', id] })
@@ -588,7 +596,7 @@ export default function SessionDetailPage() {
                 {/* Mode */}
                 {session.mode === 'signal' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>}
                 {session.mode === 'paper' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>}
-                {session.mode === 'live' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] dark:bg-[rgba(255,209,26,0.2)] text-[#7a5f00] dark:text-[#f5c842]">Live</span>}
+                {session.mode === 'live' && <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.12)] dark:bg-[rgba(208,50,56,0.2)] text-[#d03238] dark:text-[#ff6b6f]">⚡ Live</span>}
                 {/* Status */}
                 {session.status === 'running' ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] dark:bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]">
@@ -625,9 +633,13 @@ export default function SessionDetailPage() {
                   <button
                     onClick={handleStart}
                     disabled={loading === 'start'}
-                    className="px-6 py-2 text-sm font-bold bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all disabled:opacity-50 shadow-[0_2px_8px_rgba(159,232,112,0.4)]"
+                    className={`px-6 py-2 text-sm font-bold rounded-full transition-all disabled:opacity-50 ${
+                      session.mode === 'live'
+                        ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f] border border-[rgba(208,50,56,0.3)] hover:bg-[#d03238] hover:text-white hover:border-[#d03238] shadow-[0_2px_8px_rgba(208,50,56,0.3)]'
+                        : 'bg-[#9fe870] text-[#163300] border-2 border-[#9fe870] hover:bg-[#cdffad] shadow-[0_2px_8px_rgba(159,232,112,0.4)]'
+                    }`}
                   >
-                    {loading === 'start' ? 'Starting...' : 'Start Bot'}
+                    {loading === 'start' ? 'Starting...' : session.mode === 'live' ? '⚡ Start Live' : 'Start Bot'}
                   </button>
                 )}
                 <button
@@ -650,7 +662,44 @@ export default function SessionDetailPage() {
           </div>
         </div>
 
-        {/* Active Signals — empty state */}
+        {/* Live mode warning banner */}
+        {session.mode === 'live' && (
+          <div className="mb-6 rounded-[16px] border border-[rgba(208,50,56,0.3)] bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] px-4 py-3 flex items-start gap-3">
+            <span className="text-[#d03238] dark:text-[#ff6b6f] flex-shrink-0 mt-0.5">⚡</span>
+            <div className="text-xs text-[#686868] dark:text-[#898989] space-y-1">
+              <p className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">Session ini menggunakan Live Trading</p>
+              <p>Setiap sinyal akan langsung dieksekusi sebagai <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order sungguhan</strong> di TokoCrypto. Pastikan saldo mencukupi dan kamu memahami risikonya.</p>
+              <p>Bot menggunakan <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order</strong> — harga eksekusi bisa berbeda dari harga sinyal (slippage).</p>
+            </div>
+          </div>
+        )}
+
+        {/* Live balance panel */}
+        {session.mode === 'live' && liveBalance && (
+          <div className="mb-6 bg-white dark:bg-[#1e201c] rounded-[20px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6] uppercase tracking-wider">Saldo TokoCrypto</h3>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${liveBalance.can_trade === 1 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                {liveBalance.can_trade === 1 ? '✓ Bisa Trading' : '✗ Trading Diblokir'}
+              </span>
+            </div>
+            {liveBalance.assets.length === 0 ? (
+              <p className="text-xs text-[#686868] dark:text-[#898989]">Tidak ada aset dengan saldo &gt; 0</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {liveBalance.assets.map(a => (
+                  <div key={a.asset} className="bg-[#f8f9f6] dark:bg-[#252822] rounded-[12px] px-3 py-2">
+                    <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase">{a.asset}</p>
+                    <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{parseFloat(a.free).toLocaleString(undefined, { maximumFractionDigits: 6 })}</p>
+                    {parseFloat(a.locked) > 0 && (
+                      <p className="text-[9px] text-[#686868] dark:text-[#898989]">Locked: {parseFloat(a.locked).toLocaleString(undefined, { maximumFractionDigits: 6 })}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {isStrategySignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
           <div className="mb-6">
             <p className="text-sm text-[#686868] dark:text-[#898989]">

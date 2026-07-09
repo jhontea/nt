@@ -89,4 +89,7 @@ export const api = {
         request<import('@/types').Session>('/v1/dca/sessions', { method: 'POST', body: JSON.stringify(data) }),
     },
   },
+  account: {
+    balance: () => request<{ can_trade: number; assets: { asset: string; free: string; locked: string }[] }>('/v1/account/balance'),
+  },
 }

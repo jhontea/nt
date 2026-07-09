@@ -203,6 +203,10 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
 		}
+		// Check SL/TP after executing live signals (reuse paper stop logic on portfolio value)
+		if len(signals) > 0 {
+			m.checkLiveStopConditions(session, signals[0].Price)
+		}
 	}
 }
 
@@ -488,6 +492,102 @@ func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice s
 			Reason:    reason,
 			Needed:    result.InitBalance,
 			Available: result.TotalValue,
+		})
+	}
+}
+
+// checkLiveStopConditions checks SL/TP config for live sessions and stops if triggered.
+// Uses realized P&L from trades table since live has no virtual_balance.
+func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice string) {
+	if session.InitialBalance == nil || *session.InitialBalance <= 0 {
+		return
+	}
+
+	// Parse stop config from session config JSON
+	var cfg struct {
+		StopLossPct      *float64 `json:"stop_loss_pct"`
+		StopLossAmount   *float64 `json:"stop_loss_amount"`
+		TakeProfitPct    *float64 `json:"take_profit_pct"`
+		TakeProfitAmount *float64 `json:"take_profit_amount"`
+	}
+	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+		return
+	}
+	if cfg.StopLossPct == nil && cfg.StopLossAmount == nil &&
+		cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil {
+		return
+	}
+
+	// Compute total live portfolio value = realized PnL from trades + open position value
+	initBal := *session.InitialBalance
+	priceF, err := strconv.ParseFloat(currentPrice, 64)
+	if err != nil {
+		return
+	}
+
+	// Sum realized PnL from trades
+	var realizedPnL float64
+	m.db.Get(&realizedPnL, m.db.Rebind(
+		`SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?`), session.ID)
+
+	// Sum open position value (filled buys without matching sells)
+	type openPos struct{ Qty string `db:"quantity"` }
+	var openBuys []openPos
+	m.db.Select(&openBuys, m.db.Rebind(
+		`SELECT executed_qty as quantity FROM orders WHERE session_id = ? AND side = 'buy' AND status != 'signal'`), session.ID)
+	holdingsValue := 0.0
+	for _, p := range openBuys {
+		q, _ := strconv.ParseFloat(p.Qty, 64)
+		holdingsValue += q * priceF
+	}
+
+	totalValue := initBal + realizedPnL + holdingsValue
+
+	var reason StopReason
+	triggered := false
+	if cfg.StopLossPct != nil && *cfg.StopLossPct > 0 {
+		if totalValue <= initBal*(1-*cfg.StopLossPct/100) {
+			reason = StopReasonSL
+			triggered = true
+		}
+	}
+	if !triggered && cfg.StopLossAmount != nil && *cfg.StopLossAmount > 0 {
+		if totalValue <= initBal-*cfg.StopLossAmount {
+			reason = StopReasonSL
+			triggered = true
+		}
+	}
+	if !triggered && cfg.TakeProfitPct != nil && *cfg.TakeProfitPct > 0 {
+		if totalValue >= initBal*(1+*cfg.TakeProfitPct/100) {
+			reason = StopReasonTP
+			triggered = true
+		}
+	}
+	if !triggered && cfg.TakeProfitAmount != nil && *cfg.TakeProfitAmount > 0 {
+		if totalValue >= initBal+*cfg.TakeProfitAmount {
+			reason = StopReasonTP
+			triggered = true
+		}
+	}
+	if !triggered {
+		return
+	}
+
+	slog.Info("live stop condition triggered", "session", session.ID, "reason", reason,
+		"total_value", totalValue, "init_balance", initBal)
+
+	m.Stop(session.ID)
+	if _, err := m.db.Exec(m.db.Rebind(
+		"UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
+		slog.Error("checkLiveStopConditions: update session status", "session", session.ID, "error", err)
+	}
+	if m.notifier != nil {
+		m.notifier.SendStopAlert(session.Name, session.Symbol, string(reason), totalValue, initBal)
+	}
+	if m.Hub != nil {
+		m.Hub.Broadcast(session.ID, WSPaperAlert{
+			Type: "paper_alert", SessionID: session.ID,
+			Reason: string(reason), Needed: initBal, Available: totalValue,
 		})
 	}
 }

@@ -246,6 +246,35 @@ func main() {
 	v1.GET("/grid/insights", sessionH.GetGridInsights)
 	v1.GET("/trend/sessions/status", sessionH.GetTrendSessionsStatus)
 
+	// Live account balance endpoint
+	v1.GET("/account/balance", func(c echo.Context) error {
+		if tokoClient == nil {
+			return c.JSON(400, ErrorResponse{Error: "API key tidak dikonfigurasi"})
+		}
+		acc, err := tokoClient.GetAccount()
+		if err != nil {
+			return c.JSON(502, ErrorResponse{Error: "gagal ambil data akun: " + err.Error()})
+		}
+		type assetInfo struct {
+			Asset  string `json:"asset"`
+			Free   string `json:"free"`
+			Locked string `json:"locked"`
+		}
+		// Only return assets with non-zero balance
+		assets := make([]assetInfo, 0)
+		for _, a := range acc.AccountAssets {
+			freeF, _ := strconv.ParseFloat(a.Free, 64)
+			lockedF, _ := strconv.ParseFloat(a.Locked, 64)
+			if freeF > 0 || lockedF > 0 {
+				assets = append(assets, assetInfo{Asset: a.Asset, Free: a.Free, Locked: a.Locked})
+			}
+		}
+		return c.JSON(200, map[string]any{
+			"can_trade": acc.CanTrade,
+			"assets":    assets,
+		})
+	})
+
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
