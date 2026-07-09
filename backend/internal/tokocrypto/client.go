@@ -32,6 +32,8 @@ type Client struct {
 	http          *http.Client
 	mu            sync.Mutex
 	tickCache     map[string]cacheEntry
+	idrMu         sync.Mutex
+	idrTickers    map[string]*Ticker
 	streamStarted bool
 }
 
@@ -43,6 +45,7 @@ func NewClient(apiKey, secretKey string) *Client {
 		tickCache: make(map[string]cacheEntry),
 	}
 	go c.runAllMiniTickerStream()
+	go c.runIDRRefresh()
 	return c
 }
 
@@ -242,29 +245,45 @@ type Movers struct {
 	Hot     []Mover `json:"hot"`
 }
 
-// GetMovers derives top gainers (by % change) and hot pairs (by volume) from the
-// live WS cache. Only USDT/IDR pairs are considered. Returns empty slices if the
-// cache is cold.
+// GetMovers derives top gainers (by % change) and hot pairs (by volume) from
+// the live WS cache (USDT) and the IDR ticker refresh. Returns empty slices
+// if there is no data.
 func (c *Client) GetMovers() Movers {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	var all []Mover
+	var usdt []Mover
 	for sym, entry := range c.tickCache {
-		if !strings.HasSuffix(sym, "_USDT") && !strings.HasSuffix(sym, "_IDR") {
+		if !strings.HasSuffix(sym, "_USDT") {
 			continue
 		}
 		t := entry.data
 		if t == nil {
 			continue
 		}
-		all = append(all, Mover{
+		usdt = append(usdt, Mover{
 			Symbol:             t.Symbol,
 			LastPrice:          t.LastPrice,
 			PriceChangePercent: t.PriceChangePercent,
 			Volume:             t.Volume,
 		})
 	}
+	c.mu.Unlock()
+
+	c.idrMu.Lock()
+	var idr []Mover
+	for _, t := range c.idrTickers {
+		if t == nil {
+			continue
+		}
+		idr = append(idr, Mover{
+			Symbol:             t.Symbol,
+			LastPrice:          t.LastPrice,
+			PriceChangePercent: t.PriceChangePercent,
+			Volume:             t.Volume,
+		})
+	}
+	c.idrMu.Unlock()
+
+	all := append(usdt, idr...)
 
 	gainers := append([]Mover{}, all...)
 	sort.SliceStable(gainers, func(i, j int) bool {
@@ -283,6 +302,71 @@ func (c *Client) GetMovers() Movers {
 	}
 
 	return Movers{Gainers: gainers, Hot: hot}
+}
+
+type symbolInfo struct {
+	Symbol     string `json:"symbol"`
+	QuoteAsset string `json:"quoteAsset"`
+}
+
+type symbolsResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data struct {
+		List []symbolInfo `json:"list"`
+	} `json:"data"`
+}
+
+// fetchIDRSymbols returns all trading pairs quoted in IDR.
+func (c *Client) fetchIDRSymbols() ([]string, error) {
+	body, err := c.doPublic("/open/v1/common/symbols", nil)
+	if err != nil {
+		return nil, err
+	}
+	var res symbolsResponse
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, err
+	}
+	if res.Code != 0 {
+		return nil, fmt.Errorf("tokocrypto symbols error %d: %s", res.Code, res.Msg)
+	}
+	var out []string
+	for _, s := range res.Data.List {
+		if s.QuoteAsset == "IDR" {
+			out = append(out, s.Symbol)
+		}
+	}
+	return out, nil
+}
+
+// runIDRRefresh keeps idrTickers populated since the mini-ticker WS only
+// reliably covers USDT pairs. Slow interval to stay within rate limits.
+func (c *Client) runIDRRefresh() {
+	c.refreshIDRTickers()
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		c.refreshIDRTickers()
+	}
+}
+
+func (c *Client) refreshIDRTickers() {
+	symbols, err := c.fetchIDRSymbols()
+	if err != nil {
+		slog.Warn("idr symbols fetch failed", "error", err)
+		return
+	}
+	next := make(map[string]*Ticker, len(symbols))
+	for _, sym := range symbols {
+		t, err := c.GetTicker(sym)
+		if err != nil {
+			continue
+		}
+		next[sym] = t
+	}
+	c.idrMu.Lock()
+	c.idrTickers = next
+	c.idrMu.Unlock()
 }
 
 func (c *Client) getKlinesAlt(symbol, interval string, limit int) ([][]any, error) {

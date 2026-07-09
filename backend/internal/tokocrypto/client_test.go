@@ -278,9 +278,11 @@ func TestGetMovers_FiltersAndRanks(t *testing.T) {
 		"BTC_USDT": {data: &Ticker{Symbol: "BTC_USDT", LastPrice: "50000", Volume: "100", PriceChangePercent: "5"}, expiresAt: time.Now().Add(time.Minute)},
 		"ETH_USDT": {data: &Ticker{Symbol: "ETH_USDT", LastPrice: "3000", Volume: "500", PriceChangePercent: "-2"}, expiresAt: time.Now().Add(time.Minute)},
 		"SOL_USDT": {data: &Ticker{Symbol: "SOL_USDT", LastPrice: "150", Volume: "50", PriceChangePercent: "12"}, expiresAt: time.Now().Add(time.Minute)},
-		"TKO_IDR":  {data: &Ticker{Symbol: "TKO_IDR", LastPrice: "100", Volume: "999", PriceChangePercent: "1"}, expiresAt: time.Now().Add(time.Minute)},
 		"BNB_USDT": {data: &Ticker{Symbol: "BNB_USDT", LastPrice: "600", Volume: "300", PriceChangePercent: "8"}, expiresAt: time.Now().Add(time.Minute)},
 		"BTC_BUSD": {data: &Ticker{Symbol: "BTC_BUSD", LastPrice: "1", Volume: "9999", PriceChangePercent: "50"}, expiresAt: time.Now().Add(time.Minute)},
+	}
+	c.idrTickers = map[string]*Ticker{
+		"TKO_IDR": {Symbol: "TKO_IDR", LastPrice: "100", Volume: "999", PriceChangePercent: "1"},
 	}
 	c.mu.Unlock()
 
@@ -306,6 +308,33 @@ func TestGetMovers_FiltersAndRanks(t *testing.T) {
 		if h.Symbol == "BTC_BUSD" {
 			t.Error("BTC_BUSD should be filtered out")
 		}
+	}
+}
+
+func TestFetchIDRSymbols(t *testing.T) {
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/open/v1/common/symbols" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": 0,
+			"msg":  "success",
+			"data": map[string]any{
+				"list": []map[string]string{
+					{"symbol": "BTC_IDR", "quoteAsset": "IDR"},
+					{"symbol": "ETH_IDR", "quoteAsset": "IDR"},
+					{"symbol": "BTC_USDT", "quoteAsset": "USDT"},
+				},
+			},
+		})
+	})
+	syms, err := c.fetchIDRSymbols()
+	if err != nil {
+		t.Fatalf("fetchIDRSymbols failed: %v", err)
+	}
+	if len(syms) != 2 {
+		t.Fatalf("expected 2 IDR symbols, got %d: %v", len(syms), syms)
 	}
 }
 
