@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
+import { MarketMovers } from '@/components/sessions/MarketMovers'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
 import { EmptyState } from '@/components/sessions/EmptyState'
@@ -102,6 +103,7 @@ export default function SessionsOverviewPage() {
         </div>
 
         <MarketTicker symbols={sessions ? [...new Set(sessions.map(s => s.symbol))] : undefined} />
+        <MarketMovers />
 
         {/* TokoCrypto balance panel */}
         {(liveBalance || balanceLoading) && (
