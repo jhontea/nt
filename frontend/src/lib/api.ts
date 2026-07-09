@@ -93,5 +93,9 @@ export const api = {
   },
   account: {
     balance: () => request<{ can_trade: number; assets: { asset: string; free: string; locked: string }[] }>('/v1/account/balance'),
+    candles: (symbol: string, interval: string, limit: number) =>
+      request<{ t: any; o: string; h: string; l: string; c: string; v: string }[]>(
+        `/v1/candles?symbol=${symbol}&interval=${interval}&limit=${limit}`
+      ),
   },
 }

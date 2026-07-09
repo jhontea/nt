@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -183,8 +184,9 @@ func (h *SessionHandler) Start(c echo.Context) error {
 	if err := h.engine.Start(*session); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorJSON(err.Error()))
 	}
-	h.svc.UpdateStatus(h.reqContext(c), id, string(model.StatRunning))
-	h.svc.UpdateStartedAt(h.reqContext(c), id)
+	if err := h.svc.UpdateStarted(h.reqContext(c), id); err != nil {
+		slog.Warn("failed to update session started", "id", id, "error", err)
+	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "running"})
 }
 
@@ -237,8 +239,9 @@ func (h *SessionHandler) Stop(c echo.Context) error {
 		return err
 	}
 	h.engine.Stop(id)
-	h.svc.UpdateStatus(h.reqContext(c), id, string(model.StatStopped))
-	h.svc.UpdateStoppedAt(h.reqContext(c), id)
+	if err := h.svc.UpdateStopped(h.reqContext(c), id); err != nil {
+		slog.Warn("failed to update session stopped", "id", id, "error", err)
+	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "stopped"})
 }
 

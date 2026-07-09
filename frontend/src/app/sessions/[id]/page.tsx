@@ -1,6 +1,7 @@
 ﻿'use client'
 import { Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, Clipboard, Search, Lock, Star, Skull, Loader, Target, OctagonX, Clock, Wallet, History } from 'lucide-react'
 import { TrendSparkline } from '@/components/sessions/TrendSparkline'
+import { TrendBacktest } from '@/components/sessions/TrendBacktest'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -296,6 +297,10 @@ export default function SessionDetailPage() {
       qc.invalidateQueries({ queryKey: ['orders', id] })
       qc.invalidateQueries({ queryKey: ['signals', id] })
       qc.invalidateQueries({ queryKey: ['signalSummary', id] })
+      // Refresh real balance after live order
+      if (session?.mode === 'live') {
+        qc.invalidateQueries({ queryKey: ['account-balance'] })
+      }
     }
   })
 
@@ -1461,6 +1466,22 @@ export default function SessionDetailPage() {
                 )}
               </div>
             </div>
+          )
+        })()}
+
+        {/* Trend Backtest */}
+        {session.strategy === 'trend' && (() => {
+          let cfg: any = {}
+          try { cfg = JSON.parse(session.config) } catch {}
+          if (!cfg.fast_period || !cfg.slow_period) return null
+          return (
+            <TrendBacktest
+              symbol={session.symbol}
+              fastPeriod={cfg.fast_period}
+              slowPeriod={cfg.slow_period}
+              interval={cfg.interval || '1h'}
+              quantity={parseFloat(cfg.quantity || '1')}
+            />
           )
         })()}
 

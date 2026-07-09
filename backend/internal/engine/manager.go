@@ -45,7 +45,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		db:       db,
 		strategies: map[string]StrategyEvaluator{
 			string(model.StratGrid):  NewGridEngine(client, db),
-			string(model.StratTrend): NewTrendEngine(client),
+			string(model.StratTrend): NewTrendEngineWithDB(client, db),
 			string(model.StratDCA):   NewDCAEngine(client, db),
 		},
 		paper:      NewPaperEngine(db, client, hub, notifier),
@@ -208,17 +208,28 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			m.checkPaperStopConditions(session, signals[0].Price)
 		}
 	case string(model.ModeLive):
-		for _, sig := range signals {
+		// Limit to 1 signal per side per tick to prevent over-execution
+		// when multiple grid levels trigger simultaneously.
+		deduped := deduplicateSignals(signals)
+		for _, sig := range deduped {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
-				// Gap 5 fix: if live execute fails for DCA buy, reset in-memory state
-				// so the engine doesn't think a buy happened when it didn't
+				// If live execute fails for DCA buy, revert in-memory state
 				if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
 					if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
 						dca.RevertLastBuy(session.ID)
 					}
 				}
 				continue
+			}
+			// DCA: confirm buy after successful execution so avgBuyPrice is updated
+			// with the confirmed order, not speculatively before exchange confirms.
+			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
+				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+					priceF, _ := strconv.ParseFloat(sig.Price, 64)
+					qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
+					dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
+				}
 			}
 			if m.notifier != nil {
 				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
@@ -228,9 +239,29 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			}
 		}
 		if len(signals) > 0 {
-			m.checkLiveStopConditions(session, signals[0].Price)
+			// Fetch fresh ticker for stop condition check — signal price may be
+			// a grid level or crossover price, not the current market price.
+			if ticker, err := m.client.GetTicker(session.Symbol); err == nil {
+				m.checkLiveStopConditions(session, ticker.LastPrice)
+			} else {
+				slog.Warn("live stop check: failed to fetch ticker", "session", session.ID, "error", err)
+			}
 		}
 	}
+}
+
+// deduplicateSignals keeps only the first signal per side per tick.
+// Prevents over-execution when multiple grid levels trigger simultaneously in live mode.
+func deduplicateSignals(signals []Signal) []Signal {
+	seen := make(map[string]bool, 2)
+	result := make([]Signal, 0, len(signals))
+	for _, s := range signals {
+		if !seen[s.Side] {
+			seen[s.Side] = true
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func (m *Manager) broadcast(sessionID int64, sessionName, strategy, mode string, signals []Signal) {
@@ -276,6 +307,10 @@ func (m *Manager) saveGridSignals(session model.Session, signals []Signal) {
 	}
 
 	gridStep := (cfg.UpperPrice - cfg.LowerPrice) / float64(cfg.GridCount)
+	if gridStep <= 0 {
+		slog.Warn("saveGridSignals: invalid grid step", "session", session.ID)
+		return
+	}
 
 	for _, sig := range signals {
 		// Extract level index from reason (e.g., "grid_buy_level_3")
@@ -332,8 +367,6 @@ func (m *Manager) saveGridSignals(session model.Session, signals []Signal) {
 		} else {
 			slog.Info("grid signal saved", "session", session.ID, "side", sig.Side, "level", levelIdx, "price", sig.Price)
 		}
-
-		_ = gridStep
 	}
 
 	// Also save to orders table for backward compat with existing UI
@@ -550,14 +583,20 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 
 	// Sum realized PnL from trades
 	var realizedPnL float64
-	m.db.Get(&realizedPnL, m.db.Rebind(
-		`SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?`), session.ID)
+	if err := m.db.Get(&realizedPnL, m.db.Rebind(
+		`SELECT COALESCE(SUM(CAST(pnl AS REAL)), 0) FROM trades WHERE session_id = ?`), session.ID); err != nil {
+		slog.Warn("checkLiveStopConditions: fetch realized pnl", "session", session.ID, "error", err)
+		return
+	}
 
-	// Sum open position value (filled buys without matching sells)
+	// Sum open position value — only 'filled' buys (not 'closed' = already sold, not 'signal' = not executed)
 	type openPos struct{ Qty string `db:"quantity"` }
 	var openBuys []openPos
-	m.db.Select(&openBuys, m.db.Rebind(
-		`SELECT executed_qty as quantity FROM orders WHERE session_id = ? AND side = 'buy' AND status != 'signal'`), session.ID)
+	if err := m.db.Select(&openBuys, m.db.Rebind(
+		`SELECT executed_qty as quantity FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), session.ID); err != nil {
+		slog.Warn("checkLiveStopConditions: fetch open buys", "session", session.ID, "error", err)
+		return
+	}
 	holdingsValue := 0.0
 	for _, p := range openBuys {
 		q, _ := strconv.ParseFloat(p.Qty, 64)

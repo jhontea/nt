@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/tokocrypto"
 )
@@ -19,6 +20,7 @@ type trendSessionState struct {
 
 type TrendEngine struct {
 	client *tokocrypto.Client
+	db     *sqlx.DB
 	mu     sync.Mutex
 	states map[int64]*trendSessionState
 }
@@ -26,6 +28,14 @@ type TrendEngine struct {
 func NewTrendEngine(client *tokocrypto.Client) *TrendEngine {
 	return &TrendEngine{
 		client: client,
+		states: make(map[int64]*trendSessionState),
+	}
+}
+
+func NewTrendEngineWithDB(client *tokocrypto.Client, db *sqlx.DB) *TrendEngine {
+	return &TrendEngine{
+		client: client,
+		db:     db,
 		states: make(map[int64]*trendSessionState),
 	}
 }
@@ -76,6 +86,28 @@ func (t *TrendEngine) Evaluate(session model.Session, configStr string) []Signal
 	return signals
 }
 
+// recoverLastCrossType reads the last executed signal from orders table to restore
+// cross state after a restart, preventing duplicate signals on the first tick.
+func (t *TrendEngine) recoverLastCrossType(sessionID int64) string {
+	if t.db == nil {
+		return ""
+	}
+	var side string
+	err := t.db.Get(&side, t.db.Rebind(
+		`SELECT side FROM orders WHERE session_id = ? AND type = 'signal'
+		 ORDER BY created_at DESC LIMIT 1`), sessionID)
+	if err != nil {
+		return ""
+	}
+	switch side {
+	case string(model.SideBuy):
+		return "golden"
+	case string(model.SideSell):
+		return "death"
+	}
+	return ""
+}
+
 // evaluateWithID checks the last two SMA crossover points and emits one signal
 // per cross type per session, gated by trendSessionState.lastCrossType (anti-noise).
 func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config TrendConfig) []Signal {
@@ -84,8 +116,11 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 
 	state := t.states[sessionID]
 	if state == nil {
-		state = &trendSessionState{}
+		state = &trendSessionState{
+			lastCrossType: t.recoverLastCrossType(sessionID),
+		}
 		t.states[sessionID] = state
+		slog.Info("trend: recovered cross state", "session", sessionID, "lastCross", state.lastCrossType)
 	}
 
 	signals := []Signal{}

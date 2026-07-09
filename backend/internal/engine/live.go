@@ -86,15 +86,40 @@ func liveOrderStatus(exchangeStatus int) string {
 }
 
 func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
+	// Idempotency check: prevent duplicate orders within a 2-minute window.
+	// Guards against double-tick on slow exchange responses or engine restarts.
+	var recentCount int
+	if err := l.db.Get(&recentCount, l.db.Rebind(
+		`SELECT COUNT(*) FROM orders WHERE session_id = ? AND side = ? AND created_at >= NOW() - INTERVAL '2 minutes'`),
+		session.ID, signal.Side); err == nil && recentCount > 0 {
+		slog.Warn("live: duplicate order suppressed (idempotency window)",
+			"session", session.ID, "side", signal.Side, "recent_count", recentCount)
+		return nil
+	}
+	// For grid sell signals: override quantity with actual holdings to avoid
+	// selling more than we own. Grid config quantity is per-level, not total.
+	resolvedQty := signal.Quantity
+	if signal.Side == string(model.SideSell) {
+		var actualQty float64
+		if err := l.db.Get(&actualQty, l.db.Rebind(
+			`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) FROM orders
+			 WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
+			session.ID); err == nil && actualQty > 0 {
+			resolvedQty = strconv.FormatFloat(actualQty, 'f', 8, 64)
+			slog.Info("live sell: using actual holdings qty", "session", session.ID,
+				"signal_qty", signal.Quantity, "actual_qty", resolvedQty)
+		}
+	}
+
 	ticker, err := l.client.GetTicker(session.Symbol)
 	if err != nil {
 		return fmt.Errorf("get ticker: %w", err)
 	}
 	price := ticker.LastPrice
 
-	qtyF, err := strconv.ParseFloat(signal.Quantity, 64)
+	qtyF, err := strconv.ParseFloat(resolvedQty, 64)
 	if err != nil {
-		return fmt.Errorf("live execute: invalid quantity %q: %w", signal.Quantity, err)
+		return fmt.Errorf("live execute: invalid quantity %q: %w", resolvedQty, err)
 	}
 	priceF, err := strconv.ParseFloat(price, 64)
 	if err != nil {
@@ -121,7 +146,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		Type:   orderTypeMarket,
 	}
 	if side == orderSideSell {
-		req.Quantity = signal.Quantity
+		req.Quantity = resolvedQty
 	} else {
 		req.QuoteOrderQty = strconv.FormatFloat(notional, 'f', 8, 64)
 	}
@@ -131,22 +156,8 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		return fmt.Errorf("place order: %w", err)
 	}
 
-	// Gap 2 fix: map exchange integer status to internal string status
 	orderStatus := liveOrderStatus(order.Status)
-
 	orderID := fmt.Sprintf("%d", order.OrderID)
-	if _, err = l.db.Exec(
-		l.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?)`),
-		session.ID, orderID,
-		session.Symbol, signal.Side, price, signal.Quantity,
-		orderStatus, order.ExecutedQty, order.ExecutedPrice,
-	); err != nil {
-		slog.Error("live order placed on exchange but DB save failed — manual reconciliation required",
-			"session", session.ID, "order_id", order.OrderID, "symbol", session.Symbol,
-			"side", signal.Side, "qty", signal.Quantity, "price", price, "error", err)
-		return fmt.Errorf("save order: %w", err)
-	}
 
 	execPrice := order.ExecutedPrice
 	if execPrice == "" {
@@ -154,48 +165,82 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 	execQty := order.ExecutedQty
 	if execQty == "" {
-		execQty = signal.Quantity
+		execQty = resolvedQty
 	}
 
-	// Gap 4 fix: on sell, close all open buy orders so PnL and stop conditions don't double-count
-	if signal.Side == string(model.SideSell) {
-		if _, err := l.db.Exec(
-			l.db.Rebind(`UPDATE orders SET status = ? WHERE session_id = ? AND side = 'buy' AND status = ?`),
-			string(model.OrdClosed), session.ID, string(model.OrdFilled),
-		); err != nil {
-			slog.Warn("live sell: failed to close buy orders", "session", session.ID, "error", err)
-		}
+	// All post-exchange DB writes in one transaction.
+	// If this fails, the order is real on the exchange but not locally recorded.
+	// Log prominently for manual reconciliation.
+	tx, err := l.db.Beginx()
+	if err != nil {
+		slog.Error("live order placed but failed to begin DB tx — manual reconciliation required",
+			"session", session.ID, "order_id", orderID, "symbol", session.Symbol,
+			"side", signal.Side, "qty", resolvedQty, "price", price, "error", err)
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.Exec(
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?)`),
+		session.ID, orderID,
+		session.Symbol, signal.Side, price, resolvedQty,
+		orderStatus, order.ExecutedQty, order.ExecutedPrice,
+	); err != nil {
+		slog.Error("live order placed on exchange but DB save failed — manual reconciliation required",
+			"session", session.ID, "order_id", orderID, "symbol", session.Symbol,
+			"side", signal.Side, "qty", resolvedQty, "price", price, "error", err)
+		return fmt.Errorf("save order: %w", err)
 	}
 
 	pnlStr := "0"
 	if signal.Side == string(model.SideSell) {
-		pnlStr = l.computeLivePnL(session.ID, execPrice, execQty)
+		// computeLivePnL must read BEFORE buy orders are closed in this tx.
+		// We read within the tx so we see consistent state.
+		pnlStr = computeLivePnLTx(tx, session.ID, execPrice, execQty)
 	}
 
-	if _, err = l.db.Exec(
-		l.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
+	// On sell: close all open buy orders AFTER computing PnL
+	if signal.Side == string(model.SideSell) {
+		if _, err := tx.Exec(
+			tx.Rebind(`UPDATE orders SET status = ? WHERE session_id = ? AND side = 'buy' AND status = ?`),
+			string(model.OrdClosed), session.ID, string(model.OrdFilled),
+		); err != nil {
+			return fmt.Errorf("live sell: close buy orders: %w", err)
+		}
+	}
+
+	if _, err = tx.Exec(
+		tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, '0', '', ?, ?)`),
 		session.ID, orderID, session.Symbol, signal.Side,
 		execPrice, execQty, pnlStr, time.Now(),
 	); err != nil {
-		slog.Error("live trade record save failed", "session", session.ID, "order_id", order.OrderID, "error", err)
+		return fmt.Errorf("save trade: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		slog.Error("live order placed but DB commit failed — manual reconciliation required",
+			"session", session.ID, "order_id", orderID, "error", err)
+		return fmt.Errorf("commit tx: %w", err)
 	}
 
 	slog.Info("live order", "side", signal.Side, "symbol", session.Symbol, "qty", signal.Quantity, "price", price, "orderId", order.OrderID)
 	return nil
 }
 
-// computeLivePnL calculates realized PnL for a sell using only open (not yet closed) buy orders.
-func (l *LiveEngine) computeLivePnL(sessionID int64, execPrice, execQty string) string {
+// computeLivePnLTx calculates realized PnL for a sell using open buy orders,
+// read within the provided transaction for consistent state.
+func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) string {
 	type buyPos struct {
 		Price    string `db:"price"`
 		Quantity string `db:"quantity"`
 	}
 	var buys []buyPos
-	// Gap 4 fix: only use 'filled' buys (not 'closed' = already sold)
-	if err := l.db.Select(&buys, l.db.Rebind(
+	if err := tx.Select(&buys, tx.Rebind(
 		`SELECT executed_price as price, executed_qty as quantity FROM orders
 		 WHERE session_id = ? AND side = 'buy' AND status = 'filled' ORDER BY created_at ASC`), sessionID); err != nil {
+		slog.Warn("computeLivePnLTx: fetch buys", "session", sessionID, "error", err)
 		return "0"
 	}
 	totalQty := 0.0

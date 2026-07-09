@@ -275,7 +275,46 @@ func main() {
 		})
 	})
 
-	// WebSocket (public, unauthenticated)
+	// Candle data for frontend backtest
+	v1.GET("/candles", func(c echo.Context) error {
+		symbol := c.QueryParam("symbol")
+		interval := c.QueryParam("interval")
+		if symbol == "" {
+			return c.JSON(400, ErrorResponse{Error: "symbol required"})
+		}
+		if interval == "" {
+			interval = "1h"
+		}
+		limit := 200
+		if n, err := strconv.Atoi(c.QueryParam("limit")); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+		candles, err := tokoClient.GetCandles(symbol, interval, limit)
+		if err != nil {
+			return c.JSON(502, ErrorResponse{Error: "failed to fetch candles: " + err.Error()})
+		}
+		// Return as [{time, open, high, low, close, volume}]
+		type candleRow struct {
+			Time   any    `json:"t"`
+			Open   string `json:"o"`
+			High   string `json:"h"`
+			Low    string `json:"l"`
+			Close  string `json:"c"`
+			Volume string `json:"v"`
+		}
+		rows := make([]candleRow, 0, len(candles))
+		for _, c := range candles {
+			if len(c) < 6 {
+				continue
+			}
+			rows = append(rows, candleRow{
+				Time: c[0], Open: fmt.Sprintf("%v", c[1]),
+				High: fmt.Sprintf("%v", c[2]), Low: fmt.Sprintf("%v", c[3]),
+				Close: fmt.Sprintf("%v", c[4]), Volume: fmt.Sprintf("%v", c[5]),
+			})
+		}
+		return c.JSON(200, rows)
+	})
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
 
 	// Graceful shutdown

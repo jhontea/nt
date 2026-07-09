@@ -10,11 +10,10 @@ import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
-import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import type { DCAConfig, Order, Ticker } from '@/types'
-import { Coins, Plus, Clock, TrendingUp } from 'lucide-react'
+import { Coins, Plus, Clock, TrendingUp, Zap } from 'lucide-react'
 
 function parseDCAConfig(config: string): DCAConfig | null {
   try { return JSON.parse(config) } catch { return null }
@@ -206,10 +205,38 @@ export default function DcaPage() {
     [uniqueSymbols, tickerQueries]
   )
 
+  const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
+  const livePnlQueries = useQueries({
+    queries: liveIds.map(id => ({
+      queryKey: ['pnl', id],
+      queryFn: () => api.sessions.getPnL(id),
+      enabled: isAuthenticated && liveIds.length > 0,
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  })
+  const livePnlBySession = useMemo(() => {
+    const map: Record<number, { realized: number; trades: number } | null> = {}
+    liveIds.forEach((id, i) => {
+      const d = livePnlQueries[i]?.data
+      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
+    })
+    return map
+  }, [liveIds, livePnlQueries])
+
   const filteredSessions = useMemo(() =>
     symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter),
     [sessions, symbolFilter]
   )
+
+  const { data: liveBalance } = useQuery({
+    queryKey: ['account-balance'],
+    queryFn: () => api.account.balance(),
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+  const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
 
   async function handleStart(id: number) { await api.sessions.start(id); refetch() }
   async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
@@ -227,7 +254,15 @@ export default function DcaPage() {
             <span className="w-10 h-10 flex-shrink-0 rounded-[14px] bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842] flex items-center justify-center"><Coins size={20} /></span>
             <div className="min-w-0">
               <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">DCA</h1>
-              <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989] mt-1">Beli aset secara berkala dalam jumlah tetap</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989]">Beli aset secara berkala dalam jumlah tetap</p>
+                {liveBalance && (
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${usdtFree < 10 ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : 'bg-[rgba(255,209,26,0.1)] text-[#7a5f00] dark:text-[#f5c842]'}`}>
+                    <Zap size={9} />USDT {usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {usdtFree < 10 && ' ⚠️'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#ffd11a] text-[#3d2f00] font-bold border-2 border-[#ffd11a] hover:bg-[#ffe566] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(255,209,26,0.4)] whitespace-nowrap flex items-center gap-1.5">
@@ -242,7 +277,9 @@ export default function DcaPage() {
 
         {/* Session list */}
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <SectionLabel>SESSION DCA · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}</SectionLabel>
+          <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">
+            Session DCA · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}
+          </p>
           {uniqueSymbols.length > 1 && (
             <select
               value={symbolFilter}
@@ -281,13 +318,20 @@ export default function DcaPage() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
 
                   {/* DCA config strip */}
                   {cfg && (
-                    <div className="mx-1 -mt-1 bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border border-t-0 border-[rgba(255,209,26,0.15)] rounded-b-[16px] px-4 py-2.5">
+                    <div className={`mx-1 -mt-1 border border-t-0 rounded-b-[16px] px-4 py-2.5 ${
+                      s.mode === 'live'
+                        ? 'bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.05)] border-[rgba(208,50,56,0.2)]'
+                        : 'bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border-[rgba(255,209,26,0.15)]'
+                    }`}>
                       <div className="flex items-center justify-between gap-3 flex-wrap">
                         <div className="flex items-center gap-2 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                          {s.mode === 'live' && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
+                          )}
                           <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
                           <span className="opacity-30">·</span>
                           <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
@@ -301,7 +345,9 @@ export default function DcaPage() {
                           </>)}
                           {totalBuys > 0 && (<>
                             <span className="opacity-30">·</span>
-                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested</span>
+                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested
+                            {s.mode === 'live' && <span className="ml-1 text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1 py-0.5 rounded">real</span>}
+                            </span>
                           </>)}
                           {totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] && (() => {
                             const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)

@@ -52,12 +52,14 @@ export function Navbar({ active }: { active?: string }) {
             <div className="w-px h-5 bg-[rgba(14,15,12,0.12)] dark:bg-[rgba(232,235,230,0.12)] mx-1" />
           </div>
           {/* Theme + logout — always visible on desktop, theme only on mobile */}
+          {/* Theme toggle — visible, labeled on desktop */}
           <button
             onClick={toggle}
-            className="px-2.5 py-1.5 min-h-[44px] text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c] rounded-full transition"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c] rounded-full transition"
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            <span className="hidden sm:inline text-xs font-medium">{theme === 'dark' ? 'Light' : 'Dark'}</span>
           </button>
           <button
             onClick={logout}

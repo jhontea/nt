@@ -73,6 +73,15 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	delete(d.avgBuyPrice, sessionID)
 }
 
+// ConfirmBuy updates avgBuyPrice after a live buy order is confirmed on the exchange.
+// Must be called by Manager after live.Execute succeeds.
+func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, price, qty float64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.updateAvgPrice(sessionID, symbol, price, qty)
+	slog.Info("dca: buy confirmed, avg price updated", "session", sessionID, "price", price, "qty", qty)
+}
+
 // RevertLastBuy rolls back price/avg state when a live buy order fails at the exchange,
 // but keeps lastBuy timestamp so the interval is respected — DCA will retry at next interval,
 // not immediately. This prevents hammering the exchange on repeated failures.
@@ -151,9 +160,10 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		signals = append(signals, Signal{
 			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: reason,
 		})
+		// ponytail: do NOT update avgBuyPrice here — order has not been confirmed yet.
+		// Manager calls ConfirmBuy after live.Execute succeeds, or RevertLastBuy on failure.
 		d.lastBuy[session.ID] = time.Now()
 		d.lastBuyPrice[session.ID] = currentPrice
-		d.updateAvgPrice(session.ID, session.Symbol, currentPrice, qty)
 		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "reason", reason)
 	}
 

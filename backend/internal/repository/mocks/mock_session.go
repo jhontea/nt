@@ -144,6 +144,20 @@ func (mr *MockSessionRepositoryMockRecorder) Update(ctx, s any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSessionRepository)(nil).Update), ctx, s)
 }
 
+// UpdateStarted mocks base method.
+func (m *MockSessionRepository) UpdateStarted(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStarted", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStarted indicates an expected call of UpdateStarted.
+func (mr *MockSessionRepositoryMockRecorder) UpdateStarted(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStarted", reflect.TypeOf((*MockSessionRepository)(nil).UpdateStarted), ctx, id)
+}
+
 // UpdateStartedAt mocks base method.
 func (m *MockSessionRepository) UpdateStartedAt(ctx context.Context, id int64) error {
 	m.ctrl.T.Helper()
@@ -170,6 +184,20 @@ func (m *MockSessionRepository) UpdateStatus(ctx context.Context, id int64, stat
 func (mr *MockSessionRepositoryMockRecorder) UpdateStatus(ctx, id, status any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockSessionRepository)(nil).UpdateStatus), ctx, id, status)
+}
+
+// UpdateStopped mocks base method.
+func (m *MockSessionRepository) UpdateStopped(ctx context.Context, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStopped", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStopped indicates an expected call of UpdateStopped.
+func (mr *MockSessionRepositoryMockRecorder) UpdateStopped(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStopped", reflect.TypeOf((*MockSessionRepository)(nil).UpdateStopped), ctx, id)
 }
 
 // UpdateStoppedAt mocks base method.

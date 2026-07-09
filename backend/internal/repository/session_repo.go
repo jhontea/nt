@@ -18,6 +18,8 @@ type SessionRepository interface {
 	UpdateStatus(ctx context.Context, id int64, status string) error
 	UpdateStartedAt(ctx context.Context, id int64) error
 	UpdateStoppedAt(ctx context.Context, id int64) error
+	UpdateStarted(ctx context.Context, id int64) error
+	UpdateStopped(ctx context.Context, id int64) error
 	Update(ctx context.Context, s *model.Session) error
 	Delete(ctx context.Context, id int64) error
 }
@@ -79,6 +81,18 @@ func (r *SessionRepo) ListByUserAndStrategy(ctx context.Context, userID int64, s
 		return nil, err
 	}
 	return sessions, nil
+}
+
+func (r *SessionRepo) UpdateStarted(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(
+		"UPDATE sessions SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE id = ?"), id)
+	return err
+}
+
+func (r *SessionRepo) UpdateStopped(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, r.db.Rebind(
+		"UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), id)
+	return err
 }
 
 func (r *SessionRepo) UpdateStatus(ctx context.Context, id int64, status string) error {

@@ -14,7 +14,7 @@ import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import type { GridConfig, Session, Order, SignalSummary, Ticker } from '@/types'
-import { Grid2x2, Plus, Trophy, RefreshCw, BarChart2, TrendingUp, TrendingDown, DollarSign, Target, Layers } from 'lucide-react'
+import { Grid2x2, Plus, Trophy, RefreshCw, BarChart2, TrendingUp, TrendingDown, DollarSign, Target, Layers, Zap } from 'lucide-react'
 
 function parseGridConfig(config: string): GridConfig | null {
   try { return JSON.parse(config) } catch { return null }
@@ -83,6 +83,7 @@ export default function GridPage() {
   const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
   const runningIds = useMemo(() => sessions?.filter(s => s.status === 'running').map(s => s.id) ?? [], [sessions])
   const paperIds = useMemo(() => sessions?.filter(s => s.mode === 'paper').map(s => s.id) ?? [], [sessions])
+  const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
 
   // === Parallel queries for enrichment data ===
 
@@ -151,6 +152,25 @@ export default function GridPage() {
     return { totalRealized, totalTrades, avgWinRate, count: results.length }
   }, [pnlQueries])
 
+  // Live PnL per session
+  const livePnlQueries = useQueries({
+    queries: liveIds.map(id => ({
+      queryKey: ['pnl', id],
+      queryFn: () => api.sessions.getPnL(id),
+      enabled: isAuthenticated && liveIds.length > 0,
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  })
+  const livePnlBySession = useMemo(() => {
+    const map: Record<number, { realized: number; trades: number } | null> = {}
+    liveIds.forEach((id, i) => {
+      const d = livePnlQueries[i]?.data
+      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
+    })
+    return map
+  }, [liveIds, livePnlQueries])
+
   // === Per-session enrichment map ===
   const sessionExtras = useMemo(() => {
     const map: Record<number, SessionExtra> = {}
@@ -174,6 +194,15 @@ export default function GridPage() {
 
   const filteredSessions = symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter)
 
+  const { data: liveBalance } = useQuery({
+    queryKey: ['account-balance'],
+    queryFn: () => api.account.balance(),
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+  const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+
   async function handleStart(id: number) { await api.sessions.start(id); refetch() }
   async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
   async function handleDelete(id: number) {
@@ -194,15 +223,23 @@ export default function GridPage() {
       <Navbar active="sessions/grid" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-[14px] bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] flex items-center justify-center"><Grid2x2 size={20} /></span>
-            <div>
-              <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Grid Trading</h1>
-              <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Pasang order beli & jual di level harga yang ditentukan</p>
+        <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 flex-shrink-0 rounded-[14px] bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] flex items-center justify-center"><Grid2x2 size={20} /></span>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Grid Trading</h1>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989]">Pasang order beli & jual di level harga yang ditentukan</p>
+                {liveBalance && (
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${usdtFree < 10 ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : 'bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]'}`}>
+                    <Zap size={9} />USDT {usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {usdtFree < 10 && ' ⚠️'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
             <Plus size={16} /> New Session
           </button>
         </div>
@@ -223,7 +260,12 @@ export default function GridPage() {
               <p className={`text-lg font-black ${aggregatePnL.totalRealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                 {aggregatePnL.totalRealized >= 0 ? '+' : ''}${aggregatePnL.totalRealized.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </p>
-              <p className="text-[10px] text-[#686868] dark:text-[#898989]">{aggregatePnL.count} session aktif</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-[10px] text-[#686868] dark:text-[#898989]">{aggregatePnL.count} session aktif</p>
+                {sessions.some(s => s.mode === 'live' && s.status === 'running') && (
+                  <span className="text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1.5 py-0.5 rounded-full">⚡ live</span>
+                )}
+              </div>
             </div>
             <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
               <div className="flex items-center gap-2 mb-1">
@@ -241,22 +283,6 @@ export default function GridPage() {
               <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{aggregatePnL.totalTrades}</p>
               <p className="text-[10px] text-[#686868] dark:text-[#898989]">eksekusi selesai</p>
             </div>
-          </div>
-        )}
-
-        {/* === BEST PERFORMER === */}
-        {best && (
-          <div className="mb-6 bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(159,232,112,0.25)] flex items-center gap-3">
-            <span className="w-8 h-8 rounded-[10px] bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870] flex items-center justify-center flex-shrink-0"><Trophy size={16} /></span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989]">Best Performer · Paper</p>
-              <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6] truncate">{best.session.name}</p>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-sm font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${best.session.virtual_balance!.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-              <p className={`text-xs font-bold ${best.pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{best.pct >= 0 ? '+' : ''}{best.pct.toFixed(1)}%</p>
-            </div>
-            <button onClick={() => router.push(`/sessions/${best.session.id}`)} className="flex-shrink-0 text-xs font-semibold text-[#163300] dark:text-[#9fe870] bg-[rgba(159,232,112,0.12)] hover:bg-[rgba(159,232,112,0.2)] px-3 py-1.5 rounded-full transition">Detail</button>
           </div>
         )}
 
@@ -294,14 +320,21 @@ export default function GridPage() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
 
                   {/* Grid config + enriched info strip */}
                   {cfg && (
-                    <div className="mx-1 -mt-1 bg-[rgba(159,232,112,0.04)] dark:bg-[rgba(159,232,112,0.06)] border border-t-0 border-[rgba(159,232,112,0.15)] rounded-b-[16px] px-4 py-2.5">
+                    <div className={`mx-1 -mt-1 border border-t-0 rounded-b-[16px] px-4 py-2.5 ${
+                      s.mode === 'live'
+                        ? 'bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.05)] border-[rgba(208,50,56,0.2)]'
+                        : 'bg-[rgba(159,232,112,0.04)] dark:bg-[rgba(159,232,112,0.06)] border-[rgba(159,232,112,0.15)]'
+                    }`}>
                       {/* Row 1: config basics + order/signal counts */}
                       <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                         <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                          {s.mode === 'live' && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
+                          )}
                           <span>Range <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{formatPrice(cfg.lower_price)} – {formatPrice(cfg.upper_price)}</span></span>
                           <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
                           <span><span className="font-semibold text-[#163300] dark:text-[#9fe870]">{cfg.grid_count}</span> grid</span>
@@ -347,14 +380,32 @@ export default function GridPage() {
                         </div>
                       )}
 
-                      {/* Row 3: unrealized P&L for paper sessions */}
+                      {/* Row 3: unrealized P&L — paper uses portfolio, live uses ticker */}
                       {s.mode === 'paper' && extra?.portfolio && (
                         <div className="flex items-center gap-3 text-xs">
                           <span className={`font-semibold ${extra.portfolio.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                             Unrealized {extra.portfolio.unrealized_pnl >= 0 ? '+' : ''}${extra.portfolio.unrealized_pnl.toFixed(2)}
                           </span>
+                          <span className="text-[#686868] dark:text-[#898989]">virtual balance ${extra.portfolio.virtual_balance.toFixed(2)}</span>
                         </div>
                       )}
+                      {s.mode === 'live' && orders.length > 0 && currentPrice > 0 && (() => {
+                        const openBuys = orders.filter(o => o.side === 'buy' && o.status === 'filled')
+                        if (openBuys.length === 0) return null
+                        const totalQty = openBuys.reduce((sum, o) => sum + parseFloat(o.executed_qty || o.quantity), 0)
+                        const totalCost = openBuys.reduce((sum, o) => sum + parseFloat(o.executed_qty || o.quantity) * parseFloat(o.executed_price || o.price), 0)
+                        const avgBuy = totalCost / totalQty
+                        const unrealized = (currentPrice - avgBuy) * totalQty
+                        return (
+                          <div className="flex items-center gap-3 text-xs flex-wrap">
+                            <span className={`font-semibold ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              Unrealized {unrealized >= 0 ? '+' : ''}${unrealized.toFixed(2)}
+                            </span>
+                            <span className="text-[#686868] dark:text-[#898989]">{totalQty.toFixed(4)} held · avg ${avgBuy.toFixed(4)}</span>
+                            <span className="text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1.5 py-0.5 rounded-full">real</span>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
 

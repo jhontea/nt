@@ -201,8 +201,7 @@ func TestSessionHandler_Start(t *testing.T) {
 
 	session := &model.Session{ID: 1, UserID: 1, Strategy: "grid", Mode: "signal", Symbol: "BTC_USDT", Config: "{}"}
 	mockRepo.EXPECT().FindByID(gomock.Any(), int64(1)).Return(session, nil)
-	mockRepo.EXPECT().UpdateStatus(gomock.Any(), int64(1), "running").Return(nil)
-	mockRepo.EXPECT().UpdateStartedAt(gomock.Any(), int64(1)).Return(nil)
+	mockRepo.EXPECT().UpdateStarted(gomock.Any(), int64(1)).Return(nil)
 
 	if err := h.Start(c); err != nil {
 		t.Fatal(err)
@@ -218,8 +217,7 @@ func TestSessionHandler_Stop(t *testing.T) {
 	c.SetParamValues("1")
 
 	mockRepo.EXPECT().FindByID(gomock.Any(), int64(1)).Return(&model.Session{ID: 1, UserID: 1}, nil)
-	mockRepo.EXPECT().UpdateStatus(gomock.Any(), int64(1), "stopped").Return(nil)
-	mockRepo.EXPECT().UpdateStoppedAt(gomock.Any(), int64(1)).Return(nil)
+	mockRepo.EXPECT().UpdateStopped(gomock.Any(), int64(1)).Return(nil)
 
 	if err := h.Stop(c); err != nil {
 		t.Fatal(err)

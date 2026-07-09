@@ -1,17 +1,34 @@
 'use client'
 import { useState } from 'react'
-import { Grid2x2, TrendingUp, Coins, Zap, FileText, BarChart2, X, AlertTriangle } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Grid2x2, TrendingUp, Coins, Zap, FileText, BarChart2, X, AlertTriangle, CheckCircle } from 'lucide-react'
 import { PriceBadge } from '@/components/PriceBadge'
 import type { Session } from '@/types'
 
-export function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
+export function SessionCard({ session, onStart, onStop, onDelete, onDetail, livePnl }: {
   session: Session
   onStart: (id: number) => void
   onStop: (id: number) => void
   onDelete: (id: number) => void
   onDetail: (id: number) => void
+  livePnl?: { realized: number; trades: number } | null
 }) {
+  const qc = useQueryClient()
   const [showLiveConfirm, setShowLiveConfirm] = useState(false)
+
+  // Dry-run preview: parse config for quantity/amount + get USDT balance from cache
+  const cachedBalance = qc.getQueryData<{ can_trade: number; assets: { asset: string; free: string; locked: string }[] }>(['account-balance'])
+  const usdtFree = parseFloat(cachedBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+
+  // Parse config to get per-order notional
+  const cfg = (() => { try { return JSON.parse(session.config) } catch { return null } })()
+  const perOrderNotional = (() => {
+    if (!cfg) return null
+    if (session.strategy === 'dca') return parseFloat(cfg.amount ?? '0')
+    if (session.strategy === 'trend') return null // unknown without ticker
+    if (session.strategy === 'grid') return null // grid doesn't use single notional
+    return null
+  })()
 
   const strategyIcon = session.strategy === 'grid' ? <Grid2x2 size={22} /> : session.strategy === 'trend' ? <TrendingUp size={22} /> : <Coins size={22} />
   const modeIcon = session.mode === 'live' ? <Zap size={10} /> : session.mode === 'paper' ? <FileText size={10} /> : <BarChart2 size={10} />
@@ -47,7 +64,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
 
   return (
     <>
-      {/* Live confirmation modal */}
+      {/* Live confirmation + dry-run preview modal */}
       {showLiveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowLiveConfirm(false)}>
           <div className="bg-white dark:bg-[#1e201c] rounded-[24px] border border-[rgba(208,50,56,0.3)] shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
@@ -60,22 +77,53 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
                 <p className="text-xs text-[#686868] dark:text-[#898989]">{session.name}</p>
               </div>
             </div>
+
+            {/* Dry-run preview */}
+            <div className="rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-3 mb-3 space-y-2">
+              <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider">Simulasi Saldo</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#686868] dark:text-[#898989]">USDT tersedia</span>
+                <span className={`font-bold ${usdtFree < 10 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]'}`}>
+                  ${usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {usdtFree < 10 && ' ⚠️'}
+                </span>
+              </div>
+              {perOrderNotional != null && perOrderNotional > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#686868] dark:text-[#898989]">Per order ({session.strategy.toUpperCase()})</span>
+                    <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">${perOrderNotional.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#686868] dark:text-[#898989]">Estimasi order bisa dieksekusi</span>
+                    <span className={`font-bold ${Math.floor(usdtFree / perOrderNotional) < 1 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]'}`}>
+                      {Math.floor(usdtFree / perOrderNotional)} order
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${usdtFree >= perOrderNotional ? 'bg-[#9fe870]' : 'bg-[#ff6b6f]'}`}
+                      style={{ width: `${Math.min(100, (usdtFree / (perOrderNotional * 5)) * 100)}%` }}
+                    />
+                  </div>
+                </>
+              )}
+              {usdtFree < 1 && (
+                <p className="text-[10px] text-[#d03238] dark:text-[#ff6b6f]">⚠️ Saldo USDT sangat rendah — order kemungkinan akan gagal</p>
+              )}
+            </div>
+
             <div className="bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] rounded-[16px] p-3 mb-4 text-xs text-[#686868] dark:text-[#898989] space-y-1.5">
-              <p>⚡ Session ini akan menempatkan <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">order sungguhan</strong> di TokoCrypto menggunakan akun kamu.</p>
-              <p>💸 Setiap sinyal akan langsung dieksekusi sebagai <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order</strong> — ada kemungkinan slippage.</p>
-              <p>⚠️ Pastikan saldo {session.symbol.replace('_', '/')} mencukupi sebelum melanjutkan.</p>
+              <p>⚡ Order sungguhan di TokoCrypto — <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order</strong>, ada slippage.</p>
+              <p>🔄 Setiap sinyal langsung dieksekusi tanpa konfirmasi tambahan.</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowLiveConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.1)] dark:hover:bg-[rgba(232,235,230,0.1)] rounded-full transition"
-              >
+              <button onClick={() => setShowLiveConfirm(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.1)] dark:hover:bg-[rgba(232,235,230,0.1)] rounded-full transition">
                 Batal
               </button>
-              <button
-                onClick={() => { setShowLiveConfirm(false); onStart(session.id) }}
-                className="flex-1 px-4 py-2.5 text-sm font-bold bg-[#d03238] text-white hover:bg-[#b02028] rounded-full transition shadow-[0_2px_8px_rgba(208,50,56,0.4)]"
-              >
+              <button onClick={() => { setShowLiveConfirm(false); onStart(session.id) }}
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-[#d03238] text-white hover:bg-[#b02028] rounded-full transition shadow-[0_2px_8px_rgba(208,50,56,0.4)]">
                 Ya, Mulai Live
               </button>
             </div>
@@ -146,6 +194,18 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail }: {
                   </span>
                 )}
               </p>
+            )}
+            {session.mode === 'live' && livePnl != null && (
+              <p className="text-xs mt-1 flex items-center gap-2">
+                <span className="text-[#686868] dark:text-[#898989]">Realized P&L</span>
+                <span className={`font-semibold ${livePnl.realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {livePnl.realized >= 0 ? '+' : ''}${livePnl.realized.toFixed(2)}
+                </span>
+                <span className="text-[#686868] dark:text-[#898989]">{livePnl.trades} trade{livePnl.trades !== 1 ? 's' : ''}</span>
+              </p>
+            )}
+            {session.mode === 'live' && livePnl == null && (
+              <p className="text-xs mt-1 text-[#686868] dark:text-[#898989]">⚡ Live · belum ada trade</p>
             )}
           </div>
           {/* Actions */}

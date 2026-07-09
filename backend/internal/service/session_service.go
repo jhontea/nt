@@ -59,6 +59,14 @@ func (s *SessionService) Update(ctx context.Context, session *model.Session) err
 	return s.repo.Update(ctx, session)
 }
 
+func (s *SessionService) UpdateStarted(ctx context.Context, id int64) error {
+	return s.repo.UpdateStarted(ctx, id)
+}
+
+func (s *SessionService) UpdateStopped(ctx context.Context, id int64) error {
+	return s.repo.UpdateStopped(ctx, id)
+}
+
 func (s *SessionService) UpdateStatus(ctx context.Context, id int64, status string) error {
 	return s.repo.UpdateStatus(ctx, id, status)
 }

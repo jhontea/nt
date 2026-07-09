@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -10,11 +10,10 @@ import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
-import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import { TrendSparkline } from '@/components/sessions/TrendSparkline'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
-import { TrendingUp, Plus, Clock, Wallet, History } from 'lucide-react'
+import { TrendingUp, Plus, Clock, Wallet, History, Zap } from 'lucide-react'
 
 function parseTrendConfig(config: string): any {
   try { return JSON.parse(config) } catch { return null }
@@ -40,6 +39,34 @@ export default function TrendPage() {
     enabled: isAuthenticated,
     refetchInterval: 15000,
   })
+
+  const { data: liveBalance } = useQuery({
+    queryKey: ['account-balance'],
+    queryFn: () => api.account.balance(),
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  })
+  const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+
+  const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
+  const livePnlQueries = useQueries({
+    queries: liveIds.map(id => ({
+      queryKey: ['pnl', id],
+      queryFn: () => api.sessions.getPnL(id),
+      enabled: isAuthenticated && liveIds.length > 0,
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  })
+  const livePnlBySession = useMemo(() => {
+    const map: Record<number, { realized: number; trades: number } | null> = {}
+    liveIds.forEach((id, i) => {
+      const d = livePnlQueries[i]?.data
+      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
+    })
+    return map
+  }, [liveIds, livePnlQueries])
 
   const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
 
@@ -70,9 +97,15 @@ export default function TrendPage() {
             <span className="w-10 h-10 flex-shrink-0 rounded-[14px] bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5] flex items-center justify-center"><TrendingUp size={20} /></span>
             <div className="min-w-0">
               <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Trend Following</h1>
-              <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989] mt-1">
-                Bot mendeteksi tren dengan SMA crossover — golden cross beli, death cross jual.
-              </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989]">Bot mendeteksi tren dengan SMA crossover — golden cross beli, death cross jual.</p>
+                {liveBalance && (
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${usdtFree < 10 ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : 'bg-[rgba(56,200,255,0.1)] text-[#0994b3] dark:text-[#5dd8f5]'}`}>
+                    <Zap size={9} />USDT {usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {usdtFree < 10 && ' ⚠️'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#38c8ff] text-[#003344] font-bold border-2 border-[#38c8ff] hover:bg-[#7de5ff] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(56,200,255,0.4)] whitespace-nowrap flex items-center gap-1.5">
@@ -84,50 +117,11 @@ export default function TrendPage() {
         <InfoStrip tone="trend" icon={<TrendingUp size={16} />} text="Bot mendeteksi tren dengan SMA crossover — golden cross memicu beli, death cross memicu jual." help="Trend cocok untuk pasar yang sedang bergerak kuat ke satu arah." />
         <StrategyBanner strategy="trend" sessions={sessions ?? []} />
 
-        {/* Per-symbol insight */}
-        {uniqueSymbols.length > 0 && (
-          <div className="mb-6">
-            <SectionLabel>RIWAYAT PER PAIR</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {uniqueSymbols.map(sym => {
-                const symSessions = sessions!.filter(s => s.symbol === sym)
-                const running = symSessions.filter(s => s.status === 'running').length
-                const paper = symSessions.filter(s => s.mode === 'paper' && s.virtual_balance != null)
-                const avgBal = paper.length > 0 ? paper.reduce((sum, s) => sum + (s.virtual_balance ?? 0), 0) / paper.length : null
-                const avgInit = paper.length > 0 ? paper.reduce((sum, s) => sum + (s.initial_balance ?? 0), 0) / paper.length : 0
-                const avgPct = avgBal !== null && avgInit > 0 ? ((avgBal - avgInit) / avgInit) * 100 : null
-                return (
-                  <div key={sym} className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{sym.replace('_', '/')}</span>
-                      {running > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-[#5dd8f5]"><span className="w-1.5 h-1.5 rounded-full bg-[#5dd8f5] animate-pulse" />{running} running</span>}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989]">
-                      <span>{symSessions.length} session</span>
-                      {avgBal !== null && (
-                        <>
-                          <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                          <span>Avg ${avgBal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                          {avgPct !== null && (
-                            <span className={`font-semibold ${avgPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                              {avgPct >= 0 ? '+' : ''}{avgPct.toFixed(1)}%
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Filter tabs */}
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <SectionLabel>SESSION TREND · {filteredSessions.length}</SectionLabel>
-          </div>
+          <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">
+            Session Trend · {filteredSessions.length}
+          </p>
           <div className="flex gap-1 p-1 bg-[#f0f1ee] dark:bg-[#252822] rounded-full border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
             {['all','running','stopped'].map(f => (
               <button key={f} onClick={() => setFilter(f)}
@@ -158,18 +152,27 @@ export default function TrendPage() {
               const cfg = parseTrendConfig(s.config)
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
                   {cfg && (
                     <div key={s.id + '-cfg'} className="mx-1 -mt-1 rounded-b-[16px] overflow-hidden border border-t-0 border-[rgba(56,200,255,0.15)]">
                       {/* Config strip */}
-                      <div className="bg-[rgba(56,200,255,0.04)] dark:bg-[rgba(56,200,255,0.06)] px-4 py-2.5 flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
-                        <span>SMA Cepat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.fast_period || 10}</span></span>
+                      <div className={`px-4 py-2.5 flex items-center gap-3 text-xs flex-wrap ${
+                        s.mode === 'live'
+                          ? 'bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.05)]'
+                          : 'bg-[rgba(56,200,255,0.04)] dark:bg-[rgba(56,200,255,0.06)]'
+                      }`}>
+                        {s.mode === 'live' && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
+                        )}
+                        <span className="text-[#686868] dark:text-[#898989]">SMA Cepat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.fast_period || 10}</span></span>
                         <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                        <span>SMA Lambat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.slow_period || 30}</span></span>
+                        <span className="text-[#686868] dark:text-[#898989]">SMA Lambat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.slow_period || 30}</span></span>
                         <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                        <span>Interval <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.interval || '5m'}</span></span>
+                        <span className="text-[#686868] dark:text-[#898989]">Interval <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.interval || '5m'}</span></span>
                         <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
-                        <span>Qty <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cfg.quantity || '?'}</span></span>
+                        <span className="text-[#686868] dark:text-[#898989]">Qty <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cfg.quantity || '?'}</span></span>
+                        {cfg.stop_loss_pct > 0 && <><span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" /><span className="text-[#d03238] dark:text-[#ff6b6f] font-semibold">SL {cfg.stop_loss_pct}%</span></>}
+                        {cfg.take_profit_pct > 0 && <><span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" /><span className="text-[#054d28] dark:text-[#9fe870] font-semibold">TP {cfg.take_profit_pct}%</span></>}
                       </div>
                       {(() => {
                         const st = trendStatuses?.find(t => t.session_id === s.id)

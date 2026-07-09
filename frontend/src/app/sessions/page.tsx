@@ -9,7 +9,6 @@ import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
-import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 
@@ -262,29 +261,22 @@ export default function SessionsOverviewPage() {
           </div>
         ) : sessions && sessions.length > 0 ? (
           <>
-            <section className="mt-6">
-              <SectionLabel>Performa</SectionLabel>
-              <PerformanceSummary sessions={sessions} />
-            </section>
-            <section className="mt-8">
-              <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
-            </section>
+            <PerformanceSummary sessions={sessions} />
+            <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
           </>
         ) : (
           sessions && (
             <>
-            <div className="mt-6">
-              <EmptyState
-                icon={<Bot size={28} />}
-                title="Belum ada sesi trading"
-                description="Mulai dengan membuat sesi baru, atau pilih salah satu strategi di bawah untuk menjalankan bot pertama Anda."
-                actionLabel="New Session"
-                onAction={() => setShowCreate(true)}
-              />
-            </div>
-            <section className="mt-2">
+              <div className="mt-6">
+                <EmptyState
+                  icon={<Bot size={28} />}
+                  title="Belum ada sesi trading"
+                  description="Mulai dengan membuat sesi baru, atau pilih salah satu strategi di bawah untuk menjalankan bot pertama Anda."
+                  actionLabel="New Session"
+                  onAction={() => setShowCreate(true)}
+                />
+              </div>
               <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
-            </section>
             </>
           )
         )}
