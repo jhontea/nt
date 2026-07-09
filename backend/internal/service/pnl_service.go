@@ -170,7 +170,7 @@ func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStat
 }
 
 func (s *PnLService) GetOrders(ctx context.Context, sessionID, cursor, limit int64) ([]model.Order, error) {
-	var orders []model.Order
+	orders := []model.Order{}
 	var err error
 	if cursor > 0 {
 		err = s.db.SelectContext(ctx, &orders,
