@@ -341,8 +341,9 @@ export default function SessionDetailPage() {
     } else if (session.strategy === 'dca') {
       lines.push(`- Interval: ${configDisplay.interval_sec}s`)
       lines.push(`- Amount: $${configDisplay.amount}`)
-      lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
+      if (configDisplay.take_profit_pct > 0) lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
       if (configDisplay.stop_loss_pct > 0) lines.push(`- Stop Loss: ${configDisplay.stop_loss_pct}%`)
+      if (configDisplay.drop_pct > 0) lines.push(`- Beli saat turun: ${configDisplay.drop_pct}%`)
     }
     lines.push('')
 
@@ -1160,6 +1161,11 @@ export default function SessionDetailPage() {
               {configDisplay.stop_loss_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">
                   <OctagonX size={12} className="inline mr-1" />SL {configDisplay.stop_loss_pct}%
+                </span>
+              )}
+              {configDisplay.drop_pct > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                  Beli saat turun {configDisplay.drop_pct}%
                 </span>
               )}
             </>)}
