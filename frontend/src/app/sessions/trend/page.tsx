@@ -13,6 +13,7 @@ import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import { TrendSparkline } from '@/components/sessions/TrendSparkline'
+import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { TrendingUp, Plus, Clock, Wallet, History } from 'lucide-react'
 
 function parseTrendConfig(config: string): any {
@@ -74,12 +75,13 @@ export default function TrendPage() {
               </p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
+          <button onClick={() => setShowCreate(true)} className="px-5 py-3 bg-[#38c8ff] text-[#003344] font-bold border-2 border-[#38c8ff] hover:bg-[#7de5ff] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(56,200,255,0.4)] whitespace-nowrap flex items-center gap-1.5">
             <Plus size={16} /> New Session
           </button>
         </div>
         <StrategyTabs active="trend" />
         {sessions && <StrategyOverview sessions={sessions} strategy="trend" />}
+        <InfoStrip tone="trend" icon={<TrendingUp size={16} />} text="Bot mendeteksi tren dengan SMA crossover — golden cross memicu beli, death cross memicu jual." help="Trend cocok untuk pasar yang sedang bergerak kuat ke satu arah." />
         <StrategyBanner strategy="trend" sessions={sessions ?? []} />
 
         {/* Per-symbol insight */}
@@ -158,9 +160,9 @@ export default function TrendPage() {
                 <div key={s.id}>
                   <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
                   {cfg && (
-                    <div key={s.id + '-cfg'}>
+                    <div key={s.id + '-cfg'} className="mx-1 -mt-1 rounded-b-[16px] overflow-hidden border border-t-0 border-[rgba(56,200,255,0.15)]">
                       {/* Config strip */}
-                      <div className="mx-1 -mt-1 bg-[rgba(56,200,255,0.04)] dark:bg-[rgba(56,200,255,0.06)] border border-t-0 border-[rgba(56,200,255,0.15)] rounded-t-[0] px-4 py-2 flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                      <div className="bg-[rgba(56,200,255,0.04)] dark:bg-[rgba(56,200,255,0.06)] px-4 py-2.5 flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
                         <span>SMA Cepat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.fast_period || 10}</span></span>
                         <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
                         <span>SMA Lambat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.slow_period || 30}</span></span>
@@ -173,7 +175,7 @@ export default function TrendPage() {
                         const st = trendStatuses?.find(t => t.session_id === s.id)
                         if (!st) return null
                         if (st.cross_status === 'unknown' || st.fast_sma == null || st.slow_sma == null) return (
-                          <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] px-4 py-2 bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)] text-[10px] text-[#686868] dark:text-[#898989]">
+                          <div className="px-4 py-2 bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)] text-[10px] text-[#686868] dark:text-[#898989]">
                             SMA tidak tersedia — restart session untuk menghitung ulang
                           </div>
                         )
@@ -200,7 +202,7 @@ export default function TrendPage() {
                             : '⏳ Menunggu crossover SMA'
 
                         return (
-                          <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
+                          <div className="bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
                             {/* Row 1: Sparkline + Price + Cross Status */}
                             <div className="px-4 pt-3 pb-2 flex items-center gap-4">
                               {/* Sparkline */}

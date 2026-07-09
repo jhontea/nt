@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useSessionWS } from '@/lib/useWS'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '@/lib/theme'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
@@ -156,12 +156,39 @@ export default function SessionDetailPage() {
     enabled: isAuthenticated,
   })
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: ['orders', id],
-    queryFn: () => api.sessions.getOrders(Number(id)),
-    enabled: isAuthenticated,
-    refetchInterval: 10000,
-  })
+  const [allOrders, setAllOrders] = useState<import('@/types').Order[]>([])
+  const [orderCursor, setOrderCursor] = useState<number | undefined>(undefined)
+  const [hasMoreOrders, setHasMoreOrders] = useState(true)
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersFetched, setOrdersFetched] = useState(false)
+
+  const fetchOrders = useCallback(async (cursor?: number) => {
+    if (!isAuthenticated) return
+    setOrdersLoading(true)
+    try {
+      const data = await api.sessions.getOrders(Number(id), cursor)
+      if (cursor) {
+        setAllOrders(prev => [...prev, ...data])
+      } else {
+        setAllOrders(data)
+      }
+      setHasMoreOrders(data.length === 50)
+      if (data.length > 0) setOrderCursor(data[data.length - 1].id)
+    } finally {
+      setOrdersLoading(false)
+      setOrdersFetched(true)
+    }
+  }, [id, isAuthenticated])
+
+  useEffect(() => {
+    fetchOrders()
+  }, [fetchOrders])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const t = setInterval(() => fetchOrders(), 10000)
+    return () => clearInterval(t)
+  }, [fetchOrders])
 
   // Grid Signal specific queries
   const isGridSignal = session?.strategy === 'grid' && session?.mode === 'signal'
@@ -324,9 +351,9 @@ export default function SessionDetailPage() {
     }
 
     // Orders (last 5)
-    if (orders && orders.length > 0) {
-      lines.push(`### Order Terakhir (${Math.min(orders.length, 5)} dari ${orders.length})`)
-      orders.slice(0, 5).forEach(o => {
+    if (allOrders && allOrders.length > 0) {
+      lines.push(`### Order Terakhir (${Math.min(allOrders.length, 5)} dari ${allOrders.length})`)
+      allOrders.slice(0, 5).forEach(o => {
         const t = new Date(o.created_at).toLocaleString('id-ID')
         lines.push(`- ${o.side.toUpperCase()} ${o.executed_qty || o.quantity} @ ${o.executed_price || o.price} | ${o.status} | ${t}`)
       })
@@ -763,13 +790,13 @@ export default function SessionDetailPage() {
         ) : null}
 
         {/* DCA cost basis strip — computed from orders, no extra API call */}
-        {session.strategy === 'dca' && orders && orders.length > 0 && (() => {
-          const buys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+        {session.strategy === 'dca' && allOrders && allOrders.length > 0 && (() => {
+          const buys = allOrders.filter((o: import('@/types').Order) => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
           if (buys.length === 0) return null
-          const totalQty = buys.reduce((s, o) => s + parseFloat(o.quantity), 0)
-          const totalCost = buys.reduce((s, o) => s + parseFloat(o.quantity) * parseFloat(o.executed_price || o.price), 0)
+          const totalQty = buys.reduce((s: number, o: import('@/types').Order) => s + parseFloat(o.quantity), 0)
+          const totalCost = buys.reduce((s: number, o: import('@/types').Order) => s + parseFloat(o.quantity) * parseFloat(o.executed_price || o.price), 0)
           const avgPrice = totalQty > 0 ? totalCost / totalQty : 0
-          const totalInvested = buys.reduce((s, o) => s + parseFloat(o.quantity) * parseFloat(o.price), 0)
+          const totalInvested = buys.reduce((s: number, o: import('@/types').Order) => s + parseFloat(o.quantity) * parseFloat(o.price), 0)
           return (
             <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(255,209,26,0.2)] mb-6">
               <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Cost Basis DCA</p>
@@ -1547,7 +1574,7 @@ export default function SessionDetailPage() {
                 <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
                 <span className="text-sm">Memuat orders...</span>
               </div>
-            ) : !orders?.length ? (
+            ) : !ordersFetched || !allOrders.length ? (
               <div className="flex flex-col items-center gap-3 py-8 text-sm">
                 <p className="text-[#686868] dark:text-[#898989]">Belum ada order.</p>
                 {session.status !== 'running' && (
@@ -1560,6 +1587,7 @@ export default function SessionDetailPage() {
                 )}
               </div>
             ) : (
+              <>
               <div className="bg-white dark:bg-[#1e201c] rounded-[24px] overflow-hidden border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-6 relative">
                 <div className="overflow-x-auto relative">
                   <table className="w-full text-sm">
@@ -1574,7 +1602,7 @@ export default function SessionDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
-                      {orders.slice(0, 20).map(o => (
+                      {allOrders.map(o => (
                         <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
@@ -1598,11 +1626,23 @@ export default function SessionDetailPage() {
                            <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
                         </tr>
                       ))}
-                    </tbody>
+                     </tbody>
                   </table>
                 </div>
                 <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-[#1e201c] to-transparent pointer-events-none rounded-r-[24px]" />
               </div>
+              {hasMoreOrders && (
+                <div className="flex justify-center mt-3 mb-6">
+                  <button
+                    onClick={() => fetchOrders(orderCursor)}
+                    disabled={ordersLoading}
+                    className="px-5 py-2 text-sm font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6] rounded-full hover:bg-[#e0e2de] dark:hover:bg-[#2a2c27] transition-all disabled:opacity-50"
+                  >
+                    {ordersLoading ? 'Memuat...' : 'Muat lebih banyak'}
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </>
         )}

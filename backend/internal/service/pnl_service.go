@@ -127,11 +127,18 @@ func (s *PnLService) GetSignalHistory(ctx context.Context, sessionID int64, limi
 	return history, nil
 }
 
-func (s *PnLService) GetOrders(ctx context.Context, sessionID int64) ([]model.Order, error) {
+func (s *PnLService) GetOrders(ctx context.Context, sessionID, cursor int64) ([]model.Order, error) {
 	var orders []model.Order
-	err := s.db.SelectContext(ctx, &orders,
-		s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-		 FROM orders WHERE session_id = ? ORDER BY created_at DESC LIMIT 50`), sessionID)
+	var err error
+	if cursor > 0 {
+		err = s.db.SelectContext(ctx, &orders,
+			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
+			 FROM orders WHERE session_id = ? AND id < ? ORDER BY id DESC LIMIT 50`), sessionID, cursor)
+	} else {
+		err = s.db.SelectContext(ctx, &orders,
+			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
+			 FROM orders WHERE session_id = ? ORDER BY id DESC LIMIT 50`), sessionID)
+	}
 	if err != nil {
 		return nil, err
 	}

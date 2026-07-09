@@ -191,7 +191,8 @@ func (h *SessionHandler) GetOrders(c echo.Context) error {
 	if _, err := h.checkOwnership(c, id); err != nil {
 		return err
 	}
-	orders, err := h.svc.PnL.GetOrders(h.reqContext(c), id)
+	cursor, _ := strconv.ParseInt(c.QueryParam("cursor"), 10, 64)
+	orders, err := h.svc.PnL.GetOrders(h.reqContext(c), id, cursor)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}

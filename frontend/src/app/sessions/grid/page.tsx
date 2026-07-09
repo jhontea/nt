@@ -186,7 +186,7 @@ export default function GridPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-[14px] bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870] flex items-center justify-center"><Grid2x2 size={20} /></span>
+            <span className="w-10 h-10 rounded-[14px] bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] flex items-center justify-center"><Grid2x2 size={20} /></span>
             <div>
               <h1 className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Grid Trading</h1>
               <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Pasang order beli & jual di level harga yang ditentukan</p>

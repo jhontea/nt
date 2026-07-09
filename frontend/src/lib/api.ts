@@ -44,7 +44,7 @@ export const api = {
     stop: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/stop`, { method: 'POST' }),
     delete: (id: number) => request<{ status: string }>(`/v1/sessions/${id}`, { method: 'DELETE' }),
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
-    getOrders: (id: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders`),
+    getOrders: (id: number, cursor?: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders${cursor ? `?cursor=${cursor}` : ''}`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),
     getTickersBulk: (symbols: string[]) => request<Record<string, import('@/types').Ticker>>(`/v1/tickers?symbols=${symbols.join(',')}`),
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
