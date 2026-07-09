@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -227,6 +228,61 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 	c.mu.Unlock()
 
 	return ticker, nil
+}
+
+type Mover struct {
+	Symbol             string `json:"symbol"`
+	LastPrice          string `json:"lastPrice"`
+	PriceChangePercent string `json:"priceChangePercent"`
+	Volume             string `json:"volume"`
+}
+
+type Movers struct {
+	Gainers []Mover `json:"gainers"`
+	Hot     []Mover `json:"hot"`
+}
+
+// GetMovers derives top gainers (by % change) and hot pairs (by volume) from the
+// live WS cache. Only USDT/IDR pairs are considered. Returns empty slices if the
+// cache is cold.
+func (c *Client) GetMovers() Movers {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var all []Mover
+	for sym, entry := range c.tickCache {
+		if !strings.HasSuffix(sym, "_USDT") && !strings.HasSuffix(sym, "_IDR") {
+			continue
+		}
+		t := entry.data
+		if t == nil {
+			continue
+		}
+		all = append(all, Mover{
+			Symbol:             t.Symbol,
+			LastPrice:          t.LastPrice,
+			PriceChangePercent: t.PriceChangePercent,
+			Volume:             t.Volume,
+		})
+	}
+
+	gainers := append([]Mover{}, all...)
+	sort.SliceStable(gainers, func(i, j int) bool {
+		return parseFloat(gainers[i].PriceChangePercent) > parseFloat(gainers[j].PriceChangePercent)
+	})
+	if len(gainers) > 5 {
+		gainers = gainers[:5]
+	}
+
+	hot := append([]Mover{}, all...)
+	sort.SliceStable(hot, func(i, j int) bool {
+		return parseFloat(hot[i].Volume) > parseFloat(hot[j].Volume)
+	})
+	if len(hot) > 5 {
+		hot = hot[:5]
+	}
+
+	return Movers{Gainers: gainers, Hot: hot}
 }
 
 func (c *Client) getKlinesAlt(symbol, interval string, limit int) ([][]any, error) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -265,6 +266,57 @@ func TestConcurrentCache(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestGetMovers_FiltersAndRanks(t *testing.T) {
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([][]any{})
+	})
+
+	c.mu.Lock()
+	c.tickCache = map[string]cacheEntry{
+		"BTC_USDT": {data: &Ticker{Symbol: "BTC_USDT", LastPrice: "50000", Volume: "100", PriceChangePercent: "5"}, expiresAt: time.Now().Add(time.Minute)},
+		"ETH_USDT": {data: &Ticker{Symbol: "ETH_USDT", LastPrice: "3000", Volume: "500", PriceChangePercent: "-2"}, expiresAt: time.Now().Add(time.Minute)},
+		"SOL_USDT": {data: &Ticker{Symbol: "SOL_USDT", LastPrice: "150", Volume: "50", PriceChangePercent: "12"}, expiresAt: time.Now().Add(time.Minute)},
+		"TKO_IDR":  {data: &Ticker{Symbol: "TKO_IDR", LastPrice: "100", Volume: "999", PriceChangePercent: "1"}, expiresAt: time.Now().Add(time.Minute)},
+		"BNB_USDT": {data: &Ticker{Symbol: "BNB_USDT", LastPrice: "600", Volume: "300", PriceChangePercent: "8"}, expiresAt: time.Now().Add(time.Minute)},
+		"BTC_BUSD": {data: &Ticker{Symbol: "BTC_BUSD", LastPrice: "1", Volume: "9999", PriceChangePercent: "50"}, expiresAt: time.Now().Add(time.Minute)},
+	}
+	c.mu.Unlock()
+
+	m := c.GetMovers()
+	if len(m.Gainers) != 5 {
+		t.Fatalf("expected 5 gainers, got %d", len(m.Gainers))
+	}
+	if m.Gainers[0].Symbol != "SOL_USDT" {
+		t.Errorf("expected top gainer SOL_USDT, got %s", m.Gainers[0].Symbol)
+	}
+	if m.Gainers[0].PriceChangePercent != "12" {
+		t.Errorf("expected SOL pct 12, got %s", m.Gainers[0].PriceChangePercent)
+	}
+	if m.Hot[0].Symbol != "TKO_IDR" {
+		t.Errorf("expected top hot TKO_IDR (vol 999), got %s", m.Hot[0].Symbol)
+	}
+	for _, g := range m.Gainers {
+		if !strings.HasSuffix(g.Symbol, "_USDT") && !strings.HasSuffix(g.Symbol, "_IDR") {
+			t.Errorf("gainer %s not USDT/IDR", g.Symbol)
+		}
+	}
+	for _, h := range m.Hot {
+		if h.Symbol == "BTC_BUSD" {
+			t.Error("BTC_BUSD should be filtered out")
+		}
+	}
+}
+
+func TestGetMovers_EmptyCache(t *testing.T) {
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([][]any{})
+	})
+	m := c.GetMovers()
+	if len(m.Gainers) != 0 || len(m.Hot) != 0 {
+		t.Errorf("expected empty movers on cold cache, got g=%d h=%d", len(m.Gainers), len(m.Hot))
+	}
 }
 
 func TestDoPublic_Non200(t *testing.T) {
