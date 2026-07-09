@@ -72,6 +72,18 @@ export interface Ticker {
   low24h: string
 }
 
+export interface Mover {
+  symbol: string
+  lastPrice: string
+  priceChangePercent: string
+  volume: string
+}
+
+export interface MoversResponse {
+  gainers: Mover[]
+  hot: Mover[]
+}
+
 export interface StrategySignal {
   id: number
   session_id: number

@@ -50,6 +50,7 @@ export const api = {
     getOrders: (id: number, cursor?: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders${cursor ? `?cursor=${cursor}` : ''}`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),
     getTickersBulk: (symbols: string[]) => request<Record<string, import('@/types').Ticker>>(`/v1/tickers?symbols=${symbols.join(',')}`),
+    getMovers: () => request<import('@/types').MoversResponse>('/v1/market/movers'),
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
     getSignalSummary: (id: number) => request<import('@/types').SignalSummary>(`/v1/sessions/${id}/signals/summary`),
     getPortfolio: (id: number) => request<{ virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[]; unrealized_pnl: number }>(`/v1/sessions/${id}/portfolio`),
