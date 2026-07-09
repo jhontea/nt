@@ -236,7 +236,7 @@ export default function DcaPage() {
     refetchInterval: 30_000,
     staleTime: 15_000,
   })
-  const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+  const idrFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'IDR')?.free ?? '0')
 
   async function handleStart(id: number) { await api.sessions.start(id); refetch() }
   async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
@@ -257,9 +257,9 @@ export default function DcaPage() {
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <p className="text-xs sm:text-sm text-[#686868] dark:text-[#898989]">Beli aset secara berkala dalam jumlah tetap</p>
                 {liveBalance && (
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${usdtFree < 10 ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : 'bg-[rgba(255,209,26,0.1)] text-[#7a5f00] dark:text-[#f5c842]'}`}>
-                    <Zap size={9} />USDT {usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {usdtFree < 10 && ' ⚠️'}
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${idrFree < 50000 ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : 'bg-[rgba(255,209,26,0.1)] text-[#7a5f00] dark:text-[#f5c842]'}`}>
+                    <Zap size={9} />IDR {idrFree.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                    {idrFree < 50000 && ' ⚠️'}
                   </span>
                 )}
               </div>

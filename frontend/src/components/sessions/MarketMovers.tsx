@@ -60,18 +60,13 @@ export function MarketMovers() {
   const empty = isLoading && gu.length === 0 && gi.length === 0 && hu.length === 0 && hi.length === 0
 
   return (
-    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 flex flex-wrap gap-x-4 gap-y-4">
+    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 grid grid-cols-2 gap-x-4">
       {empty ? (
-        <p className="text-xs text-[#686868] dark:text-[#898989]">Memuat data pasar…</p>
+        <p className="text-xs text-[#686868] dark:text-[#898989] col-span-2">Memuat data pasar…</p>
       ) : (
         <>
-          <Column title="Top Gainers USDT" items={gu} />
-          {divider}
-          <Column title="Top Gainers IDR" items={gi} />
-          {divider}
-          <Column title="Hot Pairs USDT" items={hu} />
-          {divider}
-          <Column title="Hot Pairs IDR" items={hi} />
+          <Column title="Gainers USDT" items={gu} />
+          <Column title="Gainers IDR" items={gi} />
         </>
       )}
     </div>

@@ -8,10 +8,12 @@ const USDT_PAIRS = [
   'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT',
   'ADA_USDT', 'DOGE_USDT', 'DOT_USDT', 'AVAX_USDT', 'MATIC_USDT',
   'LINK_USDT', 'UNI_USDT', 'ATOM_USDT', 'LTC_USDT', 'BCH_USDT',
+  'PEPE_USDT', 'SHIB_USDT',
 ]
 
 const IDR_PAIRS = [
   'BTC_IDR', 'ETH_IDR', 'BNB_IDR', 'SOL_IDR', 'USDT_IDR',
+  'DOGE_IDR', 'XRP_IDR', 'ADA_IDR',
 ]
 
 const modeHelp: Record<string, string> = {

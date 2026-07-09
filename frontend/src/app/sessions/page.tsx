@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Bot, Zap } from 'lucide-react'
@@ -11,15 +11,12 @@ import { MarketMovers } from '@/components/sessions/MarketMovers'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 
 const STABLE_ASSETS = new Set(['USDT', 'FDUSD', 'USDC', 'BUSD', 'IDR'])
 export default function SessionsOverviewPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
-
-  const [showCreate, setShowCreate] = useState(false)
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['sessions'],
@@ -61,47 +58,43 @@ export default function SessionsOverviewPage() {
       <Navbar active="sessions" />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex justify-between items-start gap-3 mb-6 flex-wrap">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Dashboard</h1>
-            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Sesi trading, saldo akun, dan performa strategi.</p>
-            {sessions && sessions.length > 0 && (() => {
-              const r = sessions.filter(s => s.status === 'running').length
-              const liveRunning = sessions.filter(s => s.status === 'running' && s.mode === 'live').length
-              const paperPnl = sessions.filter(s => s.mode === 'paper' && s.virtual_balance != null)
-                .reduce((sum, s) => sum + ((s.virtual_balance ?? 0) - (s.initial_balance ?? 0)), 0)
-              return (
-                <p className="text-xs text-[#686868] dark:text-[#898989] mt-2 flex items-center gap-2 flex-wrap">
-                  {liveRunning > 0 && (
-                    <span className="flex items-center gap-1 text-[#d03238] dark:text-[#ff6b6f] font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse" />
-                      ⚡ {liveRunning} live running
+        <div className="mb-6">
+          <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Dashboard</h1>
+          <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Sesi trading, saldo akun, dan performa strategi.</p>
+          {sessions && sessions.length > 0 && (() => {
+            const r = sessions.filter(s => s.status === 'running').length
+            const liveRunning = sessions.filter(s => s.status === 'running' && s.mode === 'live').length
+            const paperPnl = sessions.filter(s => s.mode === 'paper' && s.virtual_balance != null)
+              .reduce((sum, s) => sum + ((s.virtual_balance ?? 0) - (s.initial_balance ?? 0)), 0)
+            return (
+              <p className="text-xs text-[#686868] dark:text-[#898989] mt-2 flex items-center gap-2 flex-wrap">
+                {liveRunning > 0 && (
+                  <span className="flex items-center gap-1 text-[#d03238] dark:text-[#ff6b6f] font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse" />
+                    ⚡ {liveRunning} live running
+                  </span>
+                )}
+                {r > liveRunning && (
+                  <span className={`flex items-center gap-1 ${r > 0 ? 'text-[#9fe870]' : ''}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
+                    {r - liveRunning} paper running
+                  </span>
+                )}
+                {r === 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)]" />none running</span>}
+                {paperPnl !== 0 && (
+                  <>
+                    <span className="text-[rgba(14,15,12,0.2)] dark:text-[rgba(232,235,230,0.2)]">·</span>
+                    <span className={paperPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}>
+                      {paperPnl >= 0 ? '+' : ''}${paperPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })} paper P&L
                     </span>
-                  )}
-                  {r > liveRunning && (
-                    <span className={`flex items-center gap-1 ${r > 0 ? 'text-[#9fe870]' : ''}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />
-                      {r - liveRunning} paper running
-                    </span>
-                  )}
-                  {r === 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)]" />none running</span>}
-                  {paperPnl !== 0 && (
-                    <>
-                      <span className="text-[rgba(14,15,12,0.2)] dark:text-[rgba(232,235,230,0.2)]">·</span>
-                      <span className={paperPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}>
-                        {paperPnl >= 0 ? '+' : ''}${paperPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })} paper P&L
-                      </span>
-                    </>
-                  )}
-                </p>
-              )
-            })()}
-          </div>
-          <button onClick={() => setShowCreate(true)} className="flex-shrink-0 px-3 py-2 sm:px-5 sm:py-3 bg-[#9fe870] text-[#163300] font-bold border-2 border-[#9fe870] hover:bg-[#cdffad] rounded-full transition-all text-sm shadow-[0_2px_8px_rgba(159,232,112,0.4)] whitespace-nowrap flex items-center gap-1.5">
-            + New Session
-          </button>
+                  </>
+                )}
+              </p>
+            )
+          })()}
         </div>
 
+        <StrategyCards sessions={sessions ?? []} />
         <MarketTicker symbols={sessions ? [...new Set(sessions.map(s => s.symbol))] : undefined} />
         <MarketMovers />
 
@@ -262,28 +255,19 @@ export default function SessionsOverviewPage() {
             <span className="text-[#686868] dark:text-[#898989] text-sm">Memuat sessions...</span>
           </div>
         ) : sessions && sessions.length > 0 ? (
-          <>
-            <PerformanceSummary sessions={sessions} />
-            <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
-          </>
+          <PerformanceSummary sessions={sessions} />
         ) : (
           sessions && (
-            <>
-              <div className="mt-6">
-                <EmptyState
-                  icon={<Bot size={28} />}
-                  title="Belum ada sesi trading"
-                  description="Mulai dengan membuat sesi baru, atau pilih salah satu strategi di bawah untuk menjalankan bot pertama Anda."
-                  actionLabel="New Session"
-                  onAction={() => setShowCreate(true)}
-                />
-              </div>
-              <StrategyCards sessions={sessions} onOpen={(s) => router.push(`/sessions/${s}`)} />
-            </>
+            <div className="mt-6">
+              <EmptyState
+                icon={<Bot size={28} />}
+                title="Belum ada sesi trading"
+                description="Pilih salah satu strategi di atas untuk mulai trading."
+              />
+            </div>
           )
         )}
       </div>
-      <CreateSessionModal strategy="grid" open={showCreate} onClose={() => setShowCreate(false)} onCreated={() => refetch()} />
     </div>
   )
 }
