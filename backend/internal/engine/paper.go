@@ -99,19 +99,27 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 		return nil, false
 	}
 
-	newBalance := balance - notional
-	if err := p.setBalance(session.ID, newBalance); err != nil {
-		return err, false
-	}
+	newBalance := math.Round((balance-notional)*1e8) / 1e8
 
-	_, err = p.db.Exec(
-		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("executeBuy: begin tx: %w", err), false
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(tx.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"), newBalance, session.ID); err != nil {
+		return fmt.Errorf("executeBuy: set balance: %w", err), false
+	}
+	if _, err := tx.Exec(
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_buy_%d", time.Now().UnixNano()),
 		session.Symbol, string(model.SideBuy), gridPrice, qty, qty, execPrice,
-	)
-	if err != nil {
-		return fmt.Errorf("save buy order: %w", err), false
+	); err != nil {
+		return fmt.Errorf("executeBuy: save order: %w", err), false
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("executeBuy: commit tx: %w", err), false
 	}
 
 	slog.Info("paper buy", "session", session.ID, "symbol", session.Symbol, "qty", qty, "grid_price", gridPrice, "exec_price", execPrice, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
@@ -266,22 +274,33 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 		return nil
 	}
 
-	newBalance := balance - notional
-	if err := p.setBalance(session.ID, newBalance); err != nil {
-		return err
-	}
+	newBalance := math.Round((balance-notional)*1e8) / 1e8
 
-	_, err = p.db.Exec(
-		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("executeTrendBuy: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(tx.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"), newBalance, session.ID); err != nil {
+		return fmt.Errorf("executeTrendBuy: set balance: %w", err)
+	}
+	if _, err := tx.Exec(
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_trend_buy_%d", time.Now().UnixNano()),
 		session.Symbol, string(model.SideBuy), signal.Price, signal.Quantity, signal.Quantity, signal.Price,
-	)
-	if err != nil {
-		return fmt.Errorf("save trend buy order: %w", err)
+	); err != nil {
+		return fmt.Errorf("executeTrendBuy: save order: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("executeTrendBuy: commit tx: %w", err)
 	}
 
 	slog.Info("trend paper buy", "session", session.ID, "symbol", session.Symbol, "qty", signal.Quantity, "price", signal.Price, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
+	if p.notifier != nil {
+		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideBuy), signal.Price, signal.Quantity, "0")
+	}
 	return nil
 }
 
@@ -368,6 +387,19 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 	}
 
 	slog.Info("trend paper sell", "session", session.ID, "symbol", session.Symbol, "qty", totalQtyStr, "price", signal.Price, "proceeds", fmt.Sprintf("%.2f", totalProceeds))
+	if p.notifier != nil {
+		pnlTotal := totalProceeds - func() float64 {
+			total := 0.0
+			for _, buy := range buys {
+				bp, _ := strconv.ParseFloat(buy.ExecutedPrice, 64)
+				q, _ := strconv.ParseFloat(buy.Quantity, 64)
+				total += bp * q
+			}
+			return total
+		}()
+		pnlStr := strconv.FormatFloat(math.Round(pnlTotal*1e8)/1e8, 'f', 8, 64)
+		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), signal.Price, totalQtyStr, pnlStr)
+	}
 	return nil
 }
 
