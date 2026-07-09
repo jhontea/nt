@@ -73,14 +73,26 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	delete(d.avgBuyPrice, sessionID)
 }
 
+// RevertLastBuy rolls back price/avg state when a live buy order fails at the exchange,
+// but keeps lastBuy timestamp so the interval is respected — DCA will retry at next interval,
+// not immediately. This prevents hammering the exchange on repeated failures.
+func (d *DCAEngine) RevertLastBuy(sessionID int64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	// keep d.lastBuy[sessionID] intact — interval must still be respected
+	delete(d.lastBuyPrice, sessionID)
+	delete(d.avgBuyPrice, sessionID)
+	slog.Warn("dca: reverted price state after live execute failure (interval preserved)", "session", sessionID)
+}
+
 func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) []Signal {
 	signals := []Signal{}
 
-	// recover lastBuy + lastBuyPrice from DB on first tick after restart
+	// recover lastBuy + lastBuyPrice + avgBuyPrice from DB on first tick after restart
 	if _, exists := d.lastBuy[session.ID]; !exists {
 		var row struct {
-			Epoch int64   `db:"epoch"`
-			Price float64 `db:"price_val"`
+			Epoch    int64   `db:"epoch"`
+			Price    float64 `db:"price_val"`
 		}
 		if err := d.db.Get(&row, d.db.Rebind(
 			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) AS epoch,
@@ -90,6 +102,19 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		), session.ID, session.Symbol); err == nil && row.Epoch > 0 {
 			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
 			d.lastBuyPrice[session.ID] = row.Price
+		}
+
+		// Gap 3 fix: restore avgBuyPrice from DB on restart
+		var avg struct {
+			TotalQty  float64 `db:"total_qty"`
+			TotalCost float64 `db:"total_cost"`
+		}
+		if err := d.db.Get(&avg, d.db.Rebind(
+			`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) AS total_qty,
+			        COALESCE(SUM(CAST(quantity AS REAL) * CAST(price AS REAL)), 0) AS total_cost
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`,
+		), session.ID, session.Symbol); err == nil && avg.TotalQty > 0 {
+			d.avgBuyPrice[session.ID] = avg.TotalCost / avg.TotalQty
 		}
 	}
 

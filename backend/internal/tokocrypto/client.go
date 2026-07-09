@@ -291,20 +291,14 @@ func (c *Client) GetAccount() (*Account, error) {
 	})
 }
 
-func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
-	params := url.Values{
-		"symbol": {req.Symbol},
-		"side":   {strconv.Itoa(req.Side)},
-		"type":   {strconv.Itoa(req.Type)},
-	}
-	if req.Type == 2 && req.Side == 0 && req.QuoteOrderQty != "" {
-		params["quoteOrderQty"] = []string{req.QuoteOrderQty}
-	} else {
-		params["quantity"] = []string{req.Quantity}
-		params["price"] = []string{req.Price}
-	}
+// GetOrder fetches a single order by ID from the exchange — used for reconciliation.
+func (c *Client) GetOrder(symbol string, orderID int64) (*OrderResponseData, error) {
 	return retryCall(func() (*OrderResponseData, error) {
-		body, err := c.doSigned("POST", "/open/v1/orders", params)
+		params := url.Values{
+			"symbol":  {symbol},
+			"orderId": {strconv.FormatInt(orderID, 10)},
+		}
+		body, err := c.doSigned("GET", "/open/v1/orders/detail", params)
 		if err != nil {
 			return nil, err
 		}
@@ -317,6 +311,34 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 		}
 		return &res.Data, nil
 	})
+}
+
+func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
+	params := url.Values{
+		"symbol": {req.Symbol},
+		"side":   {strconv.Itoa(req.Side)},
+		"type":   {strconv.Itoa(req.Type)},
+	}
+	if req.Type == 2 && req.Side == 0 && req.QuoteOrderQty != "" {
+		params["quoteOrderQty"] = []string{req.QuoteOrderQty}
+	} else {
+		params["quantity"] = []string{req.Quantity}
+		params["price"] = []string{req.Price}
+	}
+	// ponytail: no retry on PlaceOrder — retrying a timed-out order risks placing duplicates.
+	// Caller must handle the error and decide whether to retry via reconciliation.
+	body, err := c.doSigned("POST", "/open/v1/orders", params)
+	if err != nil {
+		return nil, err
+	}
+	var res OrderResponse
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, err
+	}
+	if res.Code != 0 {
+		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
+	}
+	return &res.Data, nil
 }
 
 func retryCall[T any](fn func() (T, error)) (T, error) {

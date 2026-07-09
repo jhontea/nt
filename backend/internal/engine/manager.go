@@ -30,6 +30,7 @@ type Manager struct {
 	Hub        *WSHub
 	signalRepo repository.StrategySignalRepository
 	validator  *SignalValidator
+	reconciler *Reconciler
 }
 
 type RunningSession struct {
@@ -38,7 +39,7 @@ type RunningSession struct {
 }
 
 func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub, signalRepo repository.StrategySignalRepository) *Manager {
-	return &Manager{
+	m := &Manager{
 		sessions: make(map[int64]*RunningSession),
 		client:   client,
 		db:       db,
@@ -53,7 +54,11 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		Hub:        hub,
 		signalRepo: signalRepo,
 		validator:  NewSignalValidator(),
+		reconciler: NewReconciler(db, client),
 	}
+	// start reconciler in background — syncs live orders stuck in non-terminal status
+	go m.reconciler.Run(context.Background(), 5*time.Minute)
+	return m
 }
 
 func (m *Manager) Start(session model.Session) error {
@@ -72,9 +77,20 @@ func (m *Manager) Start(session model.Session) error {
 	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
 		grid.Reset(session.ID)
 	}
-// Reset Trend state on restart (clear cross tracking)
+	// Reset Trend state on restart (clear cross tracking)
 	if trend, ok := m.strategies[string(model.StratTrend)].(*TrendEngine); ok {
 		trend.Reset(session.ID)
+	}
+
+	// Gap 6 fix: PreflightCheck for DCA live before starting
+	if session.Strategy == string(model.StratDCA) && session.Mode == string(model.ModeLive) {
+		ticker, err := m.client.GetTicker(session.Symbol)
+		if err != nil {
+			return fmt.Errorf("preflight: cannot fetch ticker for %s: %w", session.Symbol, err)
+		}
+		if err := m.live.PreflightCheck(session.Symbol, string(model.SideBuy), "0", ticker.LastPrice); err != nil {
+			return fmt.Errorf("preflight check failed: %w", err)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -195,6 +211,14 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		for _, sig := range signals {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
+				// Gap 5 fix: if live execute fails for DCA buy, reset in-memory state
+				// so the engine doesn't think a buy happened when it didn't
+				if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
+					if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+						dca.RevertLastBuy(session.ID)
+					}
+				}
+				continue
 			}
 			if m.notifier != nil {
 				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
@@ -203,7 +227,6 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
 		}
-		// Check SL/TP after executing live signals (reuse paper stop logic on portfolio value)
 		if len(signals) > 0 {
 			m.checkLiveStopConditions(session, signals[0].Price)
 		}

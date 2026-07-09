@@ -99,7 +99,7 @@ func TestPnLService_GetOrders_ReturnsLatest(t *testing.T) {
 	db.Exec("INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status) VALUES (?,?,?,?,?,?,?,?)",
 		1, "o2", "ETH_USDT", "sell", "limit", "3100", "0.1", "open")
 
-	orders, err := s.GetOrders(context.Background(), 1, 0)
+	orders, err := s.GetOrders(context.Background(), 1, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestPnLService_GetOrders_ReturnsLatest(t *testing.T) {
 func TestPnLService_GetOrders_NoOrders(t *testing.T) {
 	s := setupPnLDB(t)
 
-	orders, err := s.GetOrders(context.Background(), 1, 0)
+	orders, err := s.GetOrders(context.Background(), 1, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}

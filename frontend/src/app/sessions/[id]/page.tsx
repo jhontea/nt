@@ -178,7 +178,8 @@ export default function SessionDetailPage() {
     if (!isAuthenticated) return
     setOrdersLoading(true)
     try {
-      const data = await api.sessions.getOrders(Number(id), cursor)
+      const raw = await api.sessions.getOrders(Number(id), cursor)
+      const data = raw ?? []
       if (cursor) {
         setAllOrders(prev => [...prev, ...data])
       } else {
@@ -205,9 +206,10 @@ export default function SessionDetailPage() {
       if (!isAuthenticated) return
       setOrdersLoading(true)
       try {
-        const data = await api.sessions.getOrders(Number(id))
+        const raw = await api.sessions.getOrders(Number(id))
+        const data = raw ?? []
         setAllOrders(data)
-        setHasMoreOrders(data.length === 50)
+        setHasMoreOrders(data.length === 10)
         if (data.length > 0) setOrderCursor(data[data.length - 1].id)
       } finally {
         setOrdersLoading(false)
