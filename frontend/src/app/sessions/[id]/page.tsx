@@ -1353,9 +1353,9 @@ export default function SessionDetailPage() {
           const smaGapPct = st.slow_sma !== 0 ? Math.abs((st.fast_sma! - st.slow_sma!) / st.slow_sma!) * 100 : null
           const hasPosition = st.holding_qty != null && st.holding_qty > 0
           const nextActionLabel = isGolden
-            ? hasPosition ? '⏳ Menunggu Death Cross untuk JUAL' : '✓ Golden Cross — bot sudah BUY'
+            ? hasPosition ? '⏳ Menunggu Death Cross untuk JUAL' : '⏳ Kondisi bullish — menunggu golden cross untuk BUY'
             : st.cross_status === 'death'
-              ? !hasPosition ? '⏳ Menunggu Golden Cross untuk BELI' : '✓ Death Cross — bot sudah SELL'
+              ? !hasPosition ? '⏳ Kondisi bearish — menunggu golden cross untuk BELI' : '⏳ Menunggu death cross untuk JUAL'
               : '⏳ Menunggu crossover SMA'
           let cfg: any = {}
           try { cfg = JSON.parse(session!.config) } catch {}
