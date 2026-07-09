@@ -15,11 +15,12 @@ function formatVolume(v: string): string {
 function Row({ m }: { m: Mover }) {
   const pct = parseFloat(m.priceChangePercent)
   const up = pct >= 0
+  const currency = m.symbol.endsWith('_IDR') ? 'Rp' : '$'
   return (
     <div className="flex items-center justify-between text-xs py-1">
       <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{m.symbol.replace('_', '/')}</span>
       <span className="flex items-center gap-2">
-        <span className="text-[#686868] dark:text-[#898989]">${parseFloat(m.lastPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+        <span className="text-[#686868] dark:text-[#898989]">{currency}{parseFloat(m.lastPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         <span className={`font-semibold ${up ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {up ? '+' : ''}{pct.toFixed(2)}%
         </span>
