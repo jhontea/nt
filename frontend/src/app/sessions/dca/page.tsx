@@ -256,11 +256,13 @@ export default function DcaPage() {
               const nextBuyMs = cfg && lastBuy && s.status === 'running'
                 ? new Date(lastBuy.created_at).getTime() + cfg.interval_sec * 1000 - now
                 : null
-              const totalBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal')).length
-              const filledBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+              const totalBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal' || o.status === 'closed')).length
+              const filledBuys = orders.filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal' || o.status === 'closed'))
               const totalInvested = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity) * parseFloat(o.price || '0'), 0)
-              const totalQty = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity), 0)
-              const avgBuy = totalQty > 0 ? filledBuys.reduce((sum, o) => sum + parseFloat(o.executed_price || o.price) * parseFloat(o.quantity), 0) / totalQty : 0
+              // avgBuy + totalQty for unrealized: only open positions (filled, not closed)
+              const openBuys = orders.filter(o => o.side === 'buy' && o.status === 'filled')
+              const totalQty = openBuys.reduce((sum, o) => sum + parseFloat(o.quantity), 0)
+              const avgBuy = totalQty > 0 ? openBuys.reduce((sum, o) => sum + parseFloat(o.executed_price || o.price) * parseFloat(o.quantity), 0) / totalQty : 0
 
               return (
                 <div key={s.id}>

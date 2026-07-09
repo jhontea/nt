@@ -139,6 +139,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	}
 
 	// Calculate total qty, total cost (for avg buy price), total proceeds
+	// Use executed_price (actual market price) not price (grid level) for accurate PnL
 	totalQty := 0.0
 	totalCost := 0.0
 	for _, o := range buyOrders {
@@ -146,12 +147,13 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		if err != nil {
 			return fmt.Errorf("executeSell: invalid order quantity %q: %w", o.Quantity, err)
 		}
-		p2, err := strconv.ParseFloat(o.Price, 64)
-		if err != nil {
-			return fmt.Errorf("executeSell: invalid order price %q: %w", o.Price, err)
+		execBuyPrice, err := strconv.ParseFloat(o.ExecutedPrice, 64)
+		if err != nil || execBuyPrice == 0 {
+			// fallback to price if executed_price not set
+			execBuyPrice, _ = strconv.ParseFloat(o.Price, 64)
 		}
 		totalQty += q
-		totalCost += p2 * q
+		totalCost += execBuyPrice * q
 	}
 
 	avgBuyPrice := totalCost / totalQty
