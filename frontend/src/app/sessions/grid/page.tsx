@@ -10,7 +10,6 @@ import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
-import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import type { GridConfig, Session, Order, SignalSummary, Ticker } from '@/types'
@@ -288,7 +287,9 @@ export default function GridPage() {
 
         {/* === SESSION LIST === */}
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <SectionLabel>SESSION GRID · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}</SectionLabel>
+          <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">
+            Session Grid · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}
+          </p>
           {uniqueSymbols.length > 1 && (
             <select value={symbolFilter} onChange={e => setSymbolFilter(e.target.value)} className="text-xs px-3 py-1.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-full text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none">
               <option value="all">Semua pair</option>

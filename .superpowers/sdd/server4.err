@@ -1,0 +1,42 @@
+2026/07/09 22:37:40 INFO session auto-restarted id=14 name="DCA Paper BTC/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=6 name="Grid Paper ETH/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=5 name="Grid Paper DOGE/USDT 07 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=13 name="Grid Paper SOL/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=15 name="DCA Paper DOGE/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=11 name="Trend Paper DOGE/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=7 name="Grid Paper BNB/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO session auto-restarted id=12 name="Trend Paper BTC/USDT 08 Jul 2026"
+2026/07/09 22:37:40 INFO ticker ws connected
+2026/07/09 22:38:10 INFO grid pre-marked levels from orders session=13 orders=1
+2026/07/09 22:38:10 INFO grid pre-marked levels from orders session=6 orders=5
+2026/07/09 22:38:10 INFO grid pre-marked levels from orders session=7 orders=3
+2026/07/09 22:38:10 INFO grid pre-marked levels from orders session=5 orders=4
+2026/07/09 22:38:10 INFO trend: recovered cross state session=11 lastCross=""
+2026/07/09 22:38:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=""
+2026/07/09 22:38:10 INFO trend: golden cross signal session=11 price=0.07263
+2026/07/09 22:38:10 INFO trend: recovered cross state session=12 lastCross=""
+2026/07/09 22:38:10 INFO trend: evaluate session=12 currFast=62537.47 currSlow=62721.28 golden=false death=false lastCross=""
+2026/07/09 22:38:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=false death=false lastCross=golden
+2026/07/09 22:38:40 INFO trend: evaluate session=12 currFast=62536.99 currSlow=62721.09 golden=false death=false lastCross=""
+2026/07/09 22:39:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:39:10 INFO trend: evaluate session=12 currFast=62538.46 currSlow=62721.68 golden=false death=false lastCross=""
+2026/07/09 22:39:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:39:40 INFO trend: evaluate session=12 currFast=62538.53 currSlow=62721.70 golden=false death=false lastCross=""
+2026/07/09 22:40:10 INFO trend: evaluate session=12 currFast=62538.31 currSlow=62721.62 golden=false death=false lastCross=""
+2026/07/09 22:40:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:40:40 INFO trend: evaluate session=12 currFast=62538.40 currSlow=62721.65 golden=false death=false lastCross=""
+2026/07/09 22:40:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:41:10 INFO trend: evaluate session=12 currFast=62539.67 currSlow=62722.16 golden=false death=false lastCross=""
+2026/07/09 22:41:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:41:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:41:40 INFO trend: evaluate session=12 currFast=62539.40 currSlow=62722.05 golden=false death=false lastCross=""
+2026/07/09 22:42:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:42:10 INFO trend: evaluate session=12 currFast=62539.46 currSlow=62722.08 golden=false death=false lastCross=""
+2026/07/09 22:42:40 INFO trend: evaluate session=12 currFast=62540.19 currSlow=62722.37 golden=false death=false lastCross=""
+2026/07/09 22:42:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:43:10 INFO trend: evaluate session=12 currFast=62540.74 currSlow=62722.59 golden=false death=false lastCross=""
+2026/07/09 22:43:10 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:43:40 INFO dca buy signal session=14 qty=0.00015873 price=63000.64000000 reason=dca_interval
+2026/07/09 22:43:40 INFO paper buy session=14 symbol=BTC_USDT qty=0.00015873 grid_price=63000.64000000 exec_price=63000.64000000 balance=901.30->891.30
+2026/07/09 22:43:40 INFO trend: evaluate session=12 currFast=62540.40 currSlow=62722.46 golden=false death=false lastCross=""
+2026/07/09 22:43:40 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden

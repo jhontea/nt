@@ -1,0 +1,34 @@
+2026/07/09 22:30:07 INFO session auto-restarted id=6 name="Grid Paper ETH/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=12 name="Trend Paper BTC/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=7 name="Grid Paper BNB/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=15 name="DCA Paper DOGE/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=5 name="Grid Paper DOGE/USDT 07 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=13 name="Grid Paper SOL/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=11 name="Trend Paper DOGE/USDT 08 Jul 2026"
+2026/07/09 22:30:07 INFO session auto-restarted id=14 name="DCA Paper BTC/USDT 08 Jul 2026"
+2026/07/09 22:30:07 WARN idr tickers fetch failed error="ticker/24hr returned no rows (likely rate-limited): {\"code\":3701,\"msg\":\"Invalid API-key, IP, or permissions for action.\",\"timestamp\":1783611007349}"
+2026/07/09 22:30:07 INFO ticker ws connected
+2026/07/09 22:30:37 INFO grid pre-marked levels from orders session=6 orders=5
+2026/07/09 22:30:37 INFO grid pre-marked levels from orders session=7 orders=3
+2026/07/09 22:30:37 INFO grid pre-marked levels from orders session=13 orders=1
+2026/07/09 22:30:37 INFO grid pre-marked levels from orders session=5 orders=4
+2026/07/09 22:30:37 INFO trend: recovered cross state session=11 lastCross=""
+2026/07/09 22:30:37 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=""
+2026/07/09 22:30:37 INFO trend: golden cross signal session=11 price=0.07265
+2026/07/09 22:30:37 INFO trend: recovered cross state session=12 lastCross=""
+2026/07/09 22:30:37 INFO trend: evaluate session=12 currFast=62538.75 currSlow=62721.79 golden=false death=false lastCross=""
+2026/07/09 22:30:37 INFO trend paper buy session=11 symbol=DOGE_USDT qty=1380.83402375 price=0.07265000 balance=999.08->898.77
+2026/07/09 22:31:07 INFO trend: evaluate session=12 currFast=62539.87 currSlow=62722.24 golden=false death=false lastCross=""
+2026/07/09 22:31:07 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:31:37 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:31:37 INFO trend: evaluate session=12 currFast=62542.83 currSlow=62723.43 golden=false death=false lastCross=""
+2026/07/09 22:32:07 WARN idr tickers fetch failed error="ticker/24hr returned no rows (likely rate-limited): {\"code\":3701,\"msg\":\"Invalid API-key, IP, or permissions for action.\",\"timestamp\":1783611127402}"
+2026/07/09 22:32:07 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:32:07 INFO trend: evaluate session=12 currFast=62543.49 currSlow=62723.69 golden=false death=false lastCross=""
+2026/07/09 22:32:37 INFO trend: evaluate session=12 currFast=62542.59 currSlow=62723.33 golden=false death=false lastCross=""
+2026/07/09 22:32:37 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:33:07 INFO trend: evaluate session=12 currFast=62541.71 currSlow=62722.98 golden=false death=false lastCross=""
+2026/07/09 22:33:07 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:33:37 INFO trend: evaluate session=11 currFast=0.07 currSlow=0.07 golden=true death=false lastCross=golden
+2026/07/09 22:33:37 INFO trend: evaluate session=12 currFast=62541.65 currSlow=62722.95 golden=false death=false lastCross=""
+exit status 0xffffffff
