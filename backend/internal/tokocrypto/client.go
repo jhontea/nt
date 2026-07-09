@@ -274,8 +274,10 @@ type Mover struct {
 }
 
 type Movers struct {
-	Gainers []Mover `json:"gainers"`
-	Hot     []Mover `json:"hot"`
+	GainersUSDT []Mover `json:"gainersUsdt"`
+	GainersIDR  []Mover `json:"gainersIdr"`
+	HotUSDT     []Mover `json:"hotUsdt"`
+	HotIDR      []Mover `json:"hotIdr"`
 }
 
 // GetMovers derives top gainers (by % change) and hot pairs (by volume) from
@@ -316,25 +318,29 @@ func (c *Client) GetMovers() Movers {
 	}
 	c.idrMu.Unlock()
 
-	all := append(usdt, idr...)
-
-	gainers := append([]Mover{}, all...)
-	sort.SliceStable(gainers, func(i, j int) bool {
-		return parseFloat(gainers[i].PriceChangePercent) > parseFloat(gainers[j].PriceChangePercent)
-	})
-	if len(gainers) > 5 {
-		gainers = gainers[:5]
+	top5 := func(src []Mover, byPct bool) []Mover {
+		out := append([]Mover{}, src...)
+		if byPct {
+			sort.SliceStable(out, func(i, j int) bool {
+				return parseFloat(out[i].PriceChangePercent) > parseFloat(out[j].PriceChangePercent)
+			})
+		} else {
+			sort.SliceStable(out, func(i, j int) bool {
+				return parseFloat(out[i].Volume) > parseFloat(out[j].Volume)
+			})
+		}
+		if len(out) > 5 {
+			out = out[:5]
+		}
+		return out
 	}
 
-	hot := append([]Mover{}, all...)
-	sort.SliceStable(hot, func(i, j int) bool {
-		return parseFloat(hot[i].Volume) > parseFloat(hot[j].Volume)
-	})
-	if len(hot) > 5 {
-		hot = hot[:5]
+	return Movers{
+		GainersUSDT: top5(usdt, true),
+		GainersIDR:  top5(idr, true),
+		HotUSDT:     top5(usdt, false),
+		HotIDR:      top5(idr, false),
 	}
-
-	return Movers{Gainers: gainers, Hot: hot}
 }
 
 type idrTicker struct {

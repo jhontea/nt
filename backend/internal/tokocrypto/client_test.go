@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -287,26 +286,34 @@ func TestGetMovers_FiltersAndRanks(t *testing.T) {
 	c.mu.Unlock()
 
 	m := c.GetMovers()
-	if len(m.Gainers) != 5 {
-		t.Fatalf("expected 5 gainers, got %d", len(m.Gainers))
+	// USDT gainers: 4 USDT pairs (BTC_BUSD filtered), top gainer = SOL_USDT (12%)
+	if len(m.GainersUSDT) != 4 {
+		t.Fatalf("expected 4 USDT gainers, got %d", len(m.GainersUSDT))
 	}
-	if m.Gainers[0].Symbol != "SOL_USDT" {
-		t.Errorf("expected top gainer SOL_USDT, got %s", m.Gainers[0].Symbol)
+	if m.GainersUSDT[0].Symbol != "SOL_USDT" {
+		t.Errorf("expected top USDT gainer SOL_USDT, got %s", m.GainersUSDT[0].Symbol)
 	}
-	if m.Gainers[0].PriceChangePercent != "12" {
-		t.Errorf("expected SOL pct 12, got %s", m.Gainers[0].PriceChangePercent)
+	// IDR gainers: 1 IDR pair
+	if len(m.GainersIDR) != 1 || m.GainersIDR[0].Symbol != "TKO_IDR" {
+		t.Errorf("expected 1 IDR gainer TKO_IDR, got %v", m.GainersIDR)
 	}
-	if m.Hot[0].Symbol != "TKO_IDR" {
-		t.Errorf("expected top hot TKO_IDR (vol 999), got %s", m.Hot[0].Symbol)
+	// Hot USDT: top volume = ETH_USDT (500)
+	if m.HotUSDT[0].Symbol != "ETH_USDT" {
+		t.Errorf("expected top hot USDT ETH_USDT (vol 500), got %s", m.HotUSDT[0].Symbol)
 	}
-	for _, g := range m.Gainers {
-		if !strings.HasSuffix(g.Symbol, "_USDT") && !strings.HasSuffix(g.Symbol, "_IDR") {
-			t.Errorf("gainer %s not USDT/IDR", g.Symbol)
+	// Hot IDR: TKO_IDR
+	if len(m.HotIDR) != 1 || m.HotIDR[0].Symbol != "TKO_IDR" {
+		t.Errorf("expected 1 IDR hot TKO_IDR, got %v", m.HotIDR)
+	}
+	// BTC_BUSD must not appear anywhere
+	for _, g := range append(m.GainersUSDT, m.GainersIDR...) {
+		if g.Symbol == "BTC_BUSD" {
+			t.Error("BTC_BUSD should be filtered out of gainers")
 		}
 	}
-	for _, h := range m.Hot {
+	for _, h := range append(m.HotUSDT, m.HotIDR...) {
 		if h.Symbol == "BTC_BUSD" {
-			t.Error("BTC_BUSD should be filtered out")
+			t.Error("BTC_BUSD should be filtered out of hot")
 		}
 	}
 }
@@ -377,8 +384,8 @@ func TestGetMovers_EmptyCache(t *testing.T) {
 		json.NewEncoder(w).Encode([][]any{})
 	})
 	m := c.GetMovers()
-	if len(m.Gainers) != 0 || len(m.Hot) != 0 {
-		t.Errorf("expected empty movers on cold cache, got g=%d h=%d", len(m.Gainers), len(m.Hot))
+	if len(m.GainersUSDT) != 0 || len(m.GainersIDR) != 0 || len(m.HotUSDT) != 0 || len(m.HotIDR) != 0 {
+		t.Errorf("expected empty movers on cold cache, got gu=%d gi=%d hu=%d hi=%d", len(m.GainersUSDT), len(m.GainersIDR), len(m.HotUSDT), len(m.HotIDR))
 	}
 }
 

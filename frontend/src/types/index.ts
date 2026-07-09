@@ -80,8 +80,10 @@ export interface Mover {
 }
 
 export interface MoversResponse {
-  gainers: Mover[]
-  hot: Mover[]
+  gainersUsdt: Mover[]
+  gainersIdr: Mover[]
+  hotUsdt: Mover[]
+  hotIdr: Mover[]
 }
 
 export interface StrategySignal {

@@ -35,13 +35,15 @@ function Column({ title, items }: { title: string; items: Mover[] }) {
     <div className="flex-1 min-w-0">
       <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest mb-1">{title}</p>
       {items.length === 0 ? (
-        <p className="text-xs text-[#686868] dark:text-[#898989] py-1">Memuat data pasar…</p>
+        <p className="text-xs text-[#686868] dark:text-[#898989] py-1">Memuat…</p>
       ) : (
         items.map(m => <Row key={m.symbol} m={m} />)
       )}
     </div>
   )
 }
+
+const divider = <div className="w-px self-stretch bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" />
 
 export function MarketMovers() {
   const { data, isLoading } = useQuery({
@@ -51,18 +53,25 @@ export function MarketMovers() {
     retry: false,
   })
 
-  const gainers = data?.gainers ?? []
-  const hot = data?.hot ?? []
+  const gu = data?.gainersUsdt ?? []
+  const gi = data?.gainersIdr ?? []
+  const hu = data?.hotUsdt ?? []
+  const hi = data?.hotIdr ?? []
+  const empty = isLoading && gu.length === 0 && gi.length === 0 && hu.length === 0 && hi.length === 0
 
   return (
-    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 flex flex-wrap gap-6">
-      {isLoading && gainers.length === 0 && hot.length === 0 ? (
+    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 flex flex-wrap gap-x-4 gap-y-4">
+      {empty ? (
         <p className="text-xs text-[#686868] dark:text-[#898989]">Memuat data pasar…</p>
       ) : (
         <>
-          <Column title="Top Gainers" items={gainers} />
-          <div className="w-px bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" />
-          <Column title="Hot Pairs" items={hot} />
+          <Column title="Top Gainers USDT" items={gu} />
+          {divider}
+          <Column title="Top Gainers IDR" items={gi} />
+          {divider}
+          <Column title="Hot Pairs USDT" items={hu} />
+          {divider}
+          <Column title="Hot Pairs IDR" items={hi} />
         </>
       )}
     </div>
