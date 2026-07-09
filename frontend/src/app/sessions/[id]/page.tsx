@@ -177,13 +177,13 @@ export default function SessionDetailPage() {
     if (!isAuthenticated) return
     setOrdersLoading(true)
     try {
-      const data = await api.sessions.getOrders(Number(id), cursor)
+      const data = await api.sessions.getOrders(Number(id), cursor, 50)
       if (cursor) {
         setAllOrders(prev => [...prev, ...data])
       } else {
         setAllOrders(data)
       }
-      setHasMoreOrders(data.length === 10)
+      setHasMoreOrders(data.length === 50)
       if (data.length > 0) setOrderCursor(data[data.length - 1].id)
     } finally {
       setOrdersLoading(false)
