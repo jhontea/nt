@@ -7,12 +7,13 @@ type TickerResponse struct {
 }
 
 type Ticker struct {
-	Symbol      string `json:"symbol"`
-	LastPrice   string `json:"lastPrice"`
-	Volume      string `json:"volume"`
-	PriceChange string `json:"priceChange"`
-	High24h     string `json:"high24h"`
-	Low24h      string `json:"low24h"`
+	Symbol              string `json:"symbol"`
+	LastPrice           string `json:"lastPrice"`
+	Volume              string `json:"volume"`
+	PriceChange         string `json:"priceChange"`
+	PriceChangePercent  string `json:"priceChangePercent"`
+	High24h             string `json:"high24h"`
+	Low24h              string `json:"low24h"`
 }
 
 type CandleResponse struct {

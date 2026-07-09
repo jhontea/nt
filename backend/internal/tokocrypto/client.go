@@ -154,15 +154,22 @@ func (c *Client) runAllMiniTickerStream() {
 				if symbol == "" {
 					continue
 				}
-				priceChange := parseFloat(raw.Close) - parseFloat(raw.Open)
-				ticker := &Ticker{
-					Symbol:      symbol,
-					LastPrice:   raw.Close,
-					Volume:      raw.Vol,
-					PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
-					High24h:     raw.High,
-					Low24h:      raw.Low,
-				}
+			priceChange := parseFloat(raw.Close) - parseFloat(raw.Open)
+			var pct string
+			if open := parseFloat(raw.Open); open != 0 {
+				pct = strconv.FormatFloat((priceChange/open)*100, 'f', 2, 64)
+			} else {
+				pct = "0"
+			}
+			ticker := &Ticker{
+				Symbol:              symbol,
+				LastPrice:           raw.Close,
+				Volume:              raw.Vol,
+				PriceChange:         strconv.FormatFloat(priceChange, 'f', 8, 64),
+				PriceChangePercent:  pct,
+				High24h:             raw.High,
+				Low24h:              raw.Low,
+			}
 
 				c.mu.Lock()
 				c.tickCache[symbol] = cacheEntry{data: ticker, expiresAt: time.Now().Add(3 * time.Second)}
@@ -199,14 +206,20 @@ func (c *Client) GetTicker(symbol string) (*Ticker, error) {
 	low := fmt.Sprint(k[3])
 	volume := fmt.Sprint(k[5])
 	priceChange := parseFloat(close_) - parseFloat(open)
-
+	var pct string
+	if open := parseFloat(open); open != 0 {
+		pct = strconv.FormatFloat((priceChange/open)*100, 'f', 2, 64)
+	} else {
+		pct = "0"
+	}
 	ticker := &Ticker{
-		Symbol:      symbol,
-		LastPrice:   close_,
-		Volume:      volume,
-		PriceChange: strconv.FormatFloat(priceChange, 'f', 8, 64),
-		High24h:     high,
-		Low24h:      low,
+		Symbol:              symbol,
+		LastPrice:           close_,
+		Volume:              volume,
+		PriceChange:         strconv.FormatFloat(priceChange, 'f', 8, 64),
+		PriceChangePercent:  pct,
+		High24h:             high,
+		Low24h:              low,
 	}
 
 	c.mu.Lock()
