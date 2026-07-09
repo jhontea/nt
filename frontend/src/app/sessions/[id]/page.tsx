@@ -195,11 +195,17 @@ export default function SessionDetailPage() {
     fetchOrders()
   }, [fetchOrders])
 
+  // Auto-refresh: only refresh first page, don't reset cursor pagination
   useEffect(() => {
     if (!isAuthenticated) return
-    const t = setInterval(() => fetchOrders(), 10000)
+    const t = setInterval(() => {
+      setAllOrders([])
+      setOrderCursor(undefined)
+      setHasMoreOrders(true)
+      fetchOrders()
+    }, 10000)
     return () => clearInterval(t)
-  }, [fetchOrders])
+  }, [fetchOrders, isAuthenticated])
 
   const { data: dcaStats, refetch: refetchDCAStats } = useQuery({
     queryKey: ['dcaStats', id],

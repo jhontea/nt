@@ -185,10 +185,11 @@ export default function DcaPage() {
     })),
   })
 
-  const dcaStatsBySession = useMemo(() =>
-    Object.fromEntries(sessionIds.map((id, i) => [id, dcaStatsQueries[i]?.data ?? null])),
-    [sessionIds, dcaStatsQueries]
-  )
+  const dcaStatsBySession = useMemo(() => {
+    const map: Record<number, { buy_count: number; total_qty: number; total_invested: number; avg_buy_price: number; last_buy_price: number } | null> = {}
+    sessionIds.forEach((id, i) => { map[id] = dcaStatsQueries[i]?.data ?? null })
+    return map
+  }, [sessionIds, dcaStatsQueries])
 
   // Ticker per unique symbol — refetch every 1s for live bar
   const tickerQueries = useQueries({

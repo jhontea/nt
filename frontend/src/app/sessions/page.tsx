@@ -64,7 +64,7 @@ export default function SessionsOverviewPage() {
         <div className="flex justify-between items-start gap-3 mb-6 flex-wrap">
           <div>
             <h1 className="text-xl sm:text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">Dashboard</h1>
-            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1 max-w-md">Pantau semua sesi trading, lihat performa, dan mulai strategi baru dari satu tempat.</p>
+            <p className="text-sm text-[#686868] dark:text-[#898989] mt-1">Sesi trading, saldo akun, dan performa strategi.</p>
             {sessions && sessions.length > 0 && (() => {
               const r = sessions.filter(s => s.status === 'running').length
               const liveRunning = sessions.filter(s => s.status === 'running' && s.mode === 'live').length
@@ -144,7 +144,7 @@ export default function SessionsOverviewPage() {
               const portfolioRows = otherAssets.map(a => {
                 const sym = `${a.asset}_USDT`
                 const ticker = portfolioTickers?.[sym]
-                const price = ticker ? parseFloat((ticker as any).lastPrice ?? '0') : null
+                const price = ticker ? parseFloat(ticker.lastPrice ?? '0') : null
                 const free = parseFloat(a.free)
                 const locked = parseFloat(a.locked)
                 const usdVal = price != null ? free * price : null
@@ -208,11 +208,9 @@ export default function SessionsOverviewPage() {
                   {portfolioRows.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-2">Portfolio</p>
-                      <div className="rounded-[14px] border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <div className="overflow-y-auto max-h-[260px]">
-                            <table className="w-full text-xs">
-                              <thead className="sticky top-0 bg-white dark:bg-[#1e201c] z-10">
+                      <div className="rounded-[14px] border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] overflow-auto max-h-[260px]">
+                            <table className="w-full text-xs min-w-[420px]">
+                              <thead className="sticky top-0 bg-white dark:bg-[#1e201c] z-10 shadow-[0_1px_0_rgba(14,15,12,0.06)] dark:shadow-[0_1px_0_rgba(232,235,230,0.06)]">
                                 <tr className="border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
                                   <th className="text-left px-3 py-2 text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide">Aset</th>
                                   <th className="text-right px-3 py-2 text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide">Jumlah</th>
@@ -248,8 +246,6 @@ export default function SessionsOverviewPage() {
                                 ))}
                               </tbody>
                             </table>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
