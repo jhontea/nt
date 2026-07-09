@@ -10,6 +10,7 @@ import { useTheme } from '@/lib/theme'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
+import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie } from 'recharts'
 
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
@@ -37,8 +38,7 @@ export default function SessionDetailPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const [copied, setCopied] = useState(false)
-  const [signalView, setSignalView] = useState<'summary' | 'timeline' | 'table'>('summary')
-  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [signalView, setSignalView] = useState<'timeline' | 'table' | 'summary'>('timeline')
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
   const [reevalResult, setReevalResult] = useState<any>(null)
@@ -359,7 +359,6 @@ export default function SessionDetailPage() {
   const currentIndex = allSessions ? allSessions.findIndex(s => s.id === session.id) : -1
   const prevSession = allSessions && currentIndex > 0 ? allSessions[currentIndex - 1] : null
   const nextSession = allSessions && currentIndex >= 0 && currentIndex < allSessions.length - 1 ? allSessions[currentIndex + 1] : null
-  const sameStrategyOthers = allSessions ? allSessions.filter(s => s.id !== session.id && s.strategy === session.strategy) : []
 
   const pnlChartData = (isStrategySignal && strategySignals)
     ? strategySignals
@@ -392,115 +391,35 @@ export default function SessionDetailPage() {
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
-        {/* Navigation bar: breadcrumb + session switcher + prev/next */}
-        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-          {/* Breadcrumb + switcher */}
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => router.push('/sessions')}
-              className="text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors flex-shrink-0"
-            >
-              Sessions
-            </button>
-            <span className="text-[#686868] dark:text-[#898989] text-sm flex-shrink-0">/</span>
+        {/* Navigation: StrategyTabs + back + prev/next */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <button
               onClick={() => router.push(`/sessions/${session.strategy}`)}
-              className="text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 text-sm text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition-colors"
             >
-              {strategyLabel}
+              ← Kembali ke {strategyLabel}
             </button>
-            <span className="text-[#686868] dark:text-[#898989] text-sm flex-shrink-0">/</span>
-
-            {/* Session switcher dropdown */}
-            <div className="relative min-w-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => setSwitcherOpen(o => !o)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] hover:text-[#9fe870] transition-colors truncate max-w-[180px] sm:max-w-xs"
+                onClick={() => prevSession && router.push(`/sessions/${prevSession.id}`)}
+                disabled={!prevSession}
+                title={prevSession ? prevSession.name : ''}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
               >
-                <span className="truncate">{session.name}</span>
-                <span className={`text-xs text-[#686868] transition-transform flex-shrink-0 ${switcherOpen ? 'rotate-180' : ''}`}>▼</span>
+                ← {prevSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{prevSession.name}</span> : <span>Prev</span>}
               </button>
-
-              {switcherOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] shadow-[0_8px_32px_rgba(14,15,12,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-50 overflow-hidden">
-                  {/* Same strategy sessions */}
-                  {sameStrategyOthers.length > 0 && (
-                    <div>
-                      <p className="px-4 pt-3 pb-1.5 text-[10px] font-bold text-[#9fe870] uppercase tracking-widest">
-                        {strategyLabel} lainnya
-                      </p>
-                      {sameStrategyOthers.slice(0, 5).map(s => (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSwitcherOpen(false); router.push(`/sessions/${s.id}`) }}
-                          className="w-full px-4 py-2.5 text-left hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors flex items-center gap-3"
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.status === 'running' ? 'bg-[#9fe870] animate-pulse' : 'bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]'}`} />
-                          <span className="text-sm text-[#0e0f0c] dark:text-[#e8ebe6] truncate flex-1">{s.name}</span>
-                          <span className="text-xs text-[#686868] dark:text-[#898989] flex-shrink-0">{s.symbol.replace('_', '/')}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {/* All other sessions */}
-                  {allSessions && allSessions.filter(s => s.id !== session.id && s.strategy !== session.strategy).length > 0 && (
-                    <div className={sameStrategyOthers.length > 0 ? 'border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]' : ''}>
-                      <p className="px-4 pt-3 pb-1.5 text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">Semua sessions</p>
-                      {allSessions.filter(s => s.id !== session.id && s.strategy !== session.strategy).slice(0, 5).map(s => (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSwitcherOpen(false); router.push(`/sessions/${s.id}`) }}
-                          className="w-full px-4 py-2.5 text-left hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors flex items-center gap-3"
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.status === 'running' ? 'bg-[#9fe870] animate-pulse' : 'bg-[rgba(14,15,12,0.2)] dark:bg-[rgba(232,235,230,0.2)]'}`} />
-                          <span className="text-sm text-[#0e0f0c] dark:text-[#e8ebe6] truncate flex-1">{s.name}</span>
-                          <span className={`text-xs flex-shrink-0 px-1.5 py-0.5 rounded-full ${
-                            s.strategy === 'grid' ? 'bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]'
-                            : s.strategy === 'trend' ? 'bg-[rgba(56,200,255,0.1)] text-[#0994b3] dark:text-[#5dd8f5]'
-                            : 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
-                          }`}>{s.strategy}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {/* View all link */}
-                  <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                    <button
-                      onClick={() => { setSwitcherOpen(false); router.push('/sessions') }}
-                      className="w-full px-4 py-3 text-left text-xs text-[#9fe870] font-semibold hover:bg-[rgba(159,232,112,0.06)] transition-colors"
-                    >
-                      Lihat semua sessions →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Click outside to close */}
-              {switcherOpen && (
-                <div className="fixed inset-0 z-40" onClick={() => setSwitcherOpen(false)} />
-              )}
+              <button
+                onClick={() => nextSession && router.push(`/sessions/${nextSession.id}`)}
+                disabled={!nextSession}
+                title={nextSession ? nextSession.name : ''}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
+              >
+                {nextSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{nextSession.name}</span> : <span>Next</span>} →
+              </button>
             </div>
           </div>
-
-          {/* Prev / Next */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              onClick={() => prevSession && router.push(`/sessions/${prevSession.id}`)}
-              disabled={!prevSession}
-              title={prevSession ? prevSession.name : ''}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
-            >
-              ← {prevSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{prevSession.name}</span> : <span>Prev</span>}
-            </button>
-            <button
-              onClick={() => nextSession && router.push(`/sessions/${nextSession.id}`)}
-              disabled={!nextSession}
-              title={nextSession ? nextSession.name : ''}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#1e201c] text-[#686868] dark:text-[#898989] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]"
-            >
-              {nextSession ? <span className="hidden sm:inline truncate max-w-[100px] sm:max-w-[140px] overflow-hidden">{nextSession.name}</span> : <span>Next</span>} →
-            </button>
-          </div>
+          <StrategyTabs active={session.strategy} />
         </div>
 
         {/* Hero Header */}

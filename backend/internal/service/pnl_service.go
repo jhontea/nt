@@ -73,6 +73,60 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 	}, nil
 }
 
+type HoldingPosition struct {
+	TotalQty float64 `db:"total_qty"`
+	AvgPrice float64 `db:"avg_price"`
+}
+
+type LastSignal struct {
+	SignalType string   `db:"signal_type" json:"signal_type"`
+	ResultPct  *float64 `db:"result_pct"  json:"result_pct"`
+	CreatedAt  string   `db:"created_at"  json:"created_at"`
+}
+
+func (s *PnLService) GetHoldingPosition(ctx context.Context, sessionID int64) (*HoldingPosition, error) {
+	var pos HoldingPosition
+	err := s.db.GetContext(ctx, &pos, s.db.Rebind(
+		`SELECT COALESCE(SUM(CAST(quantity AS REAL)),0) as total_qty,
+		        COALESCE(AVG(CAST(price AS REAL)),0) as avg_price
+		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return &pos, nil
+}
+
+func (s *PnLService) GetLastSignal(ctx context.Context, sessionID int64) (*LastSignal, error) {
+	var sig LastSignal
+	err := s.db.GetContext(ctx, &sig, s.db.Rebind(
+		`SELECT signal_type, result_pct, created_at FROM strategy_signals
+		 WHERE session_id = ? AND validation_status = 'confirmed'
+		 ORDER BY created_at DESC LIMIT 1`), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return &sig, nil
+}
+
+type SignalHistoryEntry struct {
+	Side      string   `db:"signal_type"            json:"side"`
+	Price     string   `db:"market_price_at_signal" json:"price"`
+	ResultPct *float64 `db:"result_pct"             json:"result_pct,omitempty"`
+	CreatedAt string   `db:"created_at"             json:"created_at"`
+}
+
+func (s *PnLService) GetSignalHistory(ctx context.Context, sessionID int64, limit int) ([]SignalHistoryEntry, error) {
+	var history []SignalHistoryEntry
+	err := s.db.SelectContext(ctx, &history, s.db.Rebind(
+		`SELECT signal_type, market_price_at_signal, result_pct, created_at
+		 FROM strategy_signals WHERE session_id = ? AND validation_status = 'confirmed'
+		 ORDER BY created_at DESC LIMIT ?`), sessionID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return history, nil
+}
+
 func (s *PnLService) GetOrders(ctx context.Context, sessionID int64) ([]model.Order, error) {
 	var orders []model.Order
 	err := s.db.SelectContext(ctx, &orders,

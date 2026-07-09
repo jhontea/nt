@@ -47,6 +47,10 @@ func (s *SessionService) List(ctx context.Context, userID int64) ([]model.Sessio
 	return s.repo.ListByUser(ctx, userID)
 }
 
+func (s *SessionService) ListByStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error) {
+	return s.repo.ListByUserAndStrategy(ctx, userID, strategy)
+}
+
 func (s *SessionService) GetByID(ctx context.Context, id int64) (*model.Session, error) {
 	return s.repo.FindByID(ctx, id)
 }

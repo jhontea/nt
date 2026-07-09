@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
-import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
@@ -173,7 +172,6 @@ export default function DcaPage() {
         </div>
 
         <StrategyTabs active="dca" />
-        <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
         <InfoStrip tone="dca" icon={<Coins size={16} />} text="Bot membeli aset secara rutin dalam jumlah tetap, meratakan harga beli rata-rata (cost averaging) dari waktu ke waktu." help="DCA cocok untuk investasi jangka panjang — tidak perlu timing pasar, cukup beli rutin." />
         <StrategyBanner strategy="dca" sessions={sessions ?? []} />

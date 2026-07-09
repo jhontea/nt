@@ -13,12 +13,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/config"
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/handler"
 	authmw "github.com/user/nt/internal/middleware"
-	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/repository"
 	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
@@ -115,9 +113,9 @@ func main() {
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub, signalRepo)
 
 	// Auto-restart sessions that were running before shutdown
-	recoverRunningSessions(db, engMgr)
+	recoverRunningSessions(sessionRepo, engMgr)
 
-	sessionH := handler.NewSessionHandler(sessionSvc, engMgr, db, tokoClient)
+	sessionH := handler.NewSessionHandler(sessionSvc, engMgr, db, tokoClient, signalRepo)
 
 	v1.GET("/ticker/:symbol", func(c echo.Context) error {
 		ticker, err := tokoClient.GetTicker(c.Param("symbol"))
@@ -211,8 +209,6 @@ func main() {
 		}
 		return c.JSON(200, rec)
 	})
-
-	// Trend Signal recommendation: returns recommended SMA fast/slow, interval, qty, and validation defaults per pair/horizon.
 	v1.GET("/trend/recommend", func(c echo.Context) error {
 		symbol := c.QueryParam("symbol")
 		if symbol == "" {
@@ -238,112 +234,8 @@ func main() {
 		}
 		return c.JSON(200, rec)
 	})
-
-	// Grid insights: analyze past signal data for recommendations
-	v1.GET("/grid/insights", func(c echo.Context) error {
-		symbol := c.QueryParam("symbol")
-		if symbol == "" {
-			return c.JSON(400, ErrorResponse{Error: "symbol is required"})
-		}
-
-		// Find grid signal sessions for this pair with their signal stats
-		type insight struct {
-			SessionID   int64   `json:"session_id"`
-			Name        string  `json:"name"`
-			Config      string  `json:"config"`
-			Total       int     `json:"total"`
-			Confirmed   int     `json:"confirmed"`
-			Invalidated int     `json:"invalidated"`
-			SuccessRate float64 `json:"success_rate"`
-		}
-
-		var insights []insight
-		err := db.Select(&insights, db.Rebind(`
-			SELECT s.id as session_id, s.name, s.config,
-				COUNT(ss.id) as total,
-				SUM(CASE WHEN ss.validation_status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
-				SUM(CASE WHEN ss.validation_status = 'invalidated' THEN 1 ELSE 0 END) as invalidated
-			FROM sessions s
-			LEFT JOIN strategy_signals ss ON ss.session_id = s.id
-			WHERE s.symbol = ? AND s.strategy = 'grid' AND s.mode = 'signal'
-			GROUP BY s.id, s.name, s.config
-			HAVING COUNT(ss.id) > 0
-			ORDER BY s.created_at DESC
-			LIMIT 20`), symbol)
-		if err != nil {
-			return c.JSON(500, ErrorResponse{Error: err.Error()})
-		}
-
-		// Calculate success rates
-		for i := range insights {
-			if insights[i].Total > 0 {
-				insights[i].SuccessRate = float64(insights[i].Confirmed) / float64(insights[i].Total) * 100
-			}
-		}
-
-		return c.JSON(200, insights)
-	})
-
-	// Trend session status: real-time SMA/cross monitoring for running trend sessions
-	v1.GET("/trend/sessions/status", func(c echo.Context) error {
-		userIDStr := c.Get("user_id").(string)
-		userID, _ := strconv.ParseInt(userIDStr, 10, 64)
-
-		var sessions []model.Session
-		err := db.Select(&sessions, db.Rebind(
-			`SELECT * FROM sessions WHERE user_id = ? AND strategy = 'trend' ORDER BY created_at DESC`), userID)
-		if err != nil {
-			return c.JSON(500, ErrorResponse{Error: err.Error()})
-		}
-
-		type sessionStatus struct {
-			SessionID        int64    `json:"session_id"`
-			SessionName      string   `json:"session_name"`
-			Symbol           string   `json:"symbol"`
-			Mode             string   `json:"mode"`
-			FastSMA          *float64 `json:"fast_sma,omitempty"`
-			SlowSMA          *float64 `json:"slow_sma,omitempty"`
-			CrossStatus      string   `json:"cross_status"`
-			PricePositionPct *float64 `json:"price_position_pct,omitempty"`
-			CurrentPrice     *float64 `json:"current_price,omitempty"`
-			LastSignalType   *string  `json:"last_signal_type,omitempty"`
-			LastSignalResult *float64 `json:"last_signal_result,omitempty"`
-		}
-
-		results := make([]sessionStatus, 0, len(sessions))
-		for _, s := range sessions {
-			status := engine.ComputeTrendStatus(tokoClient, s, s.Config)
-			entry := sessionStatus{
-				SessionID:   s.ID,
-				SessionName: s.Name,
-				Symbol:      s.Symbol,
-				Mode:        s.Mode,
-				CrossStatus: "unknown",
-			}
-			if status != nil {
-				entry.FastSMA = &status.FastSMA
-				entry.SlowSMA = &status.SlowSMA
-				entry.CrossStatus = status.CrossStatus
-				entry.PricePositionPct = &status.PricePositionPct
-				entry.CurrentPrice = &status.CurrentPrice
-			}
-
-			var sig struct {
-				SignalType string  `db:"signal_type"`
-				ResultPct  *float64 `db:"result_pct"`
-			}
-			err := db.Get(&sig, db.Rebind(
-				`SELECT signal_type, result_pct FROM strategy_signals WHERE session_id = ? AND validation_status = 'confirmed' ORDER BY created_at DESC LIMIT 1`), s.ID)
-			if err == nil {
-				entry.LastSignalType = &sig.SignalType
-				entry.LastSignalResult = sig.ResultPct
-			}
-
-			results = append(results, entry)
-		}
-
-		return c.JSON(200, results)
-	})
+	v1.GET("/grid/insights", sessionH.GetGridInsights)
+	v1.GET("/trend/sessions/status", sessionH.GetTrendSessionsStatus)
 
 	// WebSocket (public, unauthenticated)
 	e.GET("/ws/sessions/:id", wsHub.HandleWS)
@@ -364,9 +256,9 @@ func main() {
 	e.Shutdown(context.Background())
 }
 
-func recoverRunningSessions(db *sqlx.DB, mgr *engine.Manager) {
-	var sessions []model.Session
-	if err := db.Select(&sessions, "SELECT * FROM sessions WHERE status = 'running'"); err != nil {
+func recoverRunningSessions(sessionRepo repository.SessionRepository, mgr *engine.Manager) {
+	sessions, err := sessionRepo.ListRunning(context.Background())
+	if err != nil {
 		slog.Warn("recover sessions query", "error", err)
 		return
 	}

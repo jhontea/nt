@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
-import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
@@ -13,7 +12,8 @@ import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { EmptyState } from '@/components/sessions/EmptyState'
-import { TrendingUp, Plus } from 'lucide-react'
+import { TrendSparkline } from '@/components/sessions/TrendSparkline'
+import { TrendingUp, Plus, Clock, Wallet, History } from 'lucide-react'
 
 function parseTrendConfig(config: string): any {
   try { return JSON.parse(config) } catch { return null }
@@ -79,7 +79,6 @@ export default function TrendPage() {
           </button>
         </div>
         <StrategyTabs active="trend" />
-        <MarketTicker symbols={sessions ? [...new Set(sessions.map(s => s.symbol))] : undefined} />
         {sessions && <StrategyOverview sessions={sessions} strategy="trend" />}
         <StrategyBanner strategy="trend" sessions={sessions ?? []} />
 
@@ -160,6 +159,7 @@ export default function TrendPage() {
                   <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} />
                   {cfg && (
                     <div key={s.id + '-cfg'}>
+                      {/* Config strip */}
                       <div className="mx-1 -mt-1 bg-[rgba(56,200,255,0.04)] dark:bg-[rgba(56,200,255,0.06)] border border-t-0 border-[rgba(56,200,255,0.15)] rounded-t-[0] px-4 py-2 flex items-center gap-3 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
                         <span>SMA Cepat <span className="font-semibold text-[#0994b3] dark:text-[#5dd8f5]">{cfg.fast_period || 10}</span></span>
                         <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
@@ -179,13 +179,52 @@ export default function TrendPage() {
                         )
                         const isGolden = st.cross_status === 'golden'
                         const barColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.3)]'
-                        const dotColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.5)]'
                         const labelColor = isGolden ? 'text-[#054d28] dark:text-[#9fe870]' : st.cross_status === 'death' ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#686868] dark:text-[#898989]'
                         const crossLabel = isGolden ? '↑ Golden Cross' : st.cross_status === 'death' ? '↓ Death Cross' : '— Neutral'
                         return (
-                          <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] px-4 py-2.5 bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                          <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
+                            {/* Row 1: Sparkline + Price + Cross Status */}
+                            <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+                              {/* Sparkline */}
+                              {st.recent_prices && st.recent_prices.length > 0 && (
+                                <div className="flex-shrink-0">
+                                  <TrendSparkline
+                                    prices={st.recent_prices}
+                                    fastSMA={st.recent_fast_sma || []}
+                                    slowSMA={st.recent_slow_sma || []}
+                                    width={100}
+                                    height={32}
+                                  />
+                                </div>
+                              )}
+                              {/* Price + Cross */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">
+                                    {st.current_price != null ? st.current_price.toFixed(st.current_price < 1 ? 8 : 2) : '-'}
+                                  </span>
+                                  <span className={`text-[10px] font-bold ${labelColor}`}>{crossLabel}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-[#686868] dark:text-[#898989]">
+                                    SMA{cfg.fast_period || 10} {st.fast_sma?.toFixed(8)}
+                                  </span>
+                                  <span className="text-[10px] text-[#686868] dark:text-[#898989]">
+                                    SMA{cfg.slow_period || 30} {st.slow_sma?.toFixed(8)}
+                                  </span>
+                                </div>
+                              </div>
+                              {/* Next candle ETA */}
+                              {st.next_candle_eta && (
+                                <div className="flex-shrink-0 flex items-center gap-1 text-[10px] text-[#686868] dark:text-[#898989]">
+                                  <Clock size={10} />
+                                  <span>{st.next_candle_eta}</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Row 2: Progress bar */}
+                            <div className="px-4 pb-2">
+                              <div className="relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
                                 <div className={`absolute inset-0 rounded-full ${barColor} opacity-20`} />
                                 <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow-sm transition-all" style={{
                                   left: `${Math.min(100, Math.max(0, st.price_position_pct ?? 0))}%`,
@@ -193,16 +232,44 @@ export default function TrendPage() {
                                   transform: 'translate(-50%, -50%)',
                                 }} />
                               </div>
-                              <span className={`text-[10px] font-bold whitespace-nowrap ${labelColor}`}>{crossLabel}</span>
-                              {st.last_signal_type && st.last_signal_result != null && (
-                                <span className={`text-[10px] font-semibold ${st.last_signal_result >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                  Last {st.last_signal_type === 'buy' ? '▲' : '▼'} {st.last_signal_result >= 0 ? '+' : ''}{st.last_signal_result.toFixed(2)}%
+                            </div>
+                            {/* Row 3: Holding + Signal info */}
+                            <div className="px-4 pb-2.5 flex items-center gap-3 text-[10px] flex-wrap">
+                              {/* Holding */}
+                              {st.holding_qty != null && st.holding_qty > 0 && (
+                                <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                                  <Wallet size={10} />
+                                  Hold {st.holding_qty.toFixed(4)} (${st.holding_value?.toFixed(2)})
+                                  {st.unrealized_pnl != null && (
+                                    <span className={`font-semibold ${st.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                      {st.unrealized_pnl >= 0 ? '+' : ''}{st.unrealized_pnl_pct?.toFixed(2)}%
+                                    </span>
+                                  )}
                                 </span>
                               )}
-                            </div>
-                            <div className="flex justify-between text-[10px] text-[#686868] dark:text-[#898989] mt-1">
-                              <span>SMA{cfg.slow_period || 30} {st.slow_sma.toFixed(8)}</span>
-                              <span>SMA{cfg.fast_period || 10} {st.fast_sma.toFixed(8)}</span>
+                              {st.holding_qty == null || st.holding_qty === 0 && (
+                                <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                                  <Wallet size={10} /> Cash
+                                </span>
+                              )}
+                              {/* Last signal */}
+                              {st.last_signal_type && (
+                                <span className={`font-semibold ${st.last_signal_result != null && st.last_signal_result >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                  Last {st.last_signal_type === 'buy' ? '▲ Buy' : '▼ Sell'} {st.last_signal_result != null ? `${st.last_signal_result >= 0 ? '+' : ''}${st.last_signal_result.toFixed(2)}%` : ''}
+                                </span>
+                              )}
+                              {/* Signal history */}
+                              {st.signal_history && st.signal_history.length > 1 && (
+                                <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                                  <History size={10} />
+                                  {st.signal_history.slice(1, 5).map((sig, i) => (
+                                    <span key={i} className={`${sig.result_pct != null && sig.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                      {sig.side === 'buy' ? '▲' : '▼'}{sig.result_pct != null ? `${sig.result_pct >= 0 ? '+' : ''}${sig.result_pct.toFixed(1)}%` : '?'}
+                                      {i < Math.min(st.signal_history!.length - 2, 3) ? ' ' : ''}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                             </div>
                           </div>
                         )

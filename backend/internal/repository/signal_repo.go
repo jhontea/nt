@@ -16,6 +16,17 @@ type StrategySignalRepository interface {
 	ListPending(ctx context.Context, sessionID int64) ([]model.StrategySignal, error)
 	UpdateValidation(ctx context.Context, id int64, status string, resultPct, resultGridSteps, maxFavPct, maxAdvPct, maxFavGrid, maxAdvGrid float64, note string) error
 	GetSummary(ctx context.Context, sessionID int64) (*model.SignalSummary, error)
+	GetGridInsights(ctx context.Context, symbol string) ([]GridInsight, error)
+}
+
+type GridInsight struct {
+	SessionID   int64   `db:"session_id" json:"session_id"`
+	Name        string  `db:"name"        json:"name"`
+	Config      string  `db:"config"      json:"config"`
+	Total       int     `db:"total"       json:"total"`
+	Confirmed   int     `db:"confirmed"   json:"confirmed"`
+	Invalidated int     `db:"invalidated" json:"invalidated"`
+	SuccessRate float64 `db:"-"           json:"success_rate"`
 }
 
 type StrategySignalRepo struct {
@@ -118,6 +129,31 @@ func (r *StrategySignalRepo) GetSummary(ctx context.Context, sessionID int64) (*
 	}
 
 	return &summary, nil
+}
+
+func (r *StrategySignalRepo) GetGridInsights(ctx context.Context, symbol string) ([]GridInsight, error) {
+	var insights []GridInsight
+	err := r.db.SelectContext(ctx, &insights, r.db.Rebind(`
+		SELECT s.id as session_id, s.name, s.config,
+			COUNT(ss.id) as total,
+			SUM(CASE WHEN ss.validation_status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+			SUM(CASE WHEN ss.validation_status = 'invalidated' THEN 1 ELSE 0 END) as invalidated
+		FROM sessions s
+		LEFT JOIN strategy_signals ss ON ss.session_id = s.id
+		WHERE s.symbol = ? AND s.strategy = 'grid' AND s.mode = 'signal'
+		GROUP BY s.id, s.name, s.config
+		HAVING COUNT(ss.id) > 0
+		ORDER BY s.created_at DESC
+		LIMIT 20`), symbol)
+	if err != nil {
+		return nil, err
+	}
+	for i := range insights {
+		if insights[i].Total > 0 {
+			insights[i].SuccessRate = float64(insights[i].Confirmed) / float64(insights[i].Total) * 100
+		}
+	}
+	return insights, nil
 }
 
 var _ StrategySignalRepository = (*StrategySignalRepo)(nil)

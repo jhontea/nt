@@ -112,42 +112,38 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 }
 
 func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, qty string) error {
-
-	var buyOrder model.Order
-	err := p.db.Get(&buyOrder,
-		p.db.Rebind(`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled' AND price = ?
-		 ORDER BY id ASC LIMIT 1`),
-		session.ID, session.Symbol, matchPrice,
+	// Fetch all open buy positions for this session
+	var buyOrders []model.Order
+	err := p.db.Select(&buyOrders,
+		p.db.Rebind(`SELECT * FROM orders WHERE session_id = ? AND symbol = ? AND side = 'buy' AND status = 'filled' ORDER BY id ASC`),
+		session.ID, session.Symbol,
 	)
-	if err != nil {
-		slog.Warn("no open buy to match", "session", session.ID, "price", matchPrice, "error", err)
-		if p.hub != nil {
-			p.hub.Broadcast(session.ID, WSPaperAlert{
-				Type: "paper_alert", SessionID: session.ID,
-				Reason: "no_asset_to_sell", Needed: 0, Available: 0,
-			})
-		}
+	if err != nil || len(buyOrders) == 0 {
+		slog.Debug("no open buy positions to sell", "session", session.ID)
 		if p.notifier != nil {
 			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Tidak ada aset untuk dijual", 0, 0)
 		}
 		return nil
 	}
 
-	buyPrice, _ := strconv.ParseFloat(buyOrder.Price, 64)
 	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
-	qtyF, _ := strconv.ParseFloat(qty, 64)
-	buyQtyF, _ := strconv.ParseFloat(buyOrder.Quantity, 64)
-	useQty := qty
-	useQtyF := qtyF
-	if buyQtyF != qtyF {
-		useQty = buyOrder.Quantity
-		useQtyF = buyQtyF
+
+	// Calculate total qty, total cost (for avg buy price), total proceeds
+	totalQty := 0.0
+	totalCost := 0.0
+	for _, o := range buyOrders {
+		q, _ := strconv.ParseFloat(o.Quantity, 64)
+		p2, _ := strconv.ParseFloat(o.Price, 64)
+		totalQty += q
+		totalCost += p2 * q
 	}
 
-	pnl := (sellPrice - buyPrice) * useQtyF
+	avgBuyPrice := totalCost / totalQty
+	proceeds := sellPrice * totalQty
+	pnl := (sellPrice - avgBuyPrice) * totalQty
 	pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
+	totalQtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
 
-	proceeds := sellPrice * useQtyF
 	balance, err := p.getBalance(session.ID)
 	if err != nil {
 		return fmt.Errorf("get balance: %w", err)
@@ -156,32 +152,45 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		return fmt.Errorf("set balance: %w", err)
 	}
 
-	if _, err := p.db.Exec(p.db.Rebind("UPDATE orders SET status = 'closed' WHERE id = ?"), buyOrder.ID); err != nil {
-		return fmt.Errorf("update buy order: %w", err)
+	// Close all open buy orders
+	ids := make([]interface{}, len(buyOrders))
+	for i, o := range buyOrders {
+		ids[i] = o.ID
+	}
+	query, args, _ := sqlx.In("UPDATE orders SET status = 'closed' WHERE id IN (?)", ids)
+	if _, err := p.db.Exec(p.db.Rebind(query), args...); err != nil {
+		return fmt.Errorf("close buy orders: %w", err)
 	}
 
+	// Insert single sell order for total qty
 	_, err = p.db.Exec(
 		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
 		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
-		session.Symbol, string(model.SideSell), execPrice, useQty, useQty, execPrice,
+		session.Symbol, string(model.SideSell), execPrice, totalQtyStr, totalQtyStr, execPrice,
 	)
 	if err != nil {
 		return fmt.Errorf("save sell order: %w", err)
 	}
 
+	// Insert trade record
 	_, err = p.db.Exec(
 		p.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
-		session.ID, buyOrder.OrderID, session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr,
+		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
+		session.Symbol, string(model.SideSell), execPrice, totalQtyStr, pnlStr,
 	)
 	if err != nil {
 		return fmt.Errorf("save trade: %w", err)
 	}
 
-	slog.Info("paper sell", "session", session.ID, "symbol", session.Symbol, "qty", useQty, "price", execPrice, "pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
+	slog.Info("paper sell all", "session", session.ID, "symbol", session.Symbol,
+		"positions", len(buyOrders), "total_qty", totalQtyStr,
+		"avg_buy", fmt.Sprintf("%.8f", avgBuyPrice), "sell_price", execPrice,
+		"pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
+
 	if p.notifier != nil {
-		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), execPrice, useQty, pnlStr)
+		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), execPrice, totalQtyStr, pnlStr)
 	}
 	return nil
 }

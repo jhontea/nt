@@ -13,6 +13,8 @@ type SessionRepository interface {
 	Create(ctx context.Context, s *model.Session) (*model.Session, error)
 	FindByID(ctx context.Context, id int64) (*model.Session, error)
 	ListByUser(ctx context.Context, userID int64) ([]model.Session, error)
+	ListRunning(ctx context.Context) ([]model.Session, error)
+	ListByUserAndStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error)
 	UpdateStatus(ctx context.Context, id int64, status string) error
 	UpdateStartedAt(ctx context.Context, id int64) error
 	UpdateStoppedAt(ctx context.Context, id int64) error
@@ -53,6 +55,26 @@ func (r *SessionRepo) FindByID(ctx context.Context, id int64) (*model.Session, e
 func (r *SessionRepo) ListByUser(ctx context.Context, userID int64) ([]model.Session, error) {
 	var sessions []model.Session
 	err := r.db.SelectContext(ctx, &sessions, r.db.Rebind("SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC"), userID)
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+func (r *SessionRepo) ListRunning(ctx context.Context) ([]model.Session, error) {
+	var sessions []model.Session
+	err := r.db.SelectContext(ctx, &sessions, r.db.Rebind("SELECT * FROM sessions WHERE status = ?"), "running")
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+func (r *SessionRepo) ListByUserAndStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error) {
+	var sessions []model.Session
+	err := r.db.SelectContext(ctx, &sessions,
+		r.db.Rebind("SELECT * FROM sessions WHERE user_id = ? AND strategy = ? ORDER BY created_at DESC"),
+		userID, strategy)
 	if err != nil {
 		return nil, err
 	}

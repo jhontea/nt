@@ -161,6 +161,21 @@ export interface TrendSessionStatus {
   cross_status: 'golden' | 'death' | 'neutral' | 'unknown'
   price_position_pct?: number
   current_price?: number
+  recent_prices?: number[]
+  recent_fast_sma?: number[]
+  recent_slow_sma?: number[]
+  next_candle_eta?: string
+  holding_qty?: number
+  holding_value?: number
+  unrealized_pnl?: number
+  unrealized_pnl_pct?: number
   last_signal_type?: string
   last_signal_result?: number
+  last_signal_time?: string
+  signal_history?: {
+    side: string
+    price: string
+    result_pct?: number
+    created_at: string
+  }[]
 }

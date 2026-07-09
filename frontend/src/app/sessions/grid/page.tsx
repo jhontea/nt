@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Navbar } from '@/components/Navbar'
-import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { SessionCard } from '@/components/sessions/SessionCard'
 import { StrategyOverview } from '@/components/sessions/StrategyOverview'
 import { StrategyBanner } from '@/components/sessions/StrategyBanner'
@@ -199,7 +198,6 @@ export default function GridPage() {
         </div>
 
         <StrategyTabs active="grid" />
-        <MarketTicker />
         {sessions && <StrategyOverview sessions={sessions} strategy="grid" />}
         <InfoStrip tone="grid" icon={<Grid2x2 size={16} />} text="Bot memasang order beli di harga rendah dan jual di harga tinggi secara berjenjang, lalu mengambil untung dari fluktuasi pasar." help="Grid cocok untuk pasar sideways (naik-turun) di mana harga bergerak dalam rentang tertentu." />
         <StrategyBanner strategy="grid" sessions={sessions ?? []} />

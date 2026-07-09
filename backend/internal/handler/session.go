@@ -11,20 +11,22 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/engine"
 	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/repository"
 	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 	"github.com/user/nt/internal/validator"
 )
 
 type SessionHandler struct {
-	svc    *service.SessionService
-	engine *engine.Manager
-	db     *sqlx.DB
-	client *tokocrypto.Client
+	svc        *service.SessionService
+	engine     *engine.Manager
+	db         *sqlx.DB
+	client     *tokocrypto.Client
+	signalRepo repository.StrategySignalRepository
 }
 
-func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB, client *tokocrypto.Client) *SessionHandler {
-	return &SessionHandler{svc: svc, engine: engine, db: db, client: client}
+func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB, client *tokocrypto.Client, signalRepo repository.StrategySignalRepository) *SessionHandler {
+	return &SessionHandler{svc: svc, engine: engine, db: db, client: client, signalRepo: signalRepo}
 }
 
 type createSessionRequest struct {
@@ -420,4 +422,112 @@ func (h *SessionHandler) ApplyConfig(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, session)
+}
+
+func (h *SessionHandler) GetGridInsights(c echo.Context) error {
+	symbol := c.QueryParam("symbol")
+	if symbol == "" {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("symbol is required"))
+	}
+	insights, err := h.signalRepo.GetGridInsights(h.reqContext(c), symbol)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	return c.JSON(http.StatusOK, insights)
+}
+
+func (h *SessionHandler) GetTrendSessionsStatus(c echo.Context) error {
+	ctx := h.reqContext(c)
+	userID := h.userID(c)
+
+	sessions, err := h.svc.ListByStrategy(ctx, userID, "trend")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+
+	type signalHistoryEntry = service.SignalHistoryEntry
+
+	type sessionStatus struct {
+		SessionID        int64                `json:"session_id"`
+		SessionName      string               `json:"session_name"`
+		Symbol           string               `json:"symbol"`
+		Mode             string               `json:"mode"`
+		FastSMA          *float64             `json:"fast_sma,omitempty"`
+		SlowSMA          *float64             `json:"slow_sma,omitempty"`
+		CrossStatus      string               `json:"cross_status"`
+		PricePositionPct *float64             `json:"price_position_pct,omitempty"`
+		CurrentPrice     *float64             `json:"current_price,omitempty"`
+		RecentPrices     []float64            `json:"recent_prices,omitempty"`
+		RecentFastSMA    []float64            `json:"recent_fast_sma,omitempty"`
+		RecentSlowSMA    []float64            `json:"recent_slow_sma,omitempty"`
+		NextCandleETA    string               `json:"next_candle_eta,omitempty"`
+		HoldingQty       *float64             `json:"holding_qty,omitempty"`
+		HoldingValue     *float64             `json:"holding_value,omitempty"`
+		UnrealizedPnL    *float64             `json:"unrealized_pnl,omitempty"`
+		UnrealizedPnLPct *float64             `json:"unrealized_pnl_pct,omitempty"`
+		LastSignalType   *string              `json:"last_signal_type,omitempty"`
+		LastSignalResult *float64             `json:"last_signal_result,omitempty"`
+		LastSignalTime   *string              `json:"last_signal_time,omitempty"`
+		SignalHistory    []signalHistoryEntry `json:"signal_history,omitempty"`
+	}
+
+	results := make([]sessionStatus, 0, len(sessions))
+	for _, s := range sessions {
+		status := engine.ComputeTrendStatus(h.client, s, s.Config)
+		entry := sessionStatus{
+			SessionID:   s.ID,
+			SessionName: s.Name,
+			Symbol:      s.Symbol,
+			Mode:        s.Mode,
+			CrossStatus: "unknown",
+		}
+		if status != nil {
+			entry.FastSMA = &status.FastSMA
+			entry.SlowSMA = &status.SlowSMA
+			entry.CrossStatus = status.CrossStatus
+			entry.PricePositionPct = &status.PricePositionPct
+			entry.CurrentPrice = &status.CurrentPrice
+			entry.RecentPrices = status.RecentPrices
+			entry.RecentFastSMA = status.RecentFastSMA
+			entry.RecentSlowSMA = status.RecentSlowSMA
+			entry.NextCandleETA = status.NextCandleETA
+		}
+
+		// Holding info
+		if s.Mode == "paper" || s.Mode == "live" {
+			pos, err := h.svc.PnL.GetHoldingPosition(ctx, s.ID)
+			if err == nil && pos.TotalQty > 0 {
+				entry.HoldingQty = &pos.TotalQty
+				if status != nil {
+					holdVal := pos.TotalQty * status.CurrentPrice
+					entry.HoldingValue = &holdVal
+					costBasis := pos.TotalQty * pos.AvgPrice
+					pnl := holdVal - costBasis
+					entry.UnrealizedPnL = &pnl
+					if costBasis > 0 {
+						pnlPct := (pnl / costBasis) * 100
+						entry.UnrealizedPnLPct = &pnlPct
+					}
+				}
+			}
+		}
+
+		// Last confirmed signal
+		sig, err := h.svc.PnL.GetLastSignal(ctx, s.ID)
+		if err == nil {
+			entry.LastSignalType = &sig.SignalType
+			entry.LastSignalResult = sig.ResultPct
+			entry.LastSignalTime = &sig.CreatedAt
+		}
+
+		// Signal history (last 5)
+		history, err := h.svc.PnL.GetSignalHistory(ctx, s.ID, 5)
+		if err == nil {
+			entry.SignalHistory = history
+		}
+
+		results = append(results, entry)
+	}
+
+	return c.JSON(http.StatusOK, results)
 }
