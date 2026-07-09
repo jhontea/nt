@@ -20,6 +20,7 @@ import (
 )
 
 const baseURL = "https://www.tokocrypto.com"
+const siteURL = "https://www.tokocrypto.site"
 
 type cacheEntry struct {
 	data      *Ticker
@@ -77,7 +78,9 @@ func (c *Client) doPublic(path string, params url.Values) ([]byte, error) {
 // public market endpoints (e.g. ticker/24hr) are gated behind a valid
 // API key even without a signed payload.
 func (c *Client) doPublicWithKey(path string, params url.Values) ([]byte, error) {
-	u := baseURL + path
+	// ponytail: market-data endpoints like ticker/24hr live on the
+	// .site host, not the .com baseURL.
+	u := siteURL + path
 	if params != nil && len(params) > 0 {
 		u += "?" + params.Encode()
 	}

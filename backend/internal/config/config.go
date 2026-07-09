@@ -31,7 +31,10 @@ type Config struct {
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+	// Overload (not Load) so .env always wins over any pre-set shell
+	// env var — e.g. an empty TOKO_API_KEY exported in the shell
+	// would otherwise shadow the real value from .env.
+	if err := godotenv.Overload(); err != nil && !os.IsNotExist(err) {
 		slog.Warn("godotenv", "error", err)
 	}
 
