@@ -90,7 +90,7 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 
 	signals := []Signal{}
 	if len(prices) < config.SlowPeriod {
-		slog.Debug("trend: not enough candles", "session", sessionID, "have", len(prices), "need", config.SlowPeriod)
+		slog.Warn("trend: not enough candles, skipping evaluation", "session", sessionID, "have", len(prices), "need", config.SlowPeriod)
 		return signals
 	}
 
@@ -105,7 +105,7 @@ func (t *TrendEngine) evaluateWithID(sessionID int64, prices []float64, config T
 	golden := prevFast <= prevSlow && currFast > currSlow
 	death := prevFast >= prevSlow && currFast < currSlow
 
-	slog.Debug("trend: evaluate", "session", sessionID, "currFast", fmt.Sprintf("%.2f", currFast), "currSlow", fmt.Sprintf("%.2f", currSlow), "golden", golden, "death", death, "lastCross", state.lastCrossType)
+	slog.Info("trend: evaluate", "session", sessionID, "currFast", fmt.Sprintf("%.2f", currFast), "currSlow", fmt.Sprintf("%.2f", currSlow), "golden", golden, "death", death, "lastCross", state.lastCrossType)
 
 	if golden && state.lastCrossType != "golden" {
 		signals = append(signals, Signal{
