@@ -4,10 +4,13 @@ import { HelpIcon } from '@/components/HelpIcon'
 import { GraduationCap, Settings } from 'lucide-react'
 import { api } from '@/lib/api'
 
-const PAIRS = [
+const USDT_PAIRS = [
   'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT',
   'ADA_USDT', 'DOGE_USDT', 'DOT_USDT', 'AVAX_USDT', 'MATIC_USDT',
   'LINK_USDT', 'UNI_USDT', 'ATOM_USDT', 'LTC_USDT', 'BCH_USDT',
+]
+
+const IDR_PAIRS = [
   'BTC_IDR', 'ETH_IDR', 'BNB_IDR', 'SOL_IDR', 'USDT_IDR',
 ]
 
@@ -47,8 +50,8 @@ const fieldHelp: Record<string, { short: string; long: string }> = {
     long: 'Makin sering = harga rata-rata lebih halus, cocok untuk pasar volatile. Makin jarang = lebih cocok untuk tren naik jangka panjang.',
   },
   dca_amount: {
-    short: 'Jumlah USDT yang dibelikan setiap interval.',
-    long: 'Contoh: 10 berarti bot akan membeli $10 worth of asset setiap interval. Sesuaikan dengan modal. Jangan terlalu besar agar tidak cepat habis.',
+    short: 'Jumlah IDR yang dibelikan setiap interval.',
+    long: 'Contoh: 50000 berarti bot akan membeli Rp50.000 worth of asset setiap interval. Sesuaikan dengan modal. Jangan terlalu besar agar tidak cepat habis.',
   },
 }
 
@@ -63,7 +66,7 @@ function calcGridDefaults(price: number) {
 export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 'trend' | 'dca'; onCreated: () => void }) {
   const [name, setName] = useState('')
   const [mode, setMode] = useState<'signal' | 'paper' | 'live'>('signal')
-  const [symbol, setSymbol] = useState('BTC_USDT')
+  const [symbol, setSymbol] = useState(strategy === 'dca' ? 'BTC_IDR' : 'BTC_USDT')
   const [upperPrice, setUpperPrice] = useState('')
   const [lowerPrice, setLowerPrice] = useState('')
   const [gridCount, setGridCount] = useState('10')
@@ -72,7 +75,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
   const [slowPeriod, setSlowPeriod] = useState('30')
   const [trendInterval, setTrendInterval] = useState<'5m' | '15m' | '1h' | '4h'>('5m')
   const [dcaInterval, setDcaInterval] = useState('3600')
-  const [dcaAmount, setDcaAmount] = useState('10')
+  const [dcaAmount, setDcaAmount] = useState('50000')
   const [dcaTakeProfit, setDcaTakeProfit] = useState('')
   const [dcaStopLoss, setDcaStopLoss] = useState('')
   const [dcaDropPct, setDcaDropPct] = useState('')
@@ -248,12 +251,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
           <div>
             <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Pair <HelpIcon text="Pilih pair crypto yang akan di-tradingkan" /></label>
             <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={symbol} onChange={e => setSymbol(e.target.value)}>
-              <optgroup label="USDT Pairs">
-                {PAIRS.filter(p => p.endsWith('_USDT')).map(p => <option key={p} value={p}>{p}</option>)}
-              </optgroup>
-              <optgroup label="IDR Pairs">
-                {PAIRS.filter(p => p.endsWith('_IDR')).map(p => <option key={p} value={p}>{p}</option>)}
-              </optgroup>
+              {(strategy === 'dca' ? IDR_PAIRS : USDT_PAIRS).map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div>
@@ -268,7 +266,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
 
         {mode === 'paper' && (
           <div>
-            <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual (USDT)</label>
+            <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual ({strategy === 'dca' ? 'IDR' : 'USDT'})</label>
             <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
           </div>
         )}
@@ -506,8 +504,8 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
                   </select>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (USDT)</span>{renderConfigHelp('dca_amount')}</div>
-                  <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="10" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                  <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (IDR)</span>{renderConfigHelp('dca_amount')}</div>
+                  <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="50000" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Beli saat turun %</span></div>
