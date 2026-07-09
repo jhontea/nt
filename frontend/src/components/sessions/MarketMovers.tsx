@@ -1,0 +1,69 @@
+'use client'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
+import type { Mover } from '@/types'
+
+function formatVolume(v: string): string {
+  const n = parseFloat(v)
+  if (!isFinite(n)) return '-'
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K'
+  return n.toFixed(2)
+}
+
+function Row({ m }: { m: Mover }) {
+  const pct = parseFloat(m.priceChangePercent)
+  const up = pct >= 0
+  return (
+    <div className="flex items-center justify-between text-xs py-1">
+      <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{m.symbol.replace('_', '/')}</span>
+      <span className="flex items-center gap-2">
+        <span className="text-[#686868] dark:text-[#898989]">${parseFloat(m.lastPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+        <span className={`font-semibold ${up ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {up ? '+' : ''}{pct.toFixed(2)}%
+        </span>
+        <span className="text-[9px] text-[#686868] dark:text-[#898989] w-12 text-right">{formatVolume(m.volume)}</span>
+      </span>
+    </div>
+  )
+}
+
+function Column({ title, items }: { title: string; items: Mover[] }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest mb-1">{title}</p>
+      {items.length === 0 ? (
+        <p className="text-xs text-[#686868] dark:text-[#898989] py-1">Memuat data pasar…</p>
+      ) : (
+        items.map(m => <Row key={m.symbol} m={m} />)
+      )}
+    </div>
+  )
+}
+
+export function MarketMovers() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['marketMovers'],
+    queryFn: api.sessions.getMovers,
+    refetchInterval: 5000,
+    retry: false,
+  })
+
+  const gainers = data?.gainers ?? []
+  const hot = data?.hot ?? []
+
+  return (
+    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 flex flex-wrap gap-6">
+      {isLoading && gainers.length === 0 && hot.length === 0 ? (
+        <p className="text-xs text-[#686868] dark:text-[#898989]">Memuat data pasar…</p>
+      ) : (
+        <>
+          <Column title="Top Gainers" items={gainers} />
+          <div className="w-px bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" />
+          <Column title="Hot Pairs" items={hot} />
+        </>
+      )}
+    </div>
+  )
+}
