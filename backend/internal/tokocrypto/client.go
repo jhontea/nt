@@ -73,6 +73,36 @@ func (c *Client) doPublic(path string, params url.Values) ([]byte, error) {
 	return body, nil
 }
 
+// doPublicWithKey is like doPublic but sends the API key header. Some
+// public market endpoints (e.g. ticker/24hr) are gated behind a valid
+// API key even without a signed payload.
+func (c *Client) doPublicWithKey(path string, params url.Values) ([]byte, error) {
+	u := baseURL + path
+	if params != nil && len(params) > 0 {
+		u += "?" + params.Encode()
+	}
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-MBX-APIKEY", c.apiKey)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("tokocrypto API error: %s %s", resp.Status, string(body))
+	}
+	return body, nil
+}
+
 func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error) {
 	if params == nil {
 		params = url.Values{}
@@ -315,7 +345,7 @@ type idrTicker struct {
 // public ticker/24hr endpoint (covers both USDT and IDR markets), instead
 // of one klines call per pair.
 func (c *Client) fetchIDRTickers() (map[string]*Ticker, error) {
-	body, err := c.doPublic("/api/v3/ticker/24hr", nil)
+	body, err := c.doPublicWithKey("/api/v3/ticker/24hr", nil)
 	if err != nil {
 		return nil, err
 	}
