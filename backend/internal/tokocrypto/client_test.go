@@ -338,6 +338,40 @@ func TestFetchIDRTickers(t *testing.T) {
 	}
 }
 
+func TestFetchIDRTickers_Wrapped(t *testing.T) {
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/ticker/24hr" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]string{
+				{"symbol": "BTCBIDR", "lastPrice": "1.00", "priceChangePercent": "3.0", "quoteVolume": "999.00"},
+			},
+		})
+	})
+	tick, err := c.fetchIDRTickers()
+	if err != nil {
+		t.Fatalf("fetchIDRTickers (wrapped) failed: %v", err)
+	}
+	if len(tick) != 1 || tick["BTCB_IDR"] == nil {
+		t.Fatalf("expected wrapped BTCB_IDR ticker, got %v", tick)
+	}
+}
+
+func TestFetchIDRTickers_ErrorObject(t *testing.T) {
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/ticker/24hr" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"code": -1001, "msg": "Too many requests"})
+	})
+	if _, err := c.fetchIDRTickers(); err == nil {
+		t.Fatal("expected error for rate-limit object response")
+	}
+}
+
 func TestGetMovers_EmptyCache(t *testing.T) {
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([][]any{})

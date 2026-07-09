@@ -321,7 +321,19 @@ func (c *Client) fetchIDRTickers() (map[string]*Ticker, error) {
 	}
 	var raw []idrTicker
 	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, err
+		// Some responses wrap the array, e.g. {"data":[...]} or {"ticker":[...]},
+		// or return an error object {"code":..,"msg":..} on rate-limit.
+		var wrapped struct {
+			Data   []idrTicker `json:"data"`
+			Ticker []idrTicker `json:"ticker"`
+		}
+		if e2 := json.Unmarshal(body, &wrapped); e2 != nil {
+			return nil, fmt.Errorf("decode ticker/24hr: %w", err)
+		}
+		raw = append(wrapped.Data, wrapped.Ticker...)
+		if len(raw) == 0 {
+			return nil, fmt.Errorf("ticker/24hr returned no rows (likely rate-limited): %s", string(body)[:min(len(body), 200)])
+		}
 	}
 	out := make(map[string]*Ticker)
 	for _, r := range raw {
