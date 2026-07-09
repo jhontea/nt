@@ -340,10 +340,12 @@ func (c *Client) fetchIDRSymbols() ([]string, error) {
 }
 
 // runIDRRefresh keeps idrTickers populated since the mini-ticker WS only
-// reliably covers USDT pairs. Slow interval to stay within rate limits.
+// reliably covers USDT pairs.
+// ponytail: 2-min interval — ~40 IDR pairs would mean 40 klines calls per
+// cycle; movers don't need 60s freshness, so 120s keeps rate-limit headroom.
 func (c *Client) runIDRRefresh() {
 	c.refreshIDRTickers()
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		c.refreshIDRTickers()
