@@ -1,5 +1,6 @@
 ﻿'use client'
-import { Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, Clipboard, Search, Lock, Star, Skull, Loader, Target, OctagonX } from 'lucide-react'
+import { Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, Clipboard, Search, Lock, Star, Skull, Loader, Target, OctagonX, Clock, Wallet, History } from 'lucide-react'
+import { TrendSparkline } from '@/components/sessions/TrendSparkline'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -28,6 +29,70 @@ const pnlHelp: Record<string, string> = {
 }
 
 const HOLDING_COLORS = ['#9fe870', '#38c8ff', '#ffd11a', '#c084fc', '#f97316']
+
+function GridBar({ lower, upper, current, gridCount }: { lower: number; upper: number; current: number; gridCount: number }) {
+  const range = upper - lower
+  if (range <= 0) return null
+  const pct = Math.max(0, Math.min(100, ((current - lower) / range) * 100))
+  return (
+    <div className="relative w-full h-5 flex items-center">
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] rounded-full overflow-hidden">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[rgba(159,232,112,0.25)] to-[rgba(159,232,112,0.4)]" style={{ width: `${pct}%` }} />
+      </div>
+      {Array.from({ length: gridCount + 1 }, (_, i) => (
+        <div key={i} className="absolute top-0 bottom-0 w-px bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" style={{ left: `${(i / gridCount) * 100}%` }} />
+      ))}
+      <div className="absolute top-0 bottom-0 w-0.5 bg-[#163300] dark:bg-[#9fe870] rounded-full" style={{ left: `${pct}%` }} title={`Harga: ${current}`} />
+      <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">{lower.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+      <span className="absolute -bottom-3.5 right-0 text-[9px] text-[#686868] dark:text-[#898989]">{upper.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+    </div>
+  )
+}
+
+// DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
+function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: number; tpPct: number; slPct: number }) {
+  if (avgBuy <= 0) return null
+  const gainPct = ((current - avgBuy) / avgBuy) * 100
+  const leftEdge = slPct > 0 ? -slPct : Math.min(-5, gainPct * 1.2)
+  const rightEdge = tpPct > 0 ? tpPct : Math.max(5, gainPct * 1.2)
+  const totalRange = rightEdge - leftEdge
+  const dotPct = Math.max(0, Math.min(100, ((gainPct - leftEdge) / totalRange) * 100))
+  const avgLinePct = Math.max(0, Math.min(100, ((0 - leftEdge) / totalRange) * 100))
+  const tpLinePct = tpPct > 0 ? Math.max(0, Math.min(100, ((tpPct - leftEdge) / totalRange) * 100)) : null
+  const slLinePct = slPct > 0 ? Math.max(0, Math.min(100, ((-slPct - leftEdge) / totalRange) * 100)) : null
+  const isProfit = gainPct >= 0
+  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8
+  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8
+  const dotColor = nearTP ? '#9fe870' : nearSL ? '#ff6b6f' : isProfit ? '#9fe870' : '#ff6b6f'
+  return (
+    <div className="w-full mt-3 mb-1">
+      <div className="flex items-center justify-between text-[10px] mb-1.5">
+        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
+        <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
+          {nearTP && <span className="ml-1 animate-pulse"> · Mendekati TP!</span>}
+          {nearSL && <span className="ml-1 animate-pulse text-[#ff6b6f]"> · Mendekati SL!</span>}
+        </span>
+      </div>
+      <div className="relative w-full h-5 flex items-center">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{ background: `linear-gradient(to right, rgba(208,50,56,0.15) 0%, rgba(208,50,56,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) 100%)` }} />
+        {slLinePct !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-[#ff6b6f] opacity-70 rounded-full" style={{ left: `${slLinePct}%` }} />}
+        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(140,140,140,0.5)] rounded-full" style={{ left: `${avgLinePct}%` }} />
+        {tpLinePct !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-[#9fe870] opacity-70 rounded-full" style={{ left: `${tpLinePct}%` }} />}
+        <div className="absolute w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow transition-all" style={{ left: `${dotPct}%`, transform: 'translateX(-50%)', background: dotColor }} />
+      </div>
+      <div className="relative mt-1" style={{ height: '14px' }}>
+        {slLinePct !== null && <span className="absolute text-[9px] text-[#d03238] dark:text-[#ff6b6f]" style={{ left: `${slLinePct}%`, transform: 'translateX(-50%)' }}>-{slPct}%</span>}
+        <span className="absolute text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: `${avgLinePct}%`, transform: 'translateX(-50%)' }}>avg</span>
+        {tpLinePct !== null && <span className="absolute text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePct}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>}
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
+        {slPct > 0 && <span className="text-[#686868] dark:text-[#898989]">SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">${(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(gainPct - (-slPct)).toFixed(2)}% menuju SL)</span>}
+        {tpPct > 0 && <span className="text-[#686868] dark:text-[#898989]">TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(tpPct - gainPct).toFixed(2)}% lagi)</span>}
+      </div>
+    </div>
+  )
+}
 
 export default function SessionDetailPage() {
   const params = useParams()
@@ -126,6 +191,33 @@ export default function SessionDetailPage() {
     queryFn: () => api.sessions.getPortfolio(Number(id)),
     enabled: isAuthenticated && (isGridPaper || isDCAPaper),
     refetchInterval: 15000,
+  })
+
+  const { data: dcaTicker } = useQuery({
+    queryKey: ['ticker', session?.symbol],
+    queryFn: () => api.sessions.getTicker(session!.symbol),
+    enabled: isAuthenticated && isDCAPaper && !!session?.symbol,
+    refetchInterval: 1_000,
+    staleTime: 5_000,
+  })
+
+  const { data: trendStatus } = useQuery({
+    queryKey: ['trend-status-detail', id],
+    queryFn: async () => {
+      const statuses = await api.trend.sessions.status()
+      return statuses.find(s => s.session_id === Number(id)) ?? null
+    },
+    enabled: isAuthenticated && (isTrendSignal || isTrendPaper) && !!session,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  })
+
+  const { data: gridTicker } = useQuery({
+    queryKey: ['ticker', session?.symbol],
+    queryFn: () => api.sessions.getTicker(session!.symbol),
+    enabled: isAuthenticated && (isGridSignal || isGridPaper) && !!session?.symbol,
+    refetchInterval: 1_000,
+    staleTime: 5_000,
   })
 
   useSessionWS(Number(id), (data) => {
@@ -695,6 +787,16 @@ export default function SessionDetailPage() {
                   <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] mt-0.5">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
+              {(configDisplay.take_profit_pct > 0 || configDisplay.stop_loss_pct > 0) && avgPrice > 0 && dcaTicker && (
+                <div className="mt-4 pt-3 border-t border-[rgba(255,209,26,0.15)]">
+                  <DCABar
+                    avgBuy={avgPrice}
+                    current={parseFloat(dcaTicker.lastPrice)}
+                    tpPct={configDisplay.take_profit_pct ?? 0}
+                    slPct={configDisplay.stop_loss_pct ?? 0}
+                  />
+                </div>
+              )}
             </div>
           )
         })()}
@@ -974,6 +1076,22 @@ export default function SessionDetailPage() {
           </div>
         </div>
 
+        {/* GridBar — price position within grid range */}
+        {session.strategy === 'grid' && configDisplay.lower_price && configDisplay.upper_price && gridTicker && (
+          <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(159,232,112,0.15)] mb-4">
+            <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><Grid2x2 size={12} />Posisi Harga dalam Grid</span>
+              <span className="font-normal text-[#0e0f0c] dark:text-[#e8ebe6]">{parseFloat(gridTicker.lastPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+            </p>
+            <GridBar
+              lower={configDisplay.lower_price}
+              upper={configDisplay.upper_price}
+              current={parseFloat(gridTicker.lastPrice)}
+              gridCount={configDisplay.grid_count}
+            />
+          </div>
+        )}
+
         {/* Trend Validation Info — only shown when validation_mode exists */}
         {isTrendSignal && configDisplay.validation_mode && (
           <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-4">
@@ -1100,6 +1218,127 @@ export default function SessionDetailPage() {
             )}
           </div>
         </details>
+
+        {/* Trend Status Card */}
+        {(isTrendSignal || isTrendPaper) && trendStatus && trendStatus.cross_status !== 'unknown' && trendStatus.fast_sma != null && trendStatus.slow_sma != null && (() => {
+          const st = trendStatus
+          const isGolden = st.cross_status === 'golden'
+          const barColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.3)]'
+          const labelColor = isGolden ? 'text-[#054d28] dark:text-[#9fe870]' : st.cross_status === 'death' ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#686868] dark:text-[#898989]'
+          const crossLabel = isGolden ? '↑ Golden Cross' : st.cross_status === 'death' ? '↓ Death Cross' : '— Neutral'
+          const smaGapPct = st.slow_sma !== 0 ? Math.abs((st.fast_sma! - st.slow_sma!) / st.slow_sma!) * 100 : null
+          const hasPosition = st.holding_qty != null && st.holding_qty > 0
+          const nextActionLabel = isGolden
+            ? hasPosition ? '⏳ Menunggu Death Cross untuk JUAL' : '✓ Golden Cross — bot sudah BUY'
+            : st.cross_status === 'death'
+              ? !hasPosition ? '⏳ Menunggu Golden Cross untuk BELI' : '✓ Death Cross — bot sudah SELL'
+              : '⏳ Menunggu crossover SMA'
+          let cfg: any = {}
+          try { cfg = JSON.parse(session!.config) } catch {}
+          return (
+            <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(56,200,255,0.15)] mb-4">
+              <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Status Tren Saat Ini</p>
+              {/* Row 1: Sparkline + Price + Cross Status */}
+              <div className="flex items-center gap-4 mb-2">
+                {st.recent_prices && st.recent_prices.length > 0 && (
+                  <div className="flex-shrink-0">
+                    <TrendSparkline
+                      prices={st.recent_prices}
+                      fastSMA={st.recent_fast_sma || []}
+                      slowSMA={st.recent_slow_sma || []}
+                      width={100}
+                      height={32}
+                    />
+                    <div className="flex justify-between text-[9px] mt-0.5 gap-2">
+                      <span className="text-[#9fe870]">— SMA{cfg.fast_period || 10}</span>
+                      <span className="text-[#ff6b6f]">— SMA{cfg.slow_period || 30}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">
+                      {st.current_price != null ? st.current_price.toFixed(st.current_price < 1 ? 8 : 2) : '-'}
+                    </span>
+                    <span className={`text-[10px] font-bold ${labelColor}`}>{crossLabel}</span>
+                    {smaGapPct != null && (
+                      <span className="text-[10px] text-[#686868] dark:text-[#898989]">gap {smaGapPct.toFixed(3)}%</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-[10px] text-[#9fe870] opacity-80">SMA{cfg.fast_period || 10} {st.fast_sma?.toFixed(8)}</span>
+                    <span className="text-[10px] text-[#ff6b6f] opacity-80">SMA{cfg.slow_period || 30} {st.slow_sma?.toFixed(8)}</span>
+                  </div>
+                </div>
+                {st.next_candle_eta && (
+                  <div className="flex-shrink-0 flex items-center gap-1 text-[10px] text-[#686868] dark:text-[#898989]">
+                    <Clock size={10} />
+                    <span>{st.next_candle_eta}</span>
+                  </div>
+                )}
+              </div>
+              {/* Row 2: Next action */}
+              <div className={`text-[10px] font-semibold px-2 py-1 rounded-lg mb-2 ${
+                isGolden && hasPosition ? 'bg-[rgba(255,107,111,0.08)] text-[#d03238] dark:text-[#ff6b6f]' :
+                isGolden ? 'bg-[rgba(159,232,112,0.08)] text-[#054d28] dark:text-[#9fe870]' :
+                st.cross_status === 'death' && !hasPosition ? 'bg-[rgba(56,200,255,0.08)] text-[#0994b3] dark:text-[#5dd8f5]' :
+                'bg-[rgba(140,140,140,0.08)] text-[#686868] dark:text-[#898989]'
+              }`}>
+                {nextActionLabel}
+              </div>
+              {/* Row 3: Price position bar */}
+              <div className="mb-2">
+                <div className="flex justify-between text-[9px] text-[#686868] dark:text-[#898989] mb-1">
+                  <span>SMA cepat {'<'} lambat</span>
+                  <span>posisi harga</span>
+                  <span>SMA cepat {'>'} lambat</span>
+                </div>
+                <div className="relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
+                  <div className={`absolute inset-0 rounded-full ${barColor} opacity-20`} />
+                  <div className="absolute top-1/2 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow-sm transition-all" style={{
+                    left: `${Math.min(100, Math.max(0, st.price_position_pct ?? 0))}%`,
+                    background: isGolden ? '#9fe870' : st.cross_status === 'death' ? '#ff6b6f' : 'rgba(140,140,140,0.5)',
+                    transform: 'translate(-50%, -50%)',
+                  }} />
+                </div>
+              </div>
+              {/* Row 4: Holding + signals */}
+              <div className="flex items-center gap-3 text-[10px] flex-wrap">
+                {hasPosition ? (
+                  <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                    <Wallet size={10} />
+                    Hold {st.holding_qty!.toFixed(4)} (${st.holding_value?.toFixed(2)})
+                    {st.unrealized_pnl != null && (
+                      <span className={`font-semibold ${st.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                        {st.unrealized_pnl >= 0 ? '+' : ''}{st.unrealized_pnl_pct?.toFixed(2)}%
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                    <Wallet size={10} /> Cash — menunggu sinyal beli
+                  </span>
+                )}
+                {st.last_signal_type && (
+                  <span className={`font-semibold ${st.last_signal_result != null && st.last_signal_result >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    Last {st.last_signal_type === 'buy' ? '▲ Buy' : '▼ Sell'}{st.last_signal_result != null ? ` ${st.last_signal_result >= 0 ? '+' : ''}${st.last_signal_result.toFixed(2)}%` : ''}
+                  </span>
+                )}
+                {st.signal_history && st.signal_history.length > 1 && (
+                  <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
+                    <History size={10} />
+                    {st.signal_history.slice(1, 5).map((sig, i) => (
+                      <span key={i} className={sig.result_pct != null && sig.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}>
+                        {sig.side === 'buy' ? '▲' : '▼'}{sig.result_pct != null ? `${sig.result_pct >= 0 ? '+' : ''}${sig.result_pct.toFixed(1)}%` : '?'}
+                        {i < Math.min(st.signal_history!.length - 2, 3) ? ' ' : ''}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Grid Level Visual */}
         {(isGridSignal || isGridPaper) && strategySignals && Object.keys(signalsByLevel).length > 0 && (

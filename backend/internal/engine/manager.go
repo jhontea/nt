@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -137,13 +138,13 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 				continue
 			}
 			m.evaluate(ctx, fresh)
-		// Run validator on every tick for grid+signal sessions
-		switch {
-		case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
-			m.validatePendingSignals(fresh)
-		case fresh.Strategy == string(model.StratTrend) && fresh.Mode == string(model.ModeSignal):
-			m.validatePendingTrendSignals(fresh)
-		}
+			// Run validator on every tick for grid+signal sessions
+			switch {
+			case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
+				m.validatePendingSignals(fresh)
+			case fresh.Strategy == string(model.StratTrend) && fresh.Mode == string(model.ModeSignal):
+				m.validatePendingTrendSignals(fresh)
+			}
 		}
 	}
 }
@@ -182,7 +183,9 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if execErr != nil {
 				slog.Error("paper execute", "session", session.ID, "error", execErr)
 			}
-			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
+			if m.Hub != nil {
+				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
+			}
 		}
 		// Check SL/TP after executing signals
 		if len(signals) > 0 {
@@ -193,16 +196,24 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
 			}
-			m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
-			m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
+			if m.notifier != nil {
+				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			}
+			if m.Hub != nil {
+				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
+			}
 		}
 	}
 }
 
 func (m *Manager) broadcast(sessionID int64, sessionName, strategy, mode string, signals []Signal) {
 	for _, sig := range signals {
-		m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
-		m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
+		if m.notifier != nil {
+			m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+		}
+		if m.Hub != nil {
+			m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
+		}
 	}
 }
 
@@ -213,16 +224,14 @@ func (m *Manager) saveSignals(sessionID int64, signals []Signal) {
 	now := time.Now().UnixNano()
 	query := `INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status) VALUES `
 	vals := []any{}
+	placeholders := make([]string, 0, len(signals))
 	for i, sig := range signals {
-		if i > 0 {
-			query += ", "
-		}
-		query += "(?, ?, ?, ?, 'signal', ?, ?, 'signal')"
+		placeholders = append(placeholders, "(?, ?, ?, ?, 'signal', ?, ?, 'signal')")
 		vals = append(vals, sessionID, fmt.Sprintf("sig_%d", now+int64(i)), sig.Symbol, sig.Side, sig.Price, sig.Quantity)
 		slog.Info("signal", "session", sessionID, "side", sig.Side, "price", sig.Price, "reason", sig.Reason)
 	}
-	_, err := m.db.Exec(m.db.Rebind(query), vals...)
-	if err != nil {
+	query += strings.Join(placeholders, ", ")
+	if _, err := m.db.Exec(m.db.Rebind(query), vals...); err != nil {
 		slog.Error("save signals batch", "session", sessionID, "error", err)
 	}
 }
@@ -466,13 +475,19 @@ func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice s
 		"total_value", result.TotalValue, "init_balance", result.InitBalance)
 
 	m.Stop(session.ID)
-	m.db.Exec(m.db.Rebind("UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID)
-	m.notifier.SendStopAlert(session.Name, session.Symbol, reason, result.TotalValue, result.InitBalance)
-	m.Hub.Broadcast(session.ID, WSPaperAlert{
-		Type:      "paper_alert",
-		SessionID: session.ID,
-		Reason:    reason,
-		Needed:    result.InitBalance,
-		Available: result.TotalValue,
-	})
+	if _, err := m.db.Exec(m.db.Rebind("UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
+		slog.Error("checkPaperStopConditions: update session status", "session", session.ID, "error", err)
+	}
+	if m.notifier != nil {
+		m.notifier.SendStopAlert(session.Name, session.Symbol, reason, result.TotalValue, result.InitBalance)
+	}
+	if m.Hub != nil {
+		m.Hub.Broadcast(session.ID, WSPaperAlert{
+			Type:      "paper_alert",
+			SessionID: session.ID,
+			Reason:    reason,
+			Needed:    result.InitBalance,
+			Available: result.TotalValue,
+		})
+	}
 }

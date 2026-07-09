@@ -181,6 +181,24 @@ export default function TrendPage() {
                         const barColor = isGolden ? 'bg-[#9fe870]' : st.cross_status === 'death' ? 'bg-[#ff6b6f]' : 'bg-[rgba(140,140,140,0.3)]'
                         const labelColor = isGolden ? 'text-[#054d28] dark:text-[#9fe870]' : st.cross_status === 'death' ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#686868] dark:text-[#898989]'
                         const crossLabel = isGolden ? '↑ Golden Cross' : st.cross_status === 'death' ? '↓ Death Cross' : '— Neutral'
+
+                        // Gap between fast and slow SMA as % — how far from a crossover
+                        const smaGapPct = st.fast_sma != null && st.slow_sma != null && st.slow_sma !== 0
+                          ? Math.abs((st.fast_sma - st.slow_sma) / st.slow_sma) * 100
+                          : null
+
+                        // What needs to happen for next action
+                        const hasPosition = st.holding_qty != null && st.holding_qty > 0
+                        const nextActionLabel = isGolden
+                          ? hasPosition
+                            ? '⏳ Menunggu Death Cross untuk JUAL'
+                            : '✓ Golden Cross — bot sudah BUY'
+                          : st.cross_status === 'death'
+                            ? !hasPosition
+                              ? '⏳ Menunggu Golden Cross untuk BELI'
+                              : '✓ Death Cross — bot sudah SELL'
+                            : '⏳ Menunggu crossover SMA'
+
                         return (
                           <div className="mx-1 border border-t-0 border-[rgba(56,200,255,0.15)] rounded-b-[16px] bg-[rgba(56,200,255,0.02)] dark:bg-[rgba(56,200,255,0.04)]">
                             {/* Row 1: Sparkline + Price + Cross Status */}
@@ -195,21 +213,30 @@ export default function TrendPage() {
                                     width={100}
                                     height={32}
                                   />
+                                  <div className="flex justify-between text-[9px] mt-0.5 gap-2">
+                                    <span className="text-[#9fe870]">— SMA{cfg.fast_period||10}</span>
+                                    <span className="text-[#ff6b6f]">— SMA{cfg.slow_period||30}</span>
+                                  </div>
                                 </div>
                               )}
                               {/* Price + Cross */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">
                                     {st.current_price != null ? st.current_price.toFixed(st.current_price < 1 ? 8 : 2) : '-'}
                                   </span>
                                   <span className={`text-[10px] font-bold ${labelColor}`}>{crossLabel}</span>
+                                  {smaGapPct != null && (
+                                    <span className="text-[10px] text-[#686868] dark:text-[#898989]">
+                                      gap {smaGapPct.toFixed(3)}%
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-[#686868] dark:text-[#898989]">
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-[10px] text-[#9fe870] opacity-80">
                                     SMA{cfg.fast_period || 10} {st.fast_sma?.toFixed(8)}
                                   </span>
-                                  <span className="text-[10px] text-[#686868] dark:text-[#898989]">
+                                  <span className="text-[10px] text-[#ff6b6f] opacity-80">
                                     SMA{cfg.slow_period || 30} {st.slow_sma?.toFixed(8)}
                                   </span>
                                 </div>
@@ -222,8 +249,26 @@ export default function TrendPage() {
                                 </div>
                               )}
                             </div>
-                            {/* Row 2: Progress bar */}
+
+                            {/* Row 2: Next action status — the key info */}
                             <div className="px-4 pb-2">
+                              <div className={`text-[10px] font-semibold px-2 py-1 rounded-lg ${
+                                isGolden && hasPosition ? 'bg-[rgba(255,107,111,0.08)] text-[#d03238] dark:text-[#ff6b6f]' :
+                                isGolden ? 'bg-[rgba(159,232,112,0.08)] text-[#054d28] dark:text-[#9fe870]' :
+                                st.cross_status === 'death' && !hasPosition ? 'bg-[rgba(56,200,255,0.08)] text-[#0994b3] dark:text-[#5dd8f5]' :
+                                'bg-[rgba(140,140,140,0.08)] text-[#686868] dark:text-[#898989]'
+                              }`}>
+                                {nextActionLabel}
+                              </div>
+                            </div>
+
+                            {/* Row 3: Progress bar — SMA gap proximity */}
+                            <div className="px-4 pb-2">
+                              <div className="flex justify-between text-[9px] text-[#686868] dark:text-[#898989] mb-1">
+                                <span>SMA cepat {'<'} lambat</span>
+                                <span>posisi harga</span>
+                                <span>SMA cepat {'>'} lambat</span>
+                              </div>
                               <div className="relative h-2 bg-[#f0f1ee] dark:bg-[#252822] rounded-full overflow-hidden">
                                 <div className={`absolute inset-0 rounded-full ${barColor} opacity-20`} />
                                 <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow-sm transition-all" style={{
@@ -233,29 +278,29 @@ export default function TrendPage() {
                                 }} />
                               </div>
                             </div>
-                            {/* Row 3: Holding + Signal info */}
+
+                            {/* Row 4: Holding + Signal info */}
                             <div className="px-4 pb-2.5 flex items-center gap-3 text-[10px] flex-wrap">
                               {/* Holding */}
-                              {st.holding_qty != null && st.holding_qty > 0 && (
+                              {hasPosition ? (
                                 <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
                                   <Wallet size={10} />
-                                  Hold {st.holding_qty.toFixed(4)} (${st.holding_value?.toFixed(2)})
+                                  Hold {st.holding_qty!.toFixed(4)} (${st.holding_value?.toFixed(2)})
                                   {st.unrealized_pnl != null && (
                                     <span className={`font-semibold ${st.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                       {st.unrealized_pnl >= 0 ? '+' : ''}{st.unrealized_pnl_pct?.toFixed(2)}%
                                     </span>
                                   )}
                                 </span>
-                              )}
-                              {st.holding_qty == null || st.holding_qty === 0 && (
+                              ) : (
                                 <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
-                                  <Wallet size={10} /> Cash
+                                  <Wallet size={10} /> Cash — menunggu sinyal beli
                                 </span>
                               )}
                               {/* Last signal */}
                               {st.last_signal_type && (
                                 <span className={`font-semibold ${st.last_signal_result != null && st.last_signal_result >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                  Last {st.last_signal_type === 'buy' ? '▲ Buy' : '▼ Sell'} {st.last_signal_result != null ? `${st.last_signal_result >= 0 ? '+' : ''}${st.last_signal_result.toFixed(2)}%` : ''}
+                                  Last {st.last_signal_type === 'buy' ? '▲ Buy' : '▼ Sell'}{st.last_signal_result != null ? ` ${st.last_signal_result >= 0 ? '+' : ''}${st.last_signal_result.toFixed(2)}%` : ''}
                                 </span>
                               )}
                               {/* Signal history */}
@@ -263,7 +308,7 @@ export default function TrendPage() {
                                 <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
                                   <History size={10} />
                                   {st.signal_history.slice(1, 5).map((sig, i) => (
-                                    <span key={i} className={`${sig.result_pct != null && sig.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                    <span key={i} className={sig.result_pct != null && sig.result_pct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}>
                                       {sig.side === 'buy' ? '▲' : '▼'}{sig.result_pct != null ? `${sig.result_pct >= 0 ? '+' : ''}${sig.result_pct.toFixed(1)}%` : '?'}
                                       {i < Math.min(st.signal_history!.length - 2, 3) ? ' ' : ''}
                                     </span>

@@ -35,54 +35,102 @@ function formatCountdown(ms: number): string {
   return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
 }
 
-// Progress bar: Avg (left=0%) → current gain → TP (right edge)
-function DCABar({ avgBuy, current, tpPct }: { avgBuy: number; current: number; tpPct: number }) {
-  if (avgBuy <= 0 || tpPct <= 0) return null
+// DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
+function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: number; tpPct: number; slPct: number }) {
+  if (avgBuy <= 0) return null
   const gainPct = ((current - avgBuy) / avgBuy) * 100
-  // range: 0 (avg) → tpPct*1.1 so TP sits near right, not clipped
-  const rangeMax = tpPct * 1.1
-  const markerPct = Math.max(0, Math.min(100, (gainPct / rangeMax) * 100))
-  const tpLinePos = Math.round((tpPct / rangeMax) * 100)
+
+  // Range: dari -slPct (atau -5% min) di kiri, sampai +tpPct (atau +5% min) di kanan
+  const leftEdge = slPct > 0 ? -slPct : Math.min(-5, gainPct * 1.2)
+  const rightEdge = tpPct > 0 ? tpPct : Math.max(5, gainPct * 1.2)
+  const totalRange = rightEdge - leftEdge
+
+  // posisi dot: gainPct dipetakan ke 0-100%
+  const dotPct = Math.max(0, Math.min(100, ((gainPct - leftEdge) / totalRange) * 100))
+  // posisi garis avg (selalu = titik 0)
+  const avgLinePct = Math.max(0, Math.min(100, ((0 - leftEdge) / totalRange) * 100))
+  // posisi garis TP
+  const tpLinePct = tpPct > 0 ? Math.max(0, Math.min(100, ((tpPct - leftEdge) / totalRange) * 100)) : null
+  // posisi garis SL
+  const slLinePct = slPct > 0 ? Math.max(0, Math.min(100, ((-slPct - leftEdge) / totalRange) * 100)) : null
+
   const isProfit = gainPct >= 0
-  const nearTP = gainPct >= tpPct * 0.8
+  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8
+  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8
+
+  const dotColor = nearTP ? '#9fe870' : nearSL ? '#ff6b6f' : isProfit ? '#9fe870' : '#ff6b6f'
 
   return (
-    <div className="w-full mt-2 mb-1">
-      {/* Avg price info */}
-      <div className="flex items-center justify-between text-[10px] mb-1">
-        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
-        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
-          {nearTP && <span className="ml-1 animate-pulse">· Mendekati TP!</span>}
-        </span>
-      </div>
-      <div className="relative w-full h-4 flex items-center">
-        {/* Track */}
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] rounded-full overflow-hidden">
-          <div
-            className={`absolute inset-y-0 left-0 rounded-full transition-all ${isProfit ? 'bg-gradient-to-r from-[rgba(159,232,112,0.3)] to-[rgba(159,232,112,0.6)]' : 'bg-gradient-to-r from-[rgba(208,50,56,0.3)] to-[rgba(208,50,56,0.5)]'}`}
-            style={{ width: `${markerPct}%` }}
-          />
-        </div>
-        {/* TP target line */}
-        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(159,232,112,0.7)] dark:bg-[rgba(159,232,112,0.6)] rounded-full" style={{ left: `${tpLinePos}%` }} title={`TP: +${tpPct}%`} />
-        {/* Current price marker */}
-        <div
-          className={`absolute top-0 bottom-0 w-0.5 rounded-full transition-all ${nearTP ? 'bg-[#9fe870]' : isProfit ? 'bg-[#163300] dark:bg-[#9fe870]' : 'bg-[#d03238] dark:bg-[#ff6b6f]'}`}
-          style={{ left: `${markerPct}%` }}
-        />
-        {/* Labels */}
-        <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">Avg</span>
-        <span className="absolute -bottom-3.5 text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePos}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>
-      </div>
-      <div className="mt-4 flex items-center justify-between text-[10px]">
-        <span className={`font-semibold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}% dari avg
-        </span>
-        {nearTP && <span className="text-[#054d28] dark:text-[#9fe870] font-bold animate-pulse">Mendekati TP!</span>}
+    <div className="w-full mt-3 mb-1">
+      {/* Top labels */}
+      <div className="flex items-center justify-between text-[10px] mb-1.5">
         <span className="text-[#686868] dark:text-[#898989]">
-          Target +{tpPct}% = <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+          Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
         </span>
+        <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
+          {nearTP && <span className="ml-1 animate-pulse"> · Mendekati TP!</span>}
+          {nearSL && <span className="ml-1 animate-pulse text-[#ff6b6f]"> · Mendekati SL!</span>}
+        </span>
+      </div>
+
+      {/* Bar */}
+      <div className="relative w-full h-5 flex items-center">
+        {/* Track background: kiri merah (rugi), kanan hijau (untung) */}
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{
+          background: `linear-gradient(to right, rgba(208,50,56,0.15) 0%, rgba(208,50,56,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) 100%)`
+        }} />
+
+        {/* SL line (kiri, merah) */}
+        {slLinePct !== null && (
+          <div className="absolute top-0 bottom-0 w-0.5 bg-[#ff6b6f] opacity-70 rounded-full" style={{ left: `${slLinePct}%` }} />
+        )}
+        {/* Avg line (tengah, abu) */}
+        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(140,140,140,0.5)] rounded-full" style={{ left: `${avgLinePct}%` }} />
+        {/* TP line (kanan, hijau) */}
+        {tpLinePct !== null && (
+          <div className="absolute top-0 bottom-0 w-0.5 bg-[#9fe870] opacity-70 rounded-full" style={{ left: `${tpLinePct}%` }} />
+        )}
+
+        {/* Dot = posisi harga saat ini */}
+        <div className="absolute w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow transition-all" style={{
+          left: `${dotPct}%`,
+          transform: 'translateX(-50%)',
+          background: dotColor,
+        }} />
+      </div>
+
+      {/* Bottom labels: SL · Avg · TP */}
+      <div className="relative mt-1" style={{ height: '14px' }}>
+        {slLinePct !== null && (
+          <span className="absolute text-[9px] text-[#d03238] dark:text-[#ff6b6f]" style={{ left: `${slLinePct}%`, transform: 'translateX(-50%)' }}>
+            -{slPct}%
+          </span>
+        )}
+        <span className="absolute text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: `${avgLinePct}%`, transform: 'translateX(-50%)' }}>
+          avg
+        </span>
+        {tpLinePct !== null && (
+          <span className="absolute text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePct}%`, transform: 'translateX(-50%)' }}>
+            +{tpPct}%
+          </span>
+        )}
+      </div>
+
+      {/* Status line */}
+      <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
+        {slPct > 0 && (
+          <span className="text-[#686868] dark:text-[#898989]">
+            SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">${(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+            {' '}({(gainPct - (-slPct)).toFixed(2)}% menuju SL)
+          </span>
+        )}
+        {tpPct > 0 && (
+          <span className="text-[#686868] dark:text-[#898989]">
+            TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+            {' '}({(tpPct - gainPct).toFixed(2)}% lagi)
+          </span>
+        )}
       </div>
     </div>
   )
@@ -243,12 +291,13 @@ export default function DcaPage() {
                           </span>
                         )}
                       </div>
-                      {/* DCA progress bar toward TP */}
-                      {cfg.take_profit_pct && cfg.take_profit_pct > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] && (
+                      {/* DCA progress bar toward TP / away from SL */}
+                      {avgBuy > 0 && tickerBySymbol[s.symbol] && ((cfg.take_profit_pct ?? 0) > 0 || (cfg.stop_loss_pct ?? 0) > 0) && (
                         <DCABar
                           avgBuy={avgBuy}
                           current={parseFloat(tickerBySymbol[s.symbol]!.lastPrice)}
-                          tpPct={cfg.take_profit_pct}
+                          tpPct={cfg.take_profit_pct ?? 0}
+                          slPct={cfg.stop_loss_pct ?? 0}
                         />
                       )}
                     </div>

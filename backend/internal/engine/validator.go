@@ -43,37 +43,42 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 		// (simplified: we track current move as max since we don't persist max per tick)
 		favPct := movePct
 		advPct := 0.0
+		favGrid := 0.0
+		advGrid := 0.0
 		if sig.SignalType == "buy" {
 			// favorable = price goes up, adverse = price goes down
 			if movePct < 0 {
 				advPct = math.Abs(movePct)
+				advGrid = moveGridSteps
 				favPct = 0
+			} else {
+				favGrid = moveGridSteps
 			}
 		} else {
 			// for sell: favorable = price goes down
 			favPct = -movePct
 			if movePct > 0 {
 				advPct = movePct
+				advGrid = moveGridSteps
 				favPct = 0
+			} else {
+				favGrid = moveGridSteps
 			}
 		}
-
-		// distance in grid steps (used for both fav and adv depending on direction)
-		distGrid := math.Abs(currentPrice-signalPrice) / gridStep
 
 		// Check expiry
 		windowDuration := time.Duration(sig.ValidationWindowMinutes) * time.Minute
 		if now.Sub(sig.CreatedAt) >= windowDuration {
 			results = append(results, validationResult{
-				signalID:         sig.ID,
-				status:           "expired",
-				resultPct:        movePct,
-				resultGridSteps:  moveGridSteps,
-				maxFavPct:        favPct,
-				maxAdvPct:        advPct,
-				maxFavGrid:       distGrid,
-				maxAdvGrid:       0,
-				note:             "validation window expired",
+				signalID:        sig.ID,
+				status:          "expired",
+				resultPct:       movePct,
+				resultGridSteps: moveGridSteps,
+				maxFavPct:       favPct,
+				maxAdvPct:       advPct,
+				maxFavGrid:      favGrid,
+				maxAdvGrid:      advGrid,
+				note:            "validation window expired",
 			})
 			continue
 		}
@@ -90,21 +95,19 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				invalidHit = true
 			}
 		} else {
-			// grid_steps mode: use distGrid directly (consistent with favGrid calculation)
-			if distGrid >= sig.ValidationTargetValue {
+			// grid_steps mode
+			if favGrid >= sig.ValidationTargetValue {
 				targetHit = true
 			}
-			advGrid := distGrid // same distance, direction already encoded in favPct/advPct
-			if advPct > 0 && advGrid >= sig.ValidationInvalidValue {
+			if advGrid >= sig.ValidationInvalidValue {
 				invalidHit = true
 			}
 		}
 
 		if targetHit {
-			// Use favorablePct so confirmed always shows positive (up for buy, down for sell)
 			resultPct := favPct
 			if sig.SignalType == "sell" {
-				resultPct = math.Abs(movePct) // sell confirmed = price went down = show as positive
+				resultPct = math.Abs(movePct)
 			}
 			results = append(results, validationResult{
 				signalID:        sig.ID,
@@ -113,7 +116,8 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				resultGridSteps: moveGridSteps,
 				maxFavPct:       favPct,
 				maxAdvPct:       advPct,
-				maxFavGrid:      distGrid,
+				maxFavGrid:      favGrid,
+				maxAdvGrid:      advGrid,
 				note:            "target reached",
 			})
 		} else if invalidHit {
@@ -124,7 +128,8 @@ func (v *SignalValidator) ValidatePending(signals []model.StrategySignal, curren
 				resultGridSteps: moveGridSteps,
 				maxFavPct:       favPct,
 				maxAdvPct:       advPct,
-				maxFavGrid:      distGrid,
+				maxFavGrid:      favGrid,
+				maxAdvGrid:      advGrid,
 				note:            "invalid threshold reached",
 			})
 		}

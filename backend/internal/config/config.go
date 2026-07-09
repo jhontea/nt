@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -16,6 +18,7 @@ type Config struct {
 	TelegramBotToken string
 	TelegramChatID   string
 	TokenExpiryHours int
+	AllowedOrigins   []string
 
 	DBHost           string
 	DBPort           int
@@ -28,7 +31,12 @@ type Config struct {
 }
 
 func Load() *Config {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		slog.Warn("godotenv", "error", err)
+	}
+
+	origins := getEnv("ALLOWED_ORIGINS", "http://localhost:3100,http://localhost:3000")
+	allowedOrigins := strings.Split(origins, ",")
 
 	return &Config{
 		Port:             getEnv("PORT", "8100"),
@@ -38,6 +46,7 @@ func Load() *Config {
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramChatID:   os.Getenv("TELEGRAM_CHAT_ID"),
 		TokenExpiryHours: getEnvInt("TOKEN_EXPIRY_HOURS", 24),
+		AllowedOrigins:   allowedOrigins,
 
 		DBHost:           getEnv("DB_HOST", "localhost"),
 		DBPort:           getEnvInt("DB_PORT", 5432),
@@ -67,6 +76,7 @@ func getEnvInt(key string, fallback int) int {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return n
 		}
+		slog.Warn("config: invalid int value", "key", key, "value", v, "fallback", fallback)
 	}
 	return fallback
 }

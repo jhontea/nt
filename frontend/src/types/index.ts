@@ -60,6 +60,7 @@ export interface DCAConfig {
   interval_sec: number
   amount: string
   take_profit_pct?: number
+  stop_loss_pct?: number
 }
 
 export interface Ticker {

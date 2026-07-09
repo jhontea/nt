@@ -6,47 +6,101 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
+const (
+	wsPingInterval = 30 * time.Second
+	wsWriteTimeout = 10 * time.Second
+	wsReadTimeout  = 60 * time.Second
+)
+
+// wsConn wraps a websocket.Conn with a per-connection write mutex.
+// websocket.Conn.WriteMessage is not safe for concurrent use.
+type wsConn struct {
+	mu   sync.Mutex
+	conn *websocket.Conn
+}
+
+func (c *wsConn) writeJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.conn.SetWriteDeadline(time.Now().Add(wsWriteTimeout))
+	return c.conn.WriteMessage(websocket.TextMessage, data)
+}
+
+func (c *wsConn) writePing() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.conn.SetWriteDeadline(time.Now().Add(wsWriteTimeout))
+	return c.conn.WriteMessage(websocket.PingMessage, nil)
+}
+
+func (c *wsConn) close() {
+	c.conn.Close()
+}
+
 type WSHub struct {
-	mu        sync.RWMutex
-	clients   map[int64]map[*websocket.Conn]bool
-	jwtSecret string
+	mu             sync.RWMutex
+	clients        map[int64]map[*wsConn]bool
+	jwtSecret      string
+	allowedOrigins map[string]bool
 }
 
 func NewWSHub(jwtSecret string) *WSHub {
 	return &WSHub{
-		clients:   make(map[int64]map[*websocket.Conn]bool),
-		jwtSecret: jwtSecret,
+		clients:        make(map[int64]map[*wsConn]bool),
+		jwtSecret:      jwtSecret,
+		allowedOrigins: make(map[string]bool),
 	}
 }
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		// Allow no origin (direct WS), localhost, and common dev origins
-		return origin == "" || origin == "http://localhost:3100" || origin == "http://localhost:3000"
-	},
+// SetAllowedOrigins configures which origins are permitted for WebSocket upgrades.
+func (h *WSHub) SetAllowedOrigins(origins []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.allowedOrigins = make(map[string]bool, len(origins))
+	for _, o := range origins {
+		h.allowedOrigins[o] = true
+	}
 }
 
-func (h *WSHub) Register(sessionID int64, conn *websocket.Conn) {
+func (h *WSHub) upgrader() websocket.Upgrader {
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true // direct connection (curl, etc.)
+			}
+			h.mu.RLock()
+			defer h.mu.RUnlock()
+			return h.allowedOrigins[origin]
+		},
+	}
+}
+
+func (h *WSHub) register(sessionID int64, c *wsConn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.clients[sessionID] == nil {
-		h.clients[sessionID] = make(map[*websocket.Conn]bool)
+		h.clients[sessionID] = make(map[*wsConn]bool)
 	}
-	h.clients[sessionID][conn] = true
+	h.clients[sessionID][c] = true
 }
 
-func (h *WSHub) Unregister(sessionID int64, conn *websocket.Conn) {
+func (h *WSHub) unregister(sessionID int64, c *wsConn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.clients[sessionID] != nil {
-		delete(h.clients[sessionID], conn)
+		delete(h.clients[sessionID], c)
 		if len(h.clients[sessionID]) == 0 {
 			delete(h.clients, sessionID)
 		}
@@ -54,18 +108,17 @@ func (h *WSHub) Unregister(sessionID int64, conn *websocket.Conn) {
 }
 
 func (h *WSHub) Broadcast(sessionID int64, msg any) {
-	data, _ := json.Marshal(msg)
 	h.mu.RLock()
-	conns := make([]*websocket.Conn, 0, len(h.clients[sessionID]))
-	for conn := range h.clients[sessionID] {
-		conns = append(conns, conn)
+	conns := make([]*wsConn, 0, len(h.clients[sessionID]))
+	for c := range h.clients[sessionID] {
+		conns = append(conns, c)
 	}
 	h.mu.RUnlock()
 
-	for _, conn := range conns {
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			conn.Close()
-			h.Unregister(sessionID, conn)
+	for _, c := range conns {
+		if err := c.writeJSON(msg); err != nil {
+			c.close()
+			h.unregister(sessionID, c)
 		}
 	}
 }
@@ -90,23 +143,56 @@ func (h *WSHub) HandleWS(c echo.Context) error {
 		return c.String(http.StatusUnauthorized, "invalid subject")
 	}
 
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || sessionID <= 0 {
+		return c.String(http.StatusBadRequest, "invalid session id")
+	}
+
+	up := h.upgrader()
+	rawConn, err := up.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
 	}
-	h.Register(id, conn)
+	wc := &wsConn{conn: rawConn}
+	h.register(sessionID, wc)
 	defer func() {
-		h.Unregister(id, conn)
-		conn.Close()
+		h.unregister(sessionID, wc)
+		wc.close()
 	}()
-	slog.Debug("ws connected", "session", id)
+
+	// Pong handler resets read deadline
+	rawConn.SetPongHandler(func(string) error {
+		rawConn.SetReadDeadline(time.Now().Add(wsReadTimeout))
+		return nil
+	})
+	rawConn.SetReadDeadline(time.Now().Add(wsReadTimeout))
+
+	slog.Debug("ws connected", "session", sessionID)
+
+	// Ping ticker to detect stale connections
+	ping := time.NewTicker(wsPingInterval)
+	defer ping.Stop()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			if _, _, err := rawConn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		if _, _, err := conn.ReadMessage(); err != nil {
-			break
+		select {
+		case <-done:
+			return nil
+		case <-ping.C:
+			if err := wc.writePing(); err != nil {
+				return nil
+			}
 		}
 	}
-	return nil
 }
 
 type WSSignal struct {
@@ -116,9 +202,9 @@ type WSSignal struct {
 }
 
 type WSUpdate struct {
-	Type      string  `json:"type"`
-	SessionID int64   `json:"session_id"`
-	PnL       any     `json:"pnl,omitempty"`
+	Type      string `json:"type"`
+	SessionID int64  `json:"session_id"`
+	PnL       any    `json:"pnl,omitempty"`
 }
 
 type WSPaperAlert struct {

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	model "github.com/user/nt/internal/model"
+	repository "github.com/user/nt/internal/repository"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -54,6 +55,21 @@ func (m *MockStrategySignalRepository) Create(ctx context.Context, s *model.Stra
 func (mr *MockStrategySignalRepositoryMockRecorder) Create(ctx, s any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockStrategySignalRepository)(nil).Create), ctx, s)
+}
+
+// GetGridInsights mocks base method.
+func (m *MockStrategySignalRepository) GetGridInsights(ctx context.Context, symbol string) ([]repository.GridInsight, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGridInsights", ctx, symbol)
+	ret0, _ := ret[0].([]repository.GridInsight)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGridInsights indicates an expected call of GetGridInsights.
+func (mr *MockStrategySignalRepositoryMockRecorder) GetGridInsights(ctx, symbol any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGridInsights", reflect.TypeOf((*MockStrategySignalRepository)(nil).GetGridInsights), ctx, symbol)
 }
 
 // GetSummary mocks base method.

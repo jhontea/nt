@@ -100,6 +100,36 @@ func (mr *MockSessionRepositoryMockRecorder) ListByUser(ctx, userID any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockSessionRepository)(nil).ListByUser), ctx, userID)
 }
 
+// ListByUserAndStrategy mocks base method.
+func (m *MockSessionRepository) ListByUserAndStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListByUserAndStrategy", ctx, userID, strategy)
+	ret0, _ := ret[0].([]model.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListByUserAndStrategy indicates an expected call of ListByUserAndStrategy.
+func (mr *MockSessionRepositoryMockRecorder) ListByUserAndStrategy(ctx, userID, strategy any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUserAndStrategy", reflect.TypeOf((*MockSessionRepository)(nil).ListByUserAndStrategy), ctx, userID, strategy)
+}
+
+// ListRunning mocks base method.
+func (m *MockSessionRepository) ListRunning(ctx context.Context) ([]model.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRunning", ctx)
+	ret0, _ := ret[0].([]model.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRunning indicates an expected call of ListRunning.
+func (mr *MockSessionRepositoryMockRecorder) ListRunning(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRunning", reflect.TypeOf((*MockSessionRepository)(nil).ListRunning), ctx)
+}
+
 // Update mocks base method.
 func (m *MockSessionRepository) Update(ctx context.Context, s *model.Session) error {
 	m.ctrl.T.Helper()

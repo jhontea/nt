@@ -29,15 +29,15 @@ func NewPaperEngine(db *sqlx.DB, client *tokocrypto.Client, hub *WSHub, notifier
 }
 
 func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
-	p.mu.Lock()
+	// Fetch ticker BEFORE acquiring lock — network call must not block other sessions
 	ticker, err := p.client.GetTicker(session.Symbol)
 	if err != nil {
-		p.mu.Unlock()
 		return fmt.Errorf("fetch ticker: %w", err)
 	}
 	marketPrice := ticker.LastPrice
 	qty := signal.Quantity
 
+	p.mu.Lock()
 	var notifSide, notifPrice, notifQty string
 	switch signal.Side {
 	case string(model.SideBuy):
@@ -60,8 +60,14 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 }
 
 func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qty string) error {
-	cost, _ := strconv.ParseFloat(execPrice, 64)
-	qtyF, _ := strconv.ParseFloat(qty, 64)
+	cost, err := strconv.ParseFloat(execPrice, 64)
+	if err != nil {
+		return fmt.Errorf("executeBuy: invalid exec price %q: %w", execPrice, err)
+	}
+	qtyF, err := strconv.ParseFloat(qty, 64)
+	if err != nil {
+		return fmt.Errorf("executeBuy: invalid qty %q: %w", qty, err)
+	}
 	notional := cost * qtyF
 
 	var existing int
@@ -126,14 +132,23 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		return nil
 	}
 
-	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
+	sellPrice, err := strconv.ParseFloat(execPrice, 64)
+	if err != nil {
+		return fmt.Errorf("executeSell: invalid exec price %q: %w", execPrice, err)
+	}
 
 	// Calculate total qty, total cost (for avg buy price), total proceeds
 	totalQty := 0.0
 	totalCost := 0.0
 	for _, o := range buyOrders {
-		q, _ := strconv.ParseFloat(o.Quantity, 64)
-		p2, _ := strconv.ParseFloat(o.Price, 64)
+		q, err := strconv.ParseFloat(o.Quantity, 64)
+		if err != nil {
+			return fmt.Errorf("executeSell: invalid order quantity %q: %w", o.Quantity, err)
+		}
+		p2, err := strconv.ParseFloat(o.Price, 64)
+		if err != nil {
+			return fmt.Errorf("executeSell: invalid order price %q: %w", o.Price, err)
+		}
 		totalQty += q
 		totalCost += p2 * q
 	}
@@ -143,12 +158,23 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	pnl := (sellPrice - avgBuyPrice) * totalQty
 	pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
 	totalQtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
+	sellID := time.Now().UnixNano()
 
 	balance, err := p.getBalance(session.ID)
 	if err != nil {
 		return fmt.Errorf("get balance: %w", err)
 	}
-	if err := p.setBalance(session.ID, balance+proceeds); err != nil {
+
+	// Wrap all DB writes in a transaction
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Update balance
+	if _, err := tx.Exec(tx.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"),
+		math.Round((balance+proceeds)*1e8)/1e8, session.ID); err != nil {
 		return fmt.Errorf("set balance: %w", err)
 	}
 
@@ -157,31 +183,33 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	for i, o := range buyOrders {
 		ids[i] = o.ID
 	}
-	query, args, _ := sqlx.In("UPDATE orders SET status = 'closed' WHERE id IN (?)", ids)
-	if _, err := p.db.Exec(p.db.Rebind(query), args...); err != nil {
+	closeQuery, args, _ := sqlx.In("UPDATE orders SET status = 'closed' WHERE id IN (?)", ids)
+	if _, err := tx.Exec(tx.Rebind(closeQuery), args...); err != nil {
 		return fmt.Errorf("close buy orders: %w", err)
 	}
 
-	// Insert single sell order for total qty
-	_, err = p.db.Exec(
-		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+	// Insert sell order
+	if _, err := tx.Exec(
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
 		 VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
-		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
+		session.ID, fmt.Sprintf("paper_sell_%d", sellID),
 		session.Symbol, string(model.SideSell), execPrice, totalQtyStr, totalQtyStr, execPrice,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("save sell order: %w", err)
 	}
 
 	// Insert trade record
-	_, err = p.db.Exec(
-		p.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
+	if _, err := tx.Exec(
+		tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
-		session.ID, fmt.Sprintf("paper_sell_%d", time.Now().UnixNano()),
+		session.ID, fmt.Sprintf("paper_sell_%d", sellID),
 		session.Symbol, string(model.SideSell), execPrice, totalQtyStr, pnlStr,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("save trade: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
 	}
 
 	slog.Info("paper sell all", "session", session.ID, "symbol", session.Symbol,
@@ -207,8 +235,14 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 
 	// ponytail: trend signals carry the crossover price (fresh from latest candle), no ticker fetch needed.
 	// Unlike grid paper where grid level prices can be stale. Add ticker fetch if live slippage tracking matters.
-	execPriceF, _ := strconv.ParseFloat(signal.Price, 64)
-	qtyF, _ := strconv.ParseFloat(signal.Quantity, 64)
+	execPriceF, err := strconv.ParseFloat(signal.Price, 64)
+	if err != nil {
+		return fmt.Errorf("executeTrendBuy: invalid price %q: %w", signal.Price, err)
+	}
+	qtyF, err := strconv.ParseFloat(signal.Quantity, 64)
+	if err != nil {
+		return fmt.Errorf("executeTrendBuy: invalid qty %q: %w", signal.Quantity, err)
+	}
 	notional := execPriceF * qtyF
 
 	balance, err := p.getBalance(session.ID)
@@ -267,34 +301,51 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 		return nil
 	}
 
-	execPriceF, _ := strconv.ParseFloat(signal.Price, 64)
+	execPriceF, err := strconv.ParseFloat(signal.Price, 64)
+	if err != nil {
+		return fmt.Errorf("executeTrendSell: invalid price %q: %w", signal.Price, err)
+	}
+
 	totalProceeds := 0.0
 	totalQty := 0.0
 
-	for _, buy := range buys {
-		buyPrice, _ := strconv.ParseFloat(buy.ExecutedPrice, 64)
-		qtyF, _ := strconv.ParseFloat(buy.Quantity, 64)
+	tx, err := p.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	sellID := time.Now().UnixNano()
+	for i, buy := range buys {
+		buyPrice, err := strconv.ParseFloat(buy.ExecutedPrice, 64)
+		if err != nil {
+			return fmt.Errorf("executeTrendSell: invalid buy price %q: %w", buy.ExecutedPrice, err)
+		}
+		qtyF, err := strconv.ParseFloat(buy.Quantity, 64)
+		if err != nil {
+			return fmt.Errorf("executeTrendSell: invalid qty %q: %w", buy.Quantity, err)
+		}
 		pnl := (execPriceF - buyPrice) * qtyF
 		pnlStr := strconv.FormatFloat(math.Round(pnl*1e8)/1e8, 'f', 8, 64)
-		proceeds := execPriceF * qtyF
-		totalProceeds += proceeds
+		totalProceeds += execPriceF * qtyF
 		totalQty += qtyF
 
-		if _, err := p.db.Exec(p.db.Rebind("UPDATE orders SET status='closed' WHERE id=?"), buy.ID); err != nil {
+		if _, err := tx.Exec(tx.Rebind("UPDATE orders SET status='closed' WHERE id=?"), buy.ID); err != nil {
 			return fmt.Errorf("close buy order: %w", err)
 		}
-		if _, err := p.db.Exec(
-			p.db.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
+		if _, err := tx.Exec(
+			tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, pnl, traded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`),
 			session.ID, buy.OrderID, session.Symbol, string(model.SideSell), signal.Price, buy.Quantity, pnlStr,
 		); err != nil {
 			return fmt.Errorf("save trade: %w", err)
 		}
+		_ = i
 	}
 
 	totalQtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
-	if _, err := p.db.Exec(
-		p.db.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
-		session.ID, fmt.Sprintf("paper_trend_sell_%d", time.Now().UnixNano()),
+	if _, err := tx.Exec(
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?, ?, ?, ?, 'market', ?, ?, 'filled', ?, ?)`),
+		session.ID, fmt.Sprintf("paper_trend_sell_%d", sellID),
 		session.Symbol, string(model.SideSell), signal.Price, totalQtyStr, totalQtyStr, signal.Price,
 	); err != nil {
 		return fmt.Errorf("save sell order: %w", err)
@@ -304,8 +355,13 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 	if err != nil {
 		return err
 	}
-	if err := p.setBalance(session.ID, balance+totalProceeds); err != nil {
-		return err
+	if _, err := tx.Exec(tx.Rebind("UPDATE sessions SET virtual_balance = ? WHERE id = ?"),
+		math.Round((balance+totalProceeds)*1e8)/1e8, session.ID); err != nil {
+		return fmt.Errorf("set balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
 	}
 
 	slog.Info("trend paper sell", "session", session.ID, "symbol", session.Symbol, "qty", totalQtyStr, "price", signal.Price, "proceeds", fmt.Sprintf("%.2f", totalProceeds))
@@ -386,15 +442,21 @@ func (p *PaperEngine) CheckStopConditions(session model.Session, currentPrice st
 		return StopConditionResult{}
 	}
 
-	price, _ := strconv.ParseFloat(currentPrice, 64)
+	price, err := strconv.ParseFloat(currentPrice, 64)
+	if err != nil || price <= 0 {
+		return StopConditionResult{}
+	}
 
 	type openPos struct {
 		Quantity string `db:"quantity"`
 	}
 	var positions []openPos
-	p.db.Select(&positions, p.db.Rebind(
+	if err := p.db.Select(&positions, p.db.Rebind(
 		`SELECT quantity FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
-		session.ID)
+		session.ID); err != nil {
+		slog.Warn("CheckStopConditions: fetch positions", "session", session.ID, "error", err)
+		return StopConditionResult{}
+	}
 
 	holdingsValue := 0.0
 	for _, pos := range positions {

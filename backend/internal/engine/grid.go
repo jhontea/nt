@@ -167,7 +167,9 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 			g.db.Rebind(`SELECT DISTINCT grid_level_index FROM strategy_signals
 				WHERE session_id = ?
 				  AND created_at >= NOW() - INTERVAL '4 hours'`), sessionID)
-		if err == nil && len(triggeredLevels) > 0 {
+		if err != nil {
+			slog.Warn("grid pre-mark from strategy_signals", "session", sessionID, "error", err)
+		} else if len(triggeredLevels) > 0 {
 			for _, idx := range triggeredLevels {
 				if idx >= 0 && idx < len(state.levels) {
 					state.levels[idx].state = levelTriggered
@@ -182,9 +184,11 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 			Price string `db:"price"`
 		}
 		var openOrders []openOrder
-		g.db.Select(&openOrders, g.db.Rebind(
+		if err := g.db.Select(&openOrders, g.db.Rebind(
 			`SELECT price FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
-			sessionID)
+			sessionID); err != nil {
+			slog.Warn("grid pre-mark from orders", "session", sessionID, "error", err)
+		}
 		for _, o := range openOrders {
 			orderPrice, err := strconv.ParseFloat(o.Price, 64)
 			if err != nil {

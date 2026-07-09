@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,7 +32,7 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	msg := "internal server error"
 	if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
-		msg = he.Message.(string)
+		msg = fmt.Sprintf("%v", he.Message)
 	} else if c.Response().Committed {
 		return
 	}
@@ -74,7 +75,7 @@ func main() {
 	e.HTTPErrorHandler = customHTTPErrorHandler
 	e.Use(middleware.BodyLimit("1MB"))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:3100", "http://localhost:3000"},
+		AllowOrigins: cfg.AllowedOrigins,
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(60)))
@@ -110,6 +111,7 @@ func main() {
 	tokoClient := tokocrypto.NewClient(cfg.TokenAPIKey, cfg.TokenSecretKey)
 	notifier := service.NewNotifier(cfg.TelegramBotToken, cfg.TelegramChatID)
 	wsHub := engine.NewWSHub(cfg.JWTSecret)
+	wsHub.SetAllowedOrigins(cfg.AllowedOrigins)
 	engMgr := engine.NewManager(tokoClient, db, notifier, wsHub, signalRepo)
 
 	// Auto-restart sessions that were running before shutdown
@@ -165,7 +167,10 @@ func main() {
 		g.POST("/sessions", withStrategy(strat, sessionH.Create))
 	}
 	v1.GET("/sessions/:id/signals", func(c echo.Context) error {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			return c.JSON(400, ErrorResponse{Error: "invalid session id"})
+		}
 		signals, err := signalRepo.ListBySession(c.Request().Context(), id, 100)
 		if err != nil {
 			return c.JSON(500, ErrorResponse{Error: "failed to fetch signals: " + err.Error()})
@@ -173,7 +178,10 @@ func main() {
 		return c.JSON(200, signals)
 	})
 	v1.GET("/sessions/:id/signals/summary", func(c echo.Context) error {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			return c.JSON(400, ErrorResponse{Error: "invalid session id"})
+		}
 		summary, err := signalRepo.GetSummary(c.Request().Context(), id)
 		if err != nil {
 			return c.JSON(500, ErrorResponse{Error: "failed to fetch summary: " + err.Error()})
@@ -253,7 +261,9 @@ func main() {
 	<-ctx.Done()
 	slog.Info("shutting down gracefully...")
 	engMgr.StopAll()
-	e.Shutdown(context.Background())
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	e.Shutdown(shutdownCtx)
 }
 
 func recoverRunningSessions(sessionRepo repository.SessionRepository, mgr *engine.Manager) {
@@ -263,10 +273,13 @@ func recoverRunningSessions(sessionRepo repository.SessionRepository, mgr *engin
 		return
 	}
 	for _, s := range sessions {
-		if err := mgr.Start(s); err != nil {
-			slog.Warn("recover session failed", "id", s.ID, "name", s.Name, "error", err)
-		} else {
-			slog.Info("session auto-restarted", "id", s.ID, "name", s.Name)
-		}
+		s := s // capture loop var
+		go func() {
+			if err := mgr.Start(s); err != nil {
+				slog.Warn("recover session failed", "id", s.ID, "name", s.Name, "error", err)
+			} else {
+				slog.Info("session auto-restarted", "id", s.ID, "name", s.Name)
+			}
+		}()
 	}
 }

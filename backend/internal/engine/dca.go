@@ -78,10 +78,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	if !exists {
 		// recover lastBuy from DB after restart — use epoch seconds to avoid datetime parse issues
 		var lastEpoch int64
-		_ = d.db.Get(&lastEpoch, d.db.Rebind(
+		if err := d.db.Get(&lastEpoch, d.db.Rebind(
 			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) FROM orders
 			 WHERE session_id=? AND symbol=? AND side='buy' ORDER BY created_at DESC LIMIT 1`,
-		), session.ID, session.Symbol)
+		), session.ID, session.Symbol); err != nil {
+			slog.Warn("dca: recover lastBuy from DB", "session", session.ID, "error", err)
+		}
 		if lastEpoch > 0 {
 			lastTime = time.Unix(lastEpoch, 0)
 			exists = true
@@ -105,10 +107,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
 			var totalQty float64
-			d.db.Get(&totalQty,
+			if err := d.db.Get(&totalQty,
 				d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
 				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
-				session.ID, session.Symbol)
+				session.ID, session.Symbol); err != nil {
+				slog.Warn("dca: fetch totalQty for TP/SL", "session", session.ID, "error", err)
+			}
 
 			if cfg.TakeProfitPct > 0 && currentPrice >= avgPrice*(1+cfg.TakeProfitPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
@@ -137,10 +141,13 @@ func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, price, qty fl
 		return
 	}
 	var existingQty float64
-	d.db.Get(&existingQty,
+	if err := d.db.Get(&existingQty,
 		d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
 		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
-		sessionID, symbol)
+		sessionID, symbol); err != nil {
+		slog.Warn("dca: fetch existingQty for avgPrice", "session", sessionID, "error", err)
+		return
+	}
 	totalQty := existingQty + qty
 	if totalQty > 0 {
 		d.avgBuyPrice[sessionID] = ((oldAvg * existingQty) + (price * qty)) / totalQty
