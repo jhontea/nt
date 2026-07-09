@@ -12,6 +12,8 @@ import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
 import { SectionLabel } from '@/components/sessions/SectionLabel'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import { CreateSessionModal } from '@/components/sessions/CreateSessionModal'
+
+const STABLE_ASSETS = new Set(['USDT', 'FDUSD', 'USDC', 'BUSD', 'IDR'])
 export default function SessionsOverviewPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
@@ -34,8 +36,7 @@ export default function SessionsOverviewPage() {
   })
 
   // Fetch tickers for portfolio assets (non-stablecoin, non-IDR)
-  const STABLE = new Set(['USDT', 'FDUSD', 'USDC', 'BUSD', 'IDR'])
-  const portfolioAssets = liveBalance?.assets.filter(a => !STABLE.has(a.asset) && parseFloat(a.free) > 0) ?? []
+  const portfolioAssets = liveBalance?.assets.filter(a => !STABLE_ASSETS.has(a.asset) && parseFloat(a.free) > 0) ?? []
   const portfolioSymbols = portfolioAssets.map(a => `${a.asset}_USDT`)
 
   const { data: portfolioTickers } = useQuery({
@@ -128,12 +129,11 @@ export default function SessionsOverviewPage() {
                 </div>
               </div>
             ) : liveBalance ? (() => {
-              const STABLE = new Set(['USDT', 'FDUSD', 'USDC', 'BUSD'])
               const usdtAsset = liveBalance.assets.find(a => a.asset === 'USDT')
               const fdusdAsset = liveBalance.assets.find(a => a.asset === 'FDUSD')
               const idrAsset = liveBalance.assets.find(a => a.asset === 'IDR')
-              const otherAssets = liveBalance.assets.filter(a => !STABLE.has(a.asset) && a.asset !== 'IDR')
-              const idrRate = usdtIdrTicker ? parseFloat((usdtIdrTicker as any).lastPrice ?? '0') : 0
+              const otherAssets = liveBalance.assets.filter(a => !STABLE_ASSETS.has(a.asset))
+              const idrRate = usdtIdrTicker ? parseFloat(usdtIdrTicker.lastPrice ?? '0') : 0
 
               const fmtIdr = (usd: number) => idrRate > 0
                 ? `Rp${(usd * idrRate).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`

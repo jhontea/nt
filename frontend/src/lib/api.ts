@@ -44,14 +44,10 @@ export const api = {
     stop: (id: number) => request<{ status: string }>(`/v1/sessions/${id}/stop`, { method: 'POST' }),
     delete: (id: number) => request<{ status: string }>(`/v1/sessions/${id}`, { method: 'DELETE' }),
     getPnL: (id: number) => request<{ realized_pnl: string; total_pnl: string; win_rate: number; trade_count: number; balance: number }>(`/v1/sessions/${id}/pnl`),
-    getOrders: (id: number, cursor?: number, limit?: number) => {
-      const params = new URLSearchParams()
-      if (cursor) params.set('cursor', String(cursor))
-      if (limit) params.set('limit', String(limit))
-      const qs = params.toString()
-      return request<import('@/types').Order[]>(`/v1/sessions/${id}/orders${qs ? `?${qs}` : ''}`)
-    },
+    // DCA-specific aggregated stats (buy_count, avg_price, total_invested, total_qty)
     getDCAStats: (id: number) => request<{ buy_count: number; total_qty: number; total_invested: number; avg_buy_price: number; last_buy_price: number }>(`/v1/sessions/${id}/dca-stats`),
+    // Orders for display/pagination — limit 50 per page, cursor-based
+    getOrders: (id: number, cursor?: number) => request<import('@/types').Order[]>(`/v1/sessions/${id}/orders${cursor ? `?cursor=${cursor}` : ''}`),
     getTicker: (symbol: string) => request<import('@/types').Ticker>(`/v1/ticker/${symbol}`),
     getTickersBulk: (symbols: string[]) => request<Record<string, import('@/types').Ticker>>(`/v1/tickers?symbols=${symbols.join(',')}`),
     getSignals: (id: number) => request<import('@/types').StrategySignal[]>(`/v1/sessions/${id}/signals`),
@@ -73,10 +69,10 @@ export const api = {
       create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
         request<import('@/types').Session>('/v1/grid/sessions', { method: 'POST', body: JSON.stringify(data) }),
     },
-	recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
-	  request<import("@/types").GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || "grid_steps"}`),
-	insights: (symbol: string) =>
-	  request<import("@/types").GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
+    recommend: (params: { symbol: string; horizon: string; capital: number; validation_mode?: string }) =>
+      request<import('@/types').GridRecommendation>(`/v1/grid/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}&validation_mode=${params.validation_mode || 'grid_steps'}`),
+    insights: (symbol: string) =>
+      request<import('@/types').GridInsight[]>(`/v1/grid/insights?symbol=${symbol}`),
   },
   trend: {
     sessions: {
@@ -85,8 +81,8 @@ export const api = {
       create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
         request<import('@/types').Session>('/v1/trend/sessions', { method: 'POST', body: JSON.stringify(data) }),
     },
-	recommend: (params: { symbol: string; horizon: string; capital: number }) =>
-	  request<import("@/types").TrendRecommendation>(`/v1/trend/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}`),
+    recommend: (params: { symbol: string; horizon: string; capital: number }) =>
+      request<import('@/types').TrendRecommendation>(`/v1/trend/recommend?symbol=${params.symbol}&horizon=${params.horizon}&capital=${params.capital}`),
   },
   dca: {
     sessions: {

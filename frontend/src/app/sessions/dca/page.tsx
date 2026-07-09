@@ -160,11 +160,11 @@ export default function DcaPage() {
   const sessionIds = useMemo(() => sessions?.map(s => s.id) ?? [], [sessions])
   const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
 
-  // Orders per session for next-buy countdown + stats (limit=500 to get all orders)
+  // Orders per session — only for next-buy countdown (last buy time)
   const orderQueries = useQueries({
     queries: sessionIds.map(id => ({
-      queryKey: ['orders', id, 500],
-      queryFn: () => api.sessions.getOrders(id, undefined, 500),
+      queryKey: ['orders', id],
+      queryFn: () => api.sessions.getOrders(id),
       enabled: isAuthenticated && sessionIds.length > 0,
       staleTime: 30_000,
     })),
@@ -173,6 +173,21 @@ export default function DcaPage() {
   const ordersBySession = useMemo(() =>
     Object.fromEntries(sessionIds.map((id, i) => [id, orderQueries[i]?.data ?? []])) as Record<number, Order[]>,
     [sessionIds, orderQueries]
+  )
+
+  // DCA stats per session — aggregated from backend (total buys, avg price, total invested)
+  const dcaStatsQueries = useQueries({
+    queries: sessionIds.map(id => ({
+      queryKey: ['dca-stats', id],
+      queryFn: () => api.sessions.getDCAStats(id),
+      enabled: isAuthenticated && sessionIds.length > 0,
+      staleTime: 30_000,
+    })),
+  })
+
+  const dcaStatsBySession = useMemo(() =>
+    Object.fromEntries(sessionIds.map((id, i) => [id, dcaStatsQueries[i]?.data ?? null])),
+    [sessionIds, dcaStatsQueries]
   )
 
   // Ticker per unique symbol — refetch every 1s for live bar
@@ -256,11 +271,12 @@ export default function DcaPage() {
               const nextBuyMs = cfg && lastBuy && s.status === 'running'
                 ? new Date(lastBuy.created_at).getTime() + cfg.interval_sec * 1000 - now
                 : null
-              const filledBuys = orders.filter(o => o.side === 'buy' && o.status === 'filled')
-              const totalBuys = filledBuys.length
-              const totalInvested = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity) * parseFloat(o.price || '0'), 0)
-              const totalQty = filledBuys.reduce((sum, o) => sum + parseFloat(o.quantity), 0)
-              const avgBuy = totalQty > 0 ? filledBuys.reduce((sum, o) => sum + parseFloat(o.executed_price || o.price) * parseFloat(o.quantity), 0) / totalQty : 0
+              // Use backend-aggregated stats — accurate regardless of order count
+              const stats = dcaStatsBySession[s.id]
+              const totalBuys = stats?.buy_count ?? 0
+              const totalInvested = stats?.total_invested ?? 0
+              const totalQty = stats?.total_qty ?? 0
+              const avgBuy = stats?.avg_buy_price ?? 0
 
               return (
                 <div key={s.id}>
