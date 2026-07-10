@@ -56,7 +56,7 @@ func (r *Reconciler) reconcile(ctx context.Context) {
 		JOIN sessions s ON s.id = o.session_id
 		WHERE s.mode = 'live'
 		  AND o.status NOT IN ('filled', 'closed', 'cancelled', 'signal')
-		  AND o.created_at < datetime('now', '-2 minutes')
+		  AND o.created_at < `+intervalAgo(r.db, 2)+`
 		ORDER BY o.created_at ASC
 		LIMIT 50
 	`); err != nil {
@@ -83,7 +83,7 @@ func (r *Reconciler) reconcile(ctx context.Context) {
 			continue
 		}
 
-		newStatus := liveOrderStatus(exchangeOrder.Status)
+		newStatus := liveOrderStatus(exchangeOrder.StatusInt())
 		execQty := exchangeOrder.ExecutedQty
 		execPrice := exchangeOrder.ExecutedPrice
 		if execQty == "" {

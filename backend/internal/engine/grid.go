@@ -166,7 +166,7 @@ func (g *GridEngine) getOrCreateState(sessionID int64, config GridConfig, step, 
 		err := g.db.Select(&triggeredLevels,
 			g.db.Rebind(`SELECT DISTINCT grid_level_index FROM strategy_signals
 				WHERE session_id = ?
-				  AND created_at >= datetime('now', '-4 hours')`), sessionID)
+				  AND created_at >= `+intervalAgo(g.db, 240)), sessionID)
 		if err != nil {
 			slog.Warn("grid pre-mark from strategy_signals", "session", sessionID, "error", err)
 		} else if len(triggeredLevels) > 0 {

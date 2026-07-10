@@ -103,8 +103,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			Epoch    int64   `db:"epoch"`
 			Price    float64 `db:"price_val"`
 		}
+		epochExpr := "CAST(strftime('%s', created_at) AS INTEGER)"
+		if d.db.DriverName() != "sqlite" {
+			epochExpr = "COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0)"
+		}
 		if err := d.db.Get(&row, d.db.Rebind(
-			`SELECT COALESCE(CAST(strftime('%s', created_at) AS INTEGER), 0) AS epoch,
+			`SELECT `+epochExpr+` AS epoch,
 			        COALESCE(CAST(price AS REAL), 0) AS price_val
 			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
 			 ORDER BY id DESC LIMIT 1`,

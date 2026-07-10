@@ -96,7 +96,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	// Guards against double-tick on slow exchange responses or engine restarts.
 	var recentCount int
 	if err := l.db.Get(&recentCount, l.db.Rebind(
-		`SELECT COUNT(*) FROM orders WHERE session_id = ? AND side = ? AND created_at >= datetime('now', '-2 minutes')`),
+		`SELECT COUNT(*) FROM orders WHERE session_id = ? AND side = ? AND created_at >= `+intervalAgo(l.db, 2)),
 		session.ID, signal.Side); err == nil && recentCount > 0 {
 		slog.Warn("live: duplicate order suppressed (idempotency window)",
 			"session", session.ID, "side", signal.Side, "recent_count", recentCount)
@@ -165,7 +165,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		return fmt.Errorf("place order: %w", err)
 	}
 
-	orderStatus := liveOrderStatus(order.Status)
+	orderStatus := liveOrderStatus(order.StatusInt())
 	orderID := fmt.Sprintf("%d", order.OrderID)
 
 	execPrice := order.ExecutedPrice
