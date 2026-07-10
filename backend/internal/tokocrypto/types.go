@@ -36,19 +36,20 @@ type OrderRequest struct {
 }
 
 type OrderResponseData struct {
-	OrderID       int64  `json:"orderId"`
-	ClientID      string `json:"clientId"`
-	Symbol        string `json:"symbol"`
-	SymbolType    int    `json:"symbolType"`
-	Side          int    `json:"side"`
-	Type          int    `json:"type"`
-	Price         string `json:"price"`
-	OrigQty       string `json:"origQty"`
-	OrigQuoteQty  string `json:"origQuoteQty"`
-	ExecutedQty   string `json:"executedQty"`
-	ExecutedPrice string `json:"executedPrice"`
-	Status        int    `json:"status"`
-	CreateTime    int64  `json:"createTime"`
+	OrderID          int64  `json:"orderId"`
+	ClientID         string `json:"clientId"`
+	Symbol           string `json:"symbol"`
+	SymbolType       int    `json:"symbolType"`
+	Side             int    `json:"side"`
+	Type             int    `json:"type"`
+	Price            string `json:"price"`
+	OrigQty          string `json:"origQty"`
+	OrigQuoteQty     string `json:"origQuoteQty"`
+	ExecutedQty      string `json:"executedQty"`
+	ExecutedPrice    string `json:"executedPrice"`
+	ExecutedQuoteQty string `json:"executedQuoteQty"`
+	Status           int    `json:"status"`
+	CreateTime       int64  `json:"createTime"`
 }
 
 type OrderResponse struct {

@@ -190,11 +190,11 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	defer tx.Rollback()
 
 	if _, err = tx.Exec(
-		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?)`),
+		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)
+		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?, ?)`),
 		session.ID, orderID,
 		session.Symbol, signal.Side, price, resolvedQty,
-		orderStatus, order.ExecutedQty, order.ExecutedPrice,
+		orderStatus, order.ExecutedQty, order.ExecutedPrice, order.ExecutedQuoteQty,
 	); err != nil {
 		slog.Error("live order placed on exchange but DB save failed — manual reconciliation required",
 			"session", session.ID, "order_id", orderID, "symbol", session.Symbol,

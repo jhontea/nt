@@ -57,6 +57,9 @@ func Migrate(db *sqlx.DB) error {
 		if err := logExec(db, "ALTER TABLE users ALTER COLUMN password_hash SET DEFAULT ''"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
+		if err := logExec(db, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS executed_quote_qty VARCHAR(50) DEFAULT '0'"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
 	} else {
 		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL"); err != nil {
 			log.Printf("migrate: %v", err)
@@ -65,6 +68,9 @@ func Migrate(db *sqlx.DB) error {
 			log.Printf("migrate: %v", err)
 		}
 		if err := logExec(db, "ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE orders ADD COLUMN executed_quote_qty TEXT DEFAULT '0'"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
 	}
