@@ -56,7 +56,7 @@ func (r *Reconciler) reconcile(ctx context.Context) {
 		JOIN sessions s ON s.id = o.session_id
 		WHERE s.mode = 'live'
 		  AND o.status NOT IN ('filled', 'closed', 'cancelled', 'signal')
-		  AND o.created_at < NOW() - INTERVAL '2 minutes'
+		  AND o.created_at < datetime('now', '-2 minutes')
 		ORDER BY o.created_at ASC
 		LIMIT 50
 	`); err != nil {

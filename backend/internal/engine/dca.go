@@ -104,7 +104,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			Price    float64 `db:"price_val"`
 		}
 		if err := d.db.Get(&row, d.db.Rebind(
-			`SELECT COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0) AS epoch,
+			`SELECT COALESCE(CAST(strftime('%s', created_at) AS INTEGER), 0) AS epoch,
 			        COALESCE(CAST(price AS REAL), 0) AS price_val
 			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
 			 ORDER BY id DESC LIMIT 1`,
