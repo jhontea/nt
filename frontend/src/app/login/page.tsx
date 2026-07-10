@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BarChart2, FileText, Zap, BookOpen } from 'lucide-react'
 
-const API = process.env.NEXT_PUBLIC_API_URL || '/api/backend'
+const API = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 const modes = [
   { name: 'Signal', desc: 'Bot memberi sinyal beli/jual — Anda yang eksekusi manual', icon: <BarChart2 size={14} className="inline mr-1" />, border: 'border-l-4 border-l-[#38c8ff]', nameColor: 'text-[#38c8ff]' },
