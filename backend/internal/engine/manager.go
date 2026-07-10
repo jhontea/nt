@@ -275,9 +275,6 @@ func deduplicateSignals(signals []Signal) []Signal {
 
 func (m *Manager) broadcast(sessionID int64, sessionName, strategy, mode string, signals []Signal) {
 	for _, sig := range signals {
-		if m.notifier != nil {
-			m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Quantity, sig.Reason)
-		}
 		if m.Hub != nil {
 			m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
 		}
@@ -546,9 +543,6 @@ func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice s
 	m.stopSession(session.ID)
 	if _, err := m.db.Exec(m.db.Rebind("UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
 		slog.Error("checkPaperStopConditions: update session status", "session", session.ID, "error", err)
-	}
-	if m.notifier != nil {
-		m.notifier.SendStopAlert(session.Name, session.Strategy, session.Mode, session.Symbol, reason, result.TotalValue, result.InitBalance)
 	}
 	if m.Hub != nil {
 		m.Hub.Broadcast(session.ID, WSPaperAlert{

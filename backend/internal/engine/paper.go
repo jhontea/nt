@@ -38,25 +38,15 @@ func (p *PaperEngine) Execute(session model.Session, signal Signal) error {
 	qty := signal.Quantity
 
 	p.mu.Lock()
-	var notifSide, notifPrice, notifQty string
 	switch signal.Side {
 	case string(model.SideBuy):
-		var executed bool
-		err, executed = p.executeBuy(session, signal.Price, marketPrice, qty)
-		if err == nil && executed {
-			notifSide = string(model.SideBuy)
-			notifPrice = marketPrice
-			notifQty = qty
-		}
+		err, _ = p.executeBuy(session, signal.Price, marketPrice, qty)
 	case string(model.SideSell):
 		err = p.executeSell(session, signal.Price, marketPrice, qty)
 	}
 	p.mu.Unlock()
 
-	// Send notif outside lock to avoid holding mutex during network call
-	if err == nil && notifSide != "" && p.notifier != nil {
-		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, notifSide, notifPrice, notifQty, "")
-	}
+	// ponytail: no Telegram notif for paper mode
 	return err
 }
 
@@ -92,9 +82,6 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 				Type: "paper_alert", SessionID: session.ID,
 				Reason: "insufficient_balance", Needed: notional, Available: balance,
 			})
-		}
-		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "insufficient_balance", notional, balance)
 		}
 		return nil, false
 	}
@@ -135,9 +122,6 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	)
 	if err != nil || len(buyOrders) == 0 {
 		slog.Debug("no open buy positions to sell", "session", session.ID)
-		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "no_asset_to_sell", 0, 0)
-		}
 		return nil
 	}
 
@@ -228,9 +212,6 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 		"avg_buy", fmt.Sprintf("%.8f", avgBuyPrice), "sell_price", execPrice,
 		"pnl", pnlStr, "balance", fmt.Sprintf("%.2f->%.2f", balance, balance+proceeds))
 
-	if p.notifier != nil {
-		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), execPrice, totalQtyStr, pnlStr)
-	}
 	return nil
 }
 
@@ -268,9 +249,6 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 				Reason: "insufficient_balance", Needed: notional, Available: balance,
 			})
 		}
-		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "insufficient_balance", notional, balance)
-		}
 		return nil
 	}
 
@@ -298,9 +276,6 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 	}
 
 	slog.Info("trend paper buy", "session", session.ID, "symbol", session.Symbol, "qty", signal.Quantity, "price", signal.Price, "balance", fmt.Sprintf("%.2f->%.2f", balance, newBalance))
-	if p.notifier != nil {
-		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideBuy), signal.Price, signal.Quantity, "0")
-	}
 	return nil
 }
 
@@ -316,9 +291,6 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 				Type: "paper_alert", SessionID: session.ID,
 				Reason: "no_asset_to_sell", Needed: 0, Available: 0,
 			})
-		}
-		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "no_asset_to_sell", 0, 0)
 		}
 		return nil
 	}
@@ -387,19 +359,6 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 	}
 
 	slog.Info("trend paper sell", "session", session.ID, "symbol", session.Symbol, "qty", totalQtyStr, "price", signal.Price, "proceeds", fmt.Sprintf("%.2f", totalProceeds))
-	if p.notifier != nil {
-		pnlTotal := totalProceeds - func() float64 {
-			total := 0.0
-			for _, buy := range buys {
-				bp, _ := strconv.ParseFloat(buy.ExecutedPrice, 64)
-				q, _ := strconv.ParseFloat(buy.Quantity, 64)
-				total += bp * q
-			}
-			return total
-		}()
-		pnlStr := strconv.FormatFloat(math.Round(pnlTotal*1e8)/1e8, 'f', 8, 64)
-		p.notifier.SendTrade(session.Name, session.Strategy, session.Mode, session.Symbol, string(model.SideSell), signal.Price, totalQtyStr, pnlStr)
-	}
 	return nil
 }
 

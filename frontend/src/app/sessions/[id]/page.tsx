@@ -715,21 +715,24 @@ export default function SessionDetailPage() {
                 {liveBalance.can_trade === 1 ? '✓ Bisa Trading' : '✗ Trading Diblokir'}
               </span>
             </div>
-            {liveBalance.assets.length === 0 ? (
-              <p className="text-xs text-[#686868] dark:text-[#898989]">Tidak ada aset dengan saldo &gt; 0</p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {liveBalance.assets.map(a => (
-                  <div key={a.asset} className="bg-[#f8f9f6] dark:bg-[#252822] rounded-[12px] px-3 py-2">
-                    <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase">{a.asset}</p>
-                    <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{parseFloat(a.free).toLocaleString(undefined, { maximumFractionDigits: 6 })}</p>
-                    {parseFloat(a.locked) > 0 && (
-                      <p className="text-[9px] text-[#686868] dark:text-[#898989]">Locked: {parseFloat(a.locked).toLocaleString(undefined, { maximumFractionDigits: 6 })}</p>
-                    )}
+            {(() => {
+              const idrAsset = liveBalance.assets.find(a => a.asset === 'IDR')
+              const idrFree = parseFloat(idrAsset?.free ?? '0')
+              const idrLocked = parseFloat(idrAsset?.locked ?? '0')
+              const lowBalance = idrFree < 50000
+              return (
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-[#7a5f00] dark:text-[#f5c842] uppercase">IDR · Sisa Saldo</p>
+                    <p className="text-3xl font-black text-[#3d2f00] dark:text-[#ffd11a] mt-0.5">
+                      Rp {idrFree.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                    </p>
+                    {idrLocked > 0 && <p className="text-[9px] text-[#686868] dark:text-[#898989] mt-0.5">Locked: Rp {idrLocked.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</p>}
+                    {lowBalance && <p className="text-[10px] font-semibold text-[#d03238] dark:text-[#ff6b6f] mt-1">⚠️ Saldo rendah</p>}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              )
+            })()}
           </div>
         )}
         {isStrategySignal && strategySignals && !strategySignals.some(s => s.validation_status === 'pending') && (
