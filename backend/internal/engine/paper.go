@@ -94,7 +94,7 @@ func (p *PaperEngine) executeBuy(session model.Session, gridPrice, execPrice, qt
 			})
 		}
 		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Saldo tidak cukup untuk beli", notional, balance)
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "insufficient_balance", notional, balance)
 		}
 		return nil, false
 	}
@@ -136,7 +136,7 @@ func (p *PaperEngine) executeSell(session model.Session, matchPrice, execPrice, 
 	if err != nil || len(buyOrders) == 0 {
 		slog.Debug("no open buy positions to sell", "session", session.ID)
 		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Tidak ada aset untuk dijual", 0, 0)
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "no_asset_to_sell", 0, 0)
 		}
 		return nil
 	}
@@ -269,7 +269,7 @@ func (p *PaperEngine) executeTrendBuy(session model.Session, signal Signal) erro
 			})
 		}
 		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Saldo tidak cukup untuk beli", notional, balance)
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "insufficient_balance", notional, balance)
 		}
 		return nil
 	}
@@ -318,7 +318,7 @@ func (p *PaperEngine) executeTrendSell(session model.Session, signal Signal) err
 			})
 		}
 		if p.notifier != nil {
-			p.notifier.SendPaperAlert(session.Name, session.Symbol, "Tidak ada posisi untuk dijual", 0, 0)
+			p.notifier.SendPaperAlert(session.Name, session.Symbol, "no_asset_to_sell", 0, 0)
 		}
 		return nil
 	}

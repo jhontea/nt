@@ -49,7 +49,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 			string(model.StratDCA):   NewDCAEngine(client, db),
 		},
 		paper:      NewPaperEngine(db, client, hub, notifier),
-		live:       NewLiveEngine(client, db),
+		live:       NewLiveEngineWithNotifier(client, db, notifier),
 		notifier:   notifier,
 		Hub:        hub,
 		signalRepo: signalRepo,
@@ -69,15 +69,13 @@ func (m *Manager) Start(session model.Session) error {
 		return ErrSessionRunning
 	}
 
-	// Reset DCA state on restart (clear old buy timestamps and average prices)
+	// Reset strategy state on restart
 	if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
 		dca.Reset(session.ID)
 	}
-	// Reset Grid state on restart (clear level triggers)
 	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
 		grid.Reset(session.ID)
 	}
-	// Reset Trend state on restart (clear cross tracking)
 	if trend, ok := m.strategies[string(model.StratTrend)].(*TrendEngine); ok {
 		trend.Reset(session.ID)
 	}
@@ -108,6 +106,17 @@ func (m *Manager) Stop(sessionID int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if rs, ok := m.sessions[sessionID]; ok {
+		rs.Cancel()
+		delete(m.sessions, sessionID)
+	}
+}
+
+// stopSession cancels the session goroutine without sending a manual stop notification.
+// Used by SL/TP triggers which send their own SendStopAlert notification.
+func (m *Manager) stopSession(sessionID int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if rs, ok := m.sessions[sessionID]; ok {
 		rs.Cancel()
 		delete(m.sessions, sessionID)
@@ -232,7 +241,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				}
 			}
 			if m.notifier != nil {
-				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Quantity, sig.Reason)
 			}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
@@ -267,7 +276,7 @@ func deduplicateSignals(signals []Signal) []Signal {
 func (m *Manager) broadcast(sessionID int64, sessionName, strategy, mode string, signals []Signal) {
 	for _, sig := range signals {
 		if m.notifier != nil {
-			m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Reason)
+			m.notifier.SendSignal(sessionName, strategy, mode, sig.Symbol, sig.Side, sig.Price, sig.Quantity, sig.Reason)
 		}
 		if m.Hub != nil {
 			m.Hub.Broadcast(sessionID, WSSignal{Type: "signal", SessionID: sessionID, Signal: sig})
@@ -534,12 +543,12 @@ func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice s
 	slog.Info("paper stop condition triggered", "session", session.ID, "reason", reason,
 		"total_value", result.TotalValue, "init_balance", result.InitBalance)
 
-	m.Stop(session.ID)
+	m.stopSession(session.ID)
 	if _, err := m.db.Exec(m.db.Rebind("UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
 		slog.Error("checkPaperStopConditions: update session status", "session", session.ID, "error", err)
 	}
 	if m.notifier != nil {
-		m.notifier.SendStopAlert(session.Name, session.Symbol, reason, result.TotalValue, result.InitBalance)
+		m.notifier.SendStopAlert(session.Name, session.Strategy, session.Mode, session.Symbol, reason, result.TotalValue, result.InitBalance)
 	}
 	if m.Hub != nil {
 		m.Hub.Broadcast(session.ID, WSPaperAlert{
@@ -638,13 +647,13 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 	slog.Info("live stop condition triggered", "session", session.ID, "reason", reason,
 		"total_value", totalValue, "init_balance", initBal)
 
-	m.Stop(session.ID)
+	m.stopSession(session.ID)
 	if _, err := m.db.Exec(m.db.Rebind(
 		"UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
 		slog.Error("checkLiveStopConditions: update session status", "session", session.ID, "error", err)
 	}
 	if m.notifier != nil {
-		m.notifier.SendStopAlert(session.Name, session.Symbol, string(reason), totalValue, initBal)
+		m.notifier.SendStopAlert(session.Name, session.Strategy, session.Mode, session.Symbol, string(reason), totalValue, initBal)
 	}
 	if m.Hub != nil {
 		m.Hub.Broadcast(session.ID, WSPaperAlert{

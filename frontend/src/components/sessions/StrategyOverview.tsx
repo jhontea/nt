@@ -48,7 +48,7 @@ export function StrategyOverview({ sessions, strategy }: { sessions: Session[]; 
         {avgBalance !== null && avgPct !== null && (
           <span>
             <span className="text-[#686868] dark:text-[#898989]">Avg paper </span>
-            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{strategy === 'dca' ? 'Rp' + avgBalance.toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '$' + avgBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
             <span className={`ml-1 font-semibold ${avgPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
               {avgPct >= 0 ? '+' : ''}{avgPct.toFixed(1)}%
             </span>

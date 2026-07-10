@@ -27,12 +27,6 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  auth: {
-    login: (username: string, password: string) =>
-      request<{ token: string }>('/v1/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
-    register: (username: string, password: string) =>
-      request<{ token: string }>('/v1/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
-  },
   sessions: {
     list: () => request<import('@/types').Session[]>('/v1/sessions'),
     create: (data: { name: string; strategy: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>

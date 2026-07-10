@@ -8,42 +8,36 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/user/nt/internal/repository"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	userRepo    repository.UserRepository
-	jwtSecret   string
-	tokenExpiry time.Duration
+	userRepo      repository.UserRepository
+	jwtSecret     string
+	tokenExpiry   time.Duration
+	allowedEmails map[string]bool
 }
 
-func NewAuthService(userRepo repository.UserRepository, jwtSecret string, tokenExpiryHours int) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, jwtSecret string, tokenExpiryHours int, allowedEmails map[string]bool) *AuthService {
 	hours := tokenExpiryHours
 	if hours < 1 {
 		hours = 24
 	}
-	return &AuthService{userRepo: userRepo, jwtSecret: jwtSecret, tokenExpiry: time.Duration(hours) * time.Hour}
+	return &AuthService{
+		userRepo:      userRepo,
+		jwtSecret:     jwtSecret,
+		tokenExpiry:   time.Duration(hours) * time.Hour,
+		allowedEmails: allowedEmails,
+	}
 }
 
-func (s *AuthService) Register(ctx context.Context, username, password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+// LoginWithGoogle finds or creates a user by Google email, enforcing the whitelist.
+func (s *AuthService) LoginWithGoogle(ctx context.Context, email, name string) (string, error) {
+	if len(s.allowedEmails) > 0 && !s.allowedEmails[email] {
+		return "", errors.New("akses ditolak: email tidak diizinkan")
+	}
+	user, err := s.userRepo.FindOrCreateByGoogle(ctx, email, name)
 	if err != nil {
 		return "", err
-	}
-	user, err := s.userRepo.Create(ctx, username, string(hash))
-	if err != nil {
-		return "", err
-	}
-	return s.generateToken(user.ID)
-}
-
-func (s *AuthService) Login(ctx context.Context, username, password string) (string, error) {
-	user, err := s.userRepo.FindByUsername(ctx, username)
-	if err != nil {
-		return "", errors.New("invalid credentials")
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", errors.New("invalid credentials")
 	}
 	return s.generateToken(user.ID)
 }

@@ -91,7 +91,9 @@ export function RunningSessionsPanel({ sessions, router }: { sessions: Session[]
                 {/* paper balance */}
                 {s.mode === 'paper' && s.virtual_balance != null && (
                   <span className={`shrink-0 text-[11px] font-bold tabular-nums ${balanceColor}`}>
-                    ${s.virtual_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {s.symbol.split('_')[1] === 'IDR'
+                      ? 'Rp' + s.virtual_balance.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+                      : '$' + s.virtual_balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 )}
               </button>

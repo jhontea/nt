@@ -57,6 +57,17 @@ const fieldHelp: Record<string, { short: string; long: string }> = {
   },
 }
 
+// groupNumber adds thousand separators for display; ungroup strips them back to a raw numeric string.
+function groupNumber(v: string): string {
+  if (!v) return ''
+  const [intPart, ...rest] = v.split('.')
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return rest.length ? `${grouped}.${rest.join('.')}` : grouped
+}
+function ungroup(v: string): string {
+  return v.replace(/[^\d.]/g, '')
+}
+
 const DEFAULT_BOUNDARY_PCT = 15 // ±15% around current price
 
 function calcGridDefaults(price: number) {
@@ -269,7 +280,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
         {mode === 'paper' && (
           <div>
             <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Modal Virtual ({strategy === 'dca' ? 'IDR' : 'USDT'})</label>
-            <input type="number" min="1" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1000" value={initialBalance} onChange={e => setInitialBalance(e.target.value)} />
+            <input type="text" inputMode="numeric" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="1,000" value={groupNumber(initialBalance)} onChange={e => setInitialBalance(ungroup(e.target.value))} />
           </div>
         )}
 
@@ -507,7 +518,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (IDR)</span>{renderConfigHelp('dca_amount')}</div>
-                  <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="50000" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)} />
+                  <input inputMode="numeric" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="50,000" value={groupNumber(dcaAmount)} onChange={e => setDcaAmount(ungroup(e.target.value))} />
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Beli saat turun %</span></div>

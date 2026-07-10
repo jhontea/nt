@@ -19,6 +19,12 @@ function parseDCAConfig(config: string): DCAConfig | null {
   try { return JSON.parse(config) } catch { return null }
 }
 
+function fmtMoney(value: number, symbol: string): string {
+  const quote = symbol.split('_')[1] || 'USDT'
+  if (quote === 'IDR') return 'Rp' + value.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
 function formatInterval(sec: number): string {
   if (sec < 60) return `${sec}d`
   if (sec < 3600) return `${Math.round(sec / 60)}m`
@@ -35,7 +41,7 @@ function formatCountdown(ms: number): string {
 }
 
 // DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
-function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: number; tpPct: number; slPct: number }) {
+function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number; current: number; tpPct: number; slPct: number; cur: string }) {
   if (avgBuy <= 0) return null
   const gainPct = ((current - avgBuy) / avgBuy) * 100
 
@@ -64,7 +70,7 @@ function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: nu
       {/* Top labels */}
       <div className="flex items-center justify-between text-[10px] mb-1.5">
         <span className="text-[#686868] dark:text-[#898989]">
-          Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+          Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cur}{avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
         </span>
         <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
@@ -120,13 +126,13 @@ function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: nu
       <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
         {slPct > 0 && (
           <span className="text-[#686868] dark:text-[#898989]">
-            SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">${(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+            SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cur}{(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
             {' '}({(gainPct - (-slPct)).toFixed(2)}% menuju SL)
           </span>
         )}
         {tpPct > 0 && (
           <span className="text-[#686868] dark:text-[#898989]">
-            TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+            TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cur}{(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
             {' '}({(tpPct - gainPct).toFixed(2)}% lagi)
           </span>
         )}
@@ -190,20 +196,19 @@ export default function DcaPage() {
     return map
   }, [sessionIds, dcaStatsQueries])
 
-  // Ticker per unique symbol — refetch every 1s for live bar
-  const tickerQueries = useQueries({
-    queries: uniqueSymbols.map(symbol => ({
-      queryKey: ['ticker', symbol],
-      queryFn: () => api.sessions.getTicker(symbol),
-      enabled: isAuthenticated && uniqueSymbols.length > 0,
-      staleTime: 5_000,
-      refetchInterval: 1_000,
-    })),
+  // Ticker per unique symbol — one batched request, refetch every 1s for live bar
+  const { data: tickerMap } = useQuery({
+    queryKey: ['tickers-bulk', uniqueSymbols],
+    queryFn: () => api.sessions.getTickersBulk(uniqueSymbols),
+    enabled: isAuthenticated && uniqueSymbols.length > 0,
+    staleTime: 5_000,
+    refetchInterval: 1_000,
   })
-  const tickerBySymbol = useMemo(() =>
-    Object.fromEntries(uniqueSymbols.map((sym, i) => [sym, tickerQueries[i]?.data ?? null])) as Record<string, Ticker | null>,
-    [uniqueSymbols, tickerQueries]
-  )
+  const tickerBySymbol = useMemo(() => {
+    const map: Record<string, Ticker | null> = {}
+    for (const sym of uniqueSymbols) map[sym] = tickerMap?.[sym] ?? null
+    return map
+  }, [uniqueSymbols, tickerMap])
 
   const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
   const livePnlQueries = useQueries({
@@ -332,7 +337,7 @@ export default function DcaPage() {
                           {s.mode === 'live' && (
                             <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
                           )}
-                          <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${cfg.amount}</span></span>
+                          <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(parseFloat(cfg.amount), s.symbol)}</span></span>
                           <span className="opacity-30">·</span>
                           <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
                           {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
@@ -345,7 +350,7 @@ export default function DcaPage() {
                           </>)}
                           {totalBuys > 0 && (<>
                             <span className="opacity-30">·</span>
-                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${totalInvested.toFixed(2)}</span> invested
+                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(totalInvested, s.symbol)}</span> invested
                             {s.mode === 'live' && <span className="ml-1 text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1 py-0.5 rounded">real</span>}
                             </span>
                           </>)}
@@ -355,7 +360,7 @@ export default function DcaPage() {
                             return (<>
                               <span className="opacity-30">·</span>
                               <span className={`font-semibold ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                {unrealized >= 0 ? '+' : ''}${unrealized.toFixed(2)} unrealized
+                                {unrealized >= 0 ? '+' : '-'}{fmtMoney(Math.abs(unrealized), s.symbol)} unrealized
                               </span>
                             </>)
                           })()}
@@ -375,6 +380,7 @@ export default function DcaPage() {
                           current={parseFloat(tickerBySymbol[s.symbol]!.lastPrice)}
                           tpPct={cfg.take_profit_pct ?? 0}
                           slPct={cfg.stop_loss_pct ?? 0}
+                          cur={s.symbol.split('_')[1] === 'IDR' ? 'Rp' : '$'}
                         />
                       )}
                     </div>

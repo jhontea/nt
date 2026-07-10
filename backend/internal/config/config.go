@@ -20,6 +20,11 @@ type Config struct {
 	TokenExpiryHours int
 	AllowedOrigins   []string
 
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	AllowedEmails      map[string]bool
+
 	DBHost           string
 	DBPort           int
 	DBName           string
@@ -51,6 +56,11 @@ func Load() *Config {
 		TokenExpiryHours: getEnvInt("TOKEN_EXPIRY_HOURS", 24),
 		AllowedOrigins:   allowedOrigins,
 
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8100/v1/auth/google/callback"),
+		AllowedEmails:      parseEmailWhitelist(os.Getenv("ALLOWED_EMAILS")),
+
 		DBHost:           getEnv("DB_HOST", "localhost"),
 		DBPort:           getEnvInt("DB_PORT", 5432),
 		DBName:           getEnv("DB_NAME", "navisha_trade"),
@@ -72,6 +82,17 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func parseEmailWhitelist(raw string) map[string]bool {
+	m := map[string]bool{}
+	for _, e := range strings.Split(raw, ",") {
+		e = strings.TrimSpace(e)
+		if e != "" {
+			m[e] = true
+		}
+	}
+	return m
 }
 
 func getEnvInt(key string, fallback int) int {

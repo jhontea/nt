@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
+	"github.com/user/nt/internal/service"
 	"github.com/user/nt/internal/tokocrypto"
 )
 
@@ -20,13 +21,18 @@ const (
 )
 
 type LiveEngine struct {
-	client *tokocrypto.Client
-	risk   *RiskManager
-	db     *sqlx.DB
+	client   *tokocrypto.Client
+	risk     *RiskManager
+	db       *sqlx.DB
+	notifier *service.Notifier
 }
 
 func NewLiveEngine(client *tokocrypto.Client, db *sqlx.DB) *LiveEngine {
 	return &LiveEngine{client: client, risk: NewRiskManager(), db: db}
+}
+
+func NewLiveEngineWithNotifier(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier) *LiveEngine {
+	return &LiveEngine{client: client, risk: NewRiskManager(), db: db, notifier: notifier}
 }
 
 // PreflightCheck validates API key and sufficient balance before starting a live session.
@@ -225,7 +231,12 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 
-	slog.Info("live order", "side", signal.Side, "symbol", session.Symbol, "qty", signal.Quantity, "price", price, "orderId", order.OrderID)
+	slog.Info("live order", "side", signal.Side, "symbol", session.Symbol, "qty", resolvedQty, "price", price, "orderId", order.OrderID)
+
+	if l.notifier != nil {
+		l.notifier.SendLiveTrade(session.Name, session.Strategy, session.Symbol,
+			signal.Side, orderID, execPrice, execQty, pnlStr)
+	}
 	return nil
 }
 

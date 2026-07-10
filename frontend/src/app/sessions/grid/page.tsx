@@ -127,20 +127,19 @@ export default function GridPage() {
     })),
   })
 
-  // Ticker per unique symbol — refetch every 1s so bar moves in real-time
-  const tickerQueries = useQueries({
-    queries: uniqueSymbols.map(symbol => ({
-      queryKey: ['ticker', symbol],
-      queryFn: () => api.sessions.getTicker(symbol),
-      enabled: isAuthenticated && uniqueSymbols.length > 0,
-      staleTime: 5_000,
-      refetchInterval: 1_000,
-    })),
+  // Ticker per unique symbol — one batched request, refetch every 1s so bar moves in real-time
+  const { data: tickerMap } = useQuery({
+    queryKey: ['tickers-bulk', uniqueSymbols],
+    queryFn: () => api.sessions.getTickersBulk(uniqueSymbols),
+    enabled: isAuthenticated && uniqueSymbols.length > 0,
+    staleTime: 5_000,
+    refetchInterval: 1_000,
   })
-  const tickerBySymbol = useMemo(() =>
-    Object.fromEntries(uniqueSymbols.map((sym, i) => [sym, tickerQueries[i]?.data ?? null])) as Record<string, Ticker | null>,
-    [uniqueSymbols, tickerQueries]
-  )
+  const tickerBySymbol = useMemo(() => {
+    const map: Record<string, Ticker | null> = {}
+    for (const sym of uniqueSymbols) map[sym] = tickerMap?.[sym] ?? null
+    return map
+  }, [uniqueSymbols, tickerMap])
 
   // === Aggregate stats ===
   const aggregatePnL = useMemo(() => {

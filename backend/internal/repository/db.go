@@ -51,11 +51,20 @@ func Migrate(db *sqlx.DB) error {
 		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
+		if err := logExec(db, "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE users ALTER COLUMN password_hash SET DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
 	} else {
 		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
 		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN notes TEXT DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+		if err := logExec(db, "ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
 	}
@@ -71,7 +80,8 @@ const pgSchema = `
 	CREATE TABLE IF NOT EXISTS users (
 		id SERIAL PRIMARY KEY,
 		username VARCHAR(255) NOT NULL UNIQUE,
-		password_hash TEXT NOT NULL,
+		email VARCHAR(255) NOT NULL DEFAULT '' UNIQUE,
+		password_hash TEXT NOT NULL DEFAULT '',
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -179,7 +189,8 @@ const sqliteSchema = `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT NOT NULL UNIQUE,
-		password_hash TEXT NOT NULL,
+		email TEXT NOT NULL DEFAULT '' UNIQUE,
+		password_hash TEXT NOT NULL DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 

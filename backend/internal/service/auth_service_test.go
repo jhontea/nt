@@ -9,74 +9,53 @@ import (
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/repository/mocks"
 	"go.uber.org/mock/gomock"
-	"golang.org/x/crypto/bcrypt"
 )
 
-func TestAuthService_Register_Success(t *testing.T) {
+func TestAuthService_LoginWithGoogle_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockUserRepo.EXPECT().Create(gomock.Any(), "alice", gomock.Any()).
-		Return(&model.User{ID: 1, Username: "alice"}, nil)
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	mockRepo.EXPECT().
+		FindOrCreateByGoogle(gomock.Any(), "hafizhipb49@gmail.com", "Hafizh").
+		Return(&model.User{ID: 1, Username: "Hafizh", Email: "hafizhipb49@gmail.com"}, nil)
 
-	svc := NewAuthService(mockUserRepo, "test-secret", 24)
-	token, err := svc.Register(context.Background(), "alice", "strongpass")
+	svc := NewAuthService(mockRepo, "test-secret", 24, map[string]bool{"hafizhipb49@gmail.com": true})
+	token, err := svc.LoginWithGoogle(context.Background(), "hafizhipb49@gmail.com", "Hafizh")
 	if err != nil {
-		t.Fatalf("Register failed: %v", err)
+		t.Fatalf("expected success, got: %v", err)
 	}
 	if token == "" {
 		t.Fatal("expected non-empty token")
 	}
 }
 
-func TestAuthService_Register_Duplicate(t *testing.T) {
+func TestAuthService_LoginWithGoogle_NotAllowed(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockUserRepo.EXPECT().Create(gomock.Any(), "alice", gomock.Any()).
-		Return(nil, errors.New("UNIQUE constraint failed"))
-
-	svc := NewAuthService(mockUserRepo, "test-secret", 24)
-	_, err := svc.Register(context.Background(), "alice", "strongpass")
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	// FindOrCreateByGoogle should NOT be called for blocked emails
+	svc := NewAuthService(mockRepo, "test-secret", 24, map[string]bool{"hafizhipb49@gmail.com": true})
+	_, err := svc.LoginWithGoogle(context.Background(), "other@gmail.com", "Other")
 	if err == nil {
-		t.Fatal("expected error for duplicate username")
+		t.Fatal("expected error for non-whitelisted email")
 	}
 }
 
-func TestAuthService_Login_Success(t *testing.T) {
+func TestAuthService_LoginWithGoogle_RepoError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	hash, _ := bcrypt.GenerateFromPassword([]byte("mypass"), 10)
-	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockUserRepo.EXPECT().FindByUsername(gomock.Any(), "alice").
-		Return(&model.User{ID: 1, Username: "alice", PasswordHash: string(hash)}, nil)
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	mockRepo.EXPECT().
+		FindOrCreateByGoogle(gomock.Any(), "hafizhipb49@gmail.com", "Hafizh").
+		Return(nil, errors.New("db error"))
 
-	svc := NewAuthService(mockUserRepo, "test-secret", 24)
-	token, err := svc.Login(context.Background(), "alice", "mypass")
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-	if token == "" {
-		t.Fatal("expected non-empty token")
-	}
-}
-
-func TestAuthService_Login_WrongPassword(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	hash, _ := bcrypt.GenerateFromPassword([]byte("realpass"), 10)
-	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockUserRepo.EXPECT().FindByUsername(gomock.Any(), "alice").
-		Return(&model.User{ID: 1, Username: "alice", PasswordHash: string(hash)}, nil)
-
-	svc := NewAuthService(mockUserRepo, "test-secret", 24)
-	_, err := svc.Login(context.Background(), "alice", "wrongpass")
+	svc := NewAuthService(mockRepo, "test-secret", 24, map[string]bool{"hafizhipb49@gmail.com": true})
+	_, err := svc.LoginWithGoogle(context.Background(), "hafizhipb49@gmail.com", "Hafizh")
 	if err == nil {
-		t.Fatal("expected error for wrong password")
+		t.Fatal("expected error from repo")
 	}
 }
 
@@ -84,14 +63,15 @@ func TestAuthService_Token_HasCorrectClaims(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockUserRepo.EXPECT().Create(gomock.Any(), "bob", gomock.Any()).
-		Return(&model.User{ID: 42, Username: "bob"}, nil)
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	mockRepo.EXPECT().
+		FindOrCreateByGoogle(gomock.Any(), "hafizhipb49@gmail.com", "Hafizh").
+		Return(&model.User{ID: 42, Username: "Hafizh", Email: "hafizhipb49@gmail.com"}, nil)
 
-	svc := NewAuthService(mockUserRepo, "my-secret", 24)
-	tokenStr, err := svc.Register(context.Background(), "bob", "pass")
+	svc := NewAuthService(mockRepo, "my-secret", 24, map[string]bool{"hafizhipb49@gmail.com": true})
+	tokenStr, err := svc.LoginWithGoogle(context.Background(), "hafizhipb49@gmail.com", "Hafizh")
 	if err != nil {
-		t.Fatalf("Register failed: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	claims := &jwt.RegisteredClaims{}

@@ -24,7 +24,7 @@ function Row({ m }: { m: Mover }) {
         <span className={`font-semibold ${up ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {up ? '+' : ''}{pct.toFixed(2)}%
         </span>
-        <span className="text-[9px] text-[#686868] dark:text-[#898989] w-12 text-right">{formatVolume(m.volume)}</span>
+        <span className="text-[9px] text-[#686868] dark:text-[#898989] w-12 text-right hidden sm:inline">{formatVolume(m.volume)}</span>
       </span>
     </div>
   )
@@ -60,7 +60,7 @@ export function MarketMovers() {
   const empty = isLoading && gu.length === 0 && gi.length === 0 && hu.length === 0 && hi.length === 0
 
   return (
-    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 grid grid-cols-2 gap-x-4">
+    <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
       {empty ? (
         <p className="text-xs text-[#686868] dark:text-[#898989] col-span-2">Memuat data pasar…</p>
       ) : (

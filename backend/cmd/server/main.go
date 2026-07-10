@@ -68,8 +68,9 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepo(db)
-	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
-	authH := handler.NewAuthHandler(authSvc)
+	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpiryHours, cfg.AllowedEmails)
+	frontendURL := getEnvOrDefault("FRONTEND_URL", "http://localhost:3100")
+	authH := handler.NewAuthHandler(authSvc, cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL, frontendURL)
 
 	e := echo.New()
 	e.HTTPErrorHandler = customHTTPErrorHandler
@@ -96,11 +97,9 @@ func main() {
 		return c.JSON(200, map[string]string{"status": "ready"})
 	})
 
-	// Auth routes (public, strict rate limit)
-	auth := e.Group("/v1")
-	auth.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(5)))
-	auth.POST("/register", authH.Register)
-	auth.POST("/login", authH.Login)
+	// Auth routes (public)
+	e.GET("/v1/auth/google", authH.GoogleLogin)
+	e.GET("/v1/auth/google/callback", authH.GoogleCallback)
 
 	// API v1 (authenticated)
 	v1 := e.Group("/v1", authmw.Auth(cfg.JWTSecret))
@@ -355,4 +354,11 @@ func recoverRunningSessions(sessionRepo repository.SessionRepository, mgr *engin
 			}
 		}()
 	}
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

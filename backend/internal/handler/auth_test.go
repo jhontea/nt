@@ -1,83 +1,58 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
-	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/repository/mocks"
 	"github.com/user/nt/internal/service"
 	"go.uber.org/mock/gomock"
 )
 
-func setupAuthTest(t *testing.T) (*AuthHandler, *mocks.MockUserRepository, echo.Context, *httptest.ResponseRecorder) {
+func setupAuthTest(t *testing.T) (*AuthHandler, *mocks.MockUserRepository) {
 	ctrl := gomock.NewController(t)
 	mockRepo := mocks.NewMockUserRepository(ctrl)
-	svc := service.NewAuthService(mockRepo, "test-secret", 24)
-	h := NewAuthHandler(svc)
+	svc := service.NewAuthService(mockRepo, "test-secret", 24, map[string]bool{"hafizhipb49@gmail.com": true})
+	h := NewAuthHandler(svc, "client-id", "client-secret", "http://localhost:8100/api/v1/auth/google/callback", "http://localhost:3100")
+	return h, mockRepo
+}
+
+func TestAuthHandler_GoogleLogin_Redirects(t *testing.T) {
+	h, _ := setupAuthTest(t)
 
 	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google", nil)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req = req.WithContext(context.Background())
 	c := e.NewContext(req, rec)
-	return h, mockRepo, c, rec
-}
 
-func TestAuthHandler_Register_Success(t *testing.T) {
-	h, mockRepo, c, rec := setupAuthTest(t)
+	_ = h.GoogleLogin(c)
 
-	body := `{"username":"testuser","password":"secret123"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/register", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.Background())
-	c.SetRequest(req)
-
-	mockRepo.EXPECT().Create(gomock.Any(), "testuser", gomock.Any()).Return(&model.User{ID: 1, Username: "testuser"}, nil)
-	_ = h.Register(c)
-
-	if rec.Code != http.StatusCreated {
-		t.Errorf("expected 201, got %d", rec.Code)
+	if rec.Code != http.StatusTemporaryRedirect {
+		t.Errorf("expected 307, got %d", rec.Code)
+	}
+	loc := rec.Header().Get("Location")
+	if loc == "" {
+		t.Error("expected redirect Location header")
 	}
 }
 
-func TestAuthHandler_Register_ShortPassword(t *testing.T) {
-	h, _, c, rec := setupAuthTest(t)
+func TestAuthHandler_GoogleCallback_NoCode(t *testing.T) {
+	h, _ := setupAuthTest(t)
 
-	body := `{"username":"testuser","password":"ab"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/register", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.Background())
-	c.SetRequest(req)
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
 
-	_ = h.Register(c)
+	_ = h.GoogleCallback(c)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d", rec.Code)
+	if rec.Code != http.StatusTemporaryRedirect {
+		t.Errorf("expected 307, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "minimum 4") {
-		t.Errorf("expected password validation error, got %s", rec.Body.String())
-	}
-}
-
-func TestAuthHandler_Login_InvalidCredentials(t *testing.T) {
-	h, mockRepo, c, rec := setupAuthTest(t)
-
-	body := `{"username":"nonexistent","password":"pass1234"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/login", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.Background())
-	c.SetRequest(req)
-
-	mockRepo.EXPECT().FindByUsername(gomock.Any(), "nonexistent").Return(nil, echo.NewHTTPError(404))
-
-	_ = h.Login(c)
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", rec.Code)
+	loc := rec.Header().Get("Location")
+	if loc != "http://localhost:3100/login?error=no_code" {
+		t.Errorf("unexpected redirect: %s", loc)
 	}
 }

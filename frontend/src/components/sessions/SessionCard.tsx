@@ -16,9 +16,17 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
   const qc = useQueryClient()
   const [showLiveConfirm, setShowLiveConfirm] = useState(false)
 
-  // Dry-run preview: parse config for quantity/amount + get USDT balance from cache
+  // Currency derived from the session's quote asset (USDT for grid/trend, IDR for DCA).
+  const quote = session.symbol.split('_')[1] || 'USDT'
+  const cur = quote === 'IDR' ? 'Rp' : '$'
+  const lowThreshold = quote === 'IDR' ? 50000 : 10
+  const fmtCur = (v: number) =>
+    cur + v.toLocaleString(quote === 'IDR' ? 'id-ID' : 'en-US',
+      quote === 'IDR' ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  // Dry-run preview: parse config for quantity/amount + get quote-asset balance from cache
   const cachedBalance = qc.getQueryData<{ can_trade: number; assets: { asset: string; free: string; locked: string }[] }>(['account-balance'])
-  const usdtFree = parseFloat(cachedBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+  const usdtFree = parseFloat(cachedBalance?.assets.find(a => a.asset === quote)?.free ?? '0')
 
   // Parse config to get per-order notional
   const cfg = (() => { try { return JSON.parse(session.config) } catch { return null } })()
@@ -82,17 +90,17 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
             <div className="rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-3 mb-3 space-y-2">
               <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider">Simulasi Saldo</p>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#686868] dark:text-[#898989]">USDT tersedia</span>
-                <span className={`font-bold ${usdtFree < 10 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]'}`}>
-                  ${usdtFree.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  {usdtFree < 10 && ' ⚠️'}
+                <span className="text-[#686868] dark:text-[#898989]">{quote} tersedia</span>
+                <span className={`font-bold ${usdtFree < lowThreshold ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#054d28] dark:text-[#9fe870]'}`}>
+                  {fmtCur(usdtFree)}
+                  {usdtFree < lowThreshold && ' ⚠️'}
                 </span>
               </div>
               {perOrderNotional != null && perOrderNotional > 0 && (
                 <>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#686868] dark:text-[#898989]">Per order ({session.strategy.toUpperCase()})</span>
-                    <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">${perOrderNotional.toFixed(2)}</span>
+                    <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(perOrderNotional)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#686868] dark:text-[#898989]">Estimasi order bisa dieksekusi</span>
@@ -109,7 +117,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                 </>
               )}
               {usdtFree < 1 && (
-                <p className="text-[10px] text-[#d03238] dark:text-[#ff6b6f]">⚠️ Saldo USDT sangat rendah — order kemungkinan akan gagal</p>
+                <p className="text-[10px] text-[#d03238] dark:text-[#ff6b6f]">⚠️ Saldo {quote} sangat rendah — order kemungkinan akan gagal</p>
               )}
             </div>
 
@@ -187,7 +195,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
             {session.mode === 'paper' && session.virtual_balance != null && (
               <p className="text-xs mt-1 flex items-center gap-2">
                 <span className="text-[#686868] dark:text-[#898989]">Saldo virtual</span>
-                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${session.virtual_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(session.virtual_balance)}</span>
                 {session.initial_balance != null && (
                   <span className={`text-xs font-semibold ${session.virtual_balance >= session.initial_balance ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                     {session.virtual_balance >= session.initial_balance ? '+' : ''}{(((session.virtual_balance - session.initial_balance) / session.initial_balance) * 100).toFixed(1)}%

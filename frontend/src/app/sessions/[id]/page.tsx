@@ -18,6 +18,12 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianG
 
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
 
+const quoteOf = (symbol?: string) => symbol?.split('_')[1] ?? 'USDT'
+const fmtCur = (v: number, quote?: string) =>
+  quote === 'IDR'
+    ? 'Rp' + v.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+    : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 const modeInfo: Record<string, string> = {
   signal: 'Bot hanya mencatat sinyal. Tidak ada eksekusi order.',
   paper: 'Trading simulasi dengan uang virtual $1000.',
@@ -63,7 +69,7 @@ function GridBar({ lower, upper, current, gridCount }: { lower: number; upper: n
 }
 
 // DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
-function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: number; tpPct: number; slPct: number }) {
+function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number; current: number; tpPct: number; slPct: number; cur: string }) {
   if (avgBuy <= 0) return null
   const gainPct = ((current - avgBuy) / avgBuy) * 100
   const leftEdge = slPct > 0 ? -slPct : Math.min(-5, gainPct * 1.2)
@@ -80,7 +86,7 @@ function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: nu
   return (
     <div className="w-full mt-3 mb-1">
       <div className="flex items-center justify-between text-[10px] mb-1.5">
-        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
+        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cur}{avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
         <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
           {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
           {nearTP && <span className="ml-1 animate-pulse"> · Mendekati TP!</span>}
@@ -100,8 +106,8 @@ function DCABar({ avgBuy, current, tpPct, slPct }: { avgBuy: number; current: nu
         {tpLinePct !== null && <span className="absolute text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePct}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>}
       </div>
       <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
-        {slPct > 0 && <span className="text-[#686868] dark:text-[#898989]">SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">${(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(gainPct - (-slPct)).toFixed(2)}% menuju SL)</span>}
-        {tpPct > 0 && <span className="text-[#686868] dark:text-[#898989]">TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">${(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(tpPct - gainPct).toFixed(2)}% lagi)</span>}
+        {slPct > 0 && <span className="text-[#686868] dark:text-[#898989]">SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cur}{(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(gainPct - (-slPct)).toFixed(2)}% menuju SL)</span>}
+        {tpPct > 0 && <span className="text-[#686868] dark:text-[#898989]">TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cur}{(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(tpPct - gainPct).toFixed(2)}% lagi)</span>}
       </div>
     </div>
   )
@@ -162,6 +168,9 @@ export default function SessionDetailPage() {
     queryFn: () => api.sessions.get(Number(id)),
     enabled: isAuthenticated,
   })
+
+  const quote = quoteOf(session?.symbol)
+  const cur = quote === 'IDR' ? 'Rp' : '$'
 
   const { data: pnl, isLoading: pnlLoading } = useQuery({
     queryKey: ['pnl', id],
@@ -362,7 +371,7 @@ export default function SessionDetailPage() {
       lines.push(`- Qty: ${configDisplay.quantity}`)
     } else if (session.strategy === 'dca') {
       lines.push(`- Interval: ${configDisplay.interval_sec}s`)
-      lines.push(`- Amount: $${configDisplay.amount}`)
+      lines.push(`- Amount: ${cur}${configDisplay.amount}`)
       if (configDisplay.take_profit_pct > 0) lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
       if (configDisplay.stop_loss_pct > 0) lines.push(`- Stop Loss: ${configDisplay.stop_loss_pct}%`)
       if (configDisplay.drop_pct > 0) lines.push(`- Beli saat turun: ${configDisplay.drop_pct}%`)
@@ -372,11 +381,11 @@ export default function SessionDetailPage() {
     // Portfolio (paper only)
     if (session.mode === 'paper' && portfolio) {
       lines.push('### Portfolio Virtual')
-      if (portfolio.initial_balance != null) lines.push(`- Modal awal: $${portfolio.initial_balance.toFixed(2)}`)
-      lines.push(`- Saldo saat ini: $${portfolio.virtual_balance.toFixed(2)}`)
+      if (portfolio.initial_balance != null) lines.push(`- Modal awal: ${cur}${portfolio.initial_balance.toFixed(2)}`)
+      lines.push(`- Saldo saat ini: ${cur}${portfolio.virtual_balance.toFixed(2)}`)
       const used = (portfolio.initial_balance ?? portfolio.virtual_balance) - portfolio.virtual_balance
-      if (used > 0) lines.push(`- Modal terpakai: $${used.toFixed(2)}`)
-      lines.push(`- Unrealized P&L: ${(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}$${(portfolio.unrealized_pnl ?? 0).toFixed(2)}`)
+      if (used > 0) lines.push(`- Modal terpakai: ${cur}${used.toFixed(2)}`)
+      lines.push(`- Unrealized P&L: ${cur}${(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${(portfolio.unrealized_pnl ?? 0).toFixed(2)}`)
       lines.push('')
 
       if ((portfolio.holdings?.length ?? 0) > 0) {
@@ -391,11 +400,11 @@ export default function SessionDetailPage() {
     // P&L
     if (pnl) {
       lines.push('### Performa')
-      lines.push(`- Realized P&L: $${pnl.realized_pnl}`)
-      lines.push(`- Total P&L: $${pnl.total_pnl}`)
+      lines.push(`- Realized P&L: ${cur}${pnl.realized_pnl}`)
+      lines.push(`- Total P&L: ${cur}${pnl.total_pnl}`)
       lines.push(`- Win Rate: ${pnl.win_rate?.toFixed(1) ?? 0}%`)
       lines.push(`- Total Trades: ${pnl.trade_count ?? 0}`)
-      if (session.mode === 'paper' && pnl.balance) lines.push(`- Balance: $${pnl.balance.toFixed(2)}`)
+      if (session.mode === 'paper' && pnl.balance) lines.push(`- Balance: ${cur}${pnl.balance.toFixed(2)}`)
       lines.push('')
     }
 
@@ -840,7 +849,7 @@ export default function SessionDetailPage() {
               <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Total P&L</p>
               <div className="flex items-baseline gap-3">
                 <p className={`text-4xl font-black ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}${pnl.total_pnl}
+                  {cur}{parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{pnl.total_pnl}
                 </p>
                 {pnl.balance && (
                   <p className="text-sm text-[#686868] dark:text-[#898989]">
@@ -854,12 +863,12 @@ export default function SessionDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Balance <HelpIcon text={pnlHelp.balance} /></p>
-                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">${pnl.balance?.toFixed(2) || '0.00'}</p>
+                <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6] mt-1">{fmtCur(pnl.balance ? Number(pnl.balance) : 0, quote)}</p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized <HelpIcon text={pnlHelp.realized} /></p>
                 <p className={`text-lg font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}${pnl.realized_pnl}
+                  {cur}{parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}{pnl.realized_pnl}
                 </p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
@@ -893,11 +902,11 @@ export default function SessionDetailPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Avg Harga Beli</p>
-                  <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">${avgPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                  <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{fmtCur(avgPrice, quote)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Total Invested</p>
-                  <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] mt-0.5">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] mt-0.5">{fmtCur(totalInvested, quote)}</p>
                 </div>
               </div>
               {(configDisplay.take_profit_pct > 0 || configDisplay.stop_loss_pct > 0) && avgPrice > 0 && dcaTicker && (
@@ -907,6 +916,7 @@ export default function SessionDetailPage() {
                     current={parseFloat(dcaTicker.lastPrice)}
                     tpPct={configDisplay.take_profit_pct ?? 0}
                     slPct={configDisplay.stop_loss_pct ?? 0}
+                    cur={cur}
                   />
                 </div>
               )}
@@ -997,9 +1007,9 @@ export default function SessionDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <div className="rounded-[24px] p-5 border-2 border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-white dark:bg-[#1e201c]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Saldo Virtual</p>
-                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</p>
+                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(portfolio.virtual_balance, quote)}</p>
                 {portfolio.initial_balance != null && (
-                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal ${fmt(portfolio.initial_balance)}</p>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal {fmtCur(portfolio.initial_balance, quote)}</p>
                 )}
               </div>
               <div className={`rounded-[24px] p-5 border-2 ${
@@ -1009,7 +1019,7 @@ export default function SessionDetailPage() {
               }`}>
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Unrealized P&L</p>
                 <p className={`text-3xl font-black ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
+                  {cur}{(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
                 </p>
                 <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">{portfolio.holdings?.length ?? 0} posisi terbuka</p>
               </div>
