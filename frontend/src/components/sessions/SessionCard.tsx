@@ -207,7 +207,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
               <p className="text-xs mt-1 flex items-center gap-2">
                 <span className="text-[#686868] dark:text-[#898989]">Realized P&L</span>
                 <span className={`font-semibold ${livePnl.realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {livePnl.realized >= 0 ? '+' : ''}${livePnl.realized.toFixed(2)}
+                  {livePnl.realized >= 0 ? '+' : ''}{fmtCur(livePnl.realized)}
                 </span>
                 <span className="text-[#686868] dark:text-[#898989]">{livePnl.trades} trade{livePnl.trades !== 1 ? 's' : ''}</span>
               </p>

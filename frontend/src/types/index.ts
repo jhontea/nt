@@ -61,6 +61,7 @@ export interface DCAConfig {
   amount: string
   take_profit_pct?: number
   stop_loss_pct?: number
+  drop_pct?: number
 }
 
 export interface Ticker {
@@ -163,6 +164,7 @@ export interface Order {
   status: string
   executed_qty: string
   executed_price: string
+  executed_quote_qty?: string
   created_at: string
 }
 

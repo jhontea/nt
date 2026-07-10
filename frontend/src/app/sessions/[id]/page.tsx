@@ -891,6 +891,70 @@ export default function SessionDetailPage() {
           </div>
         ) : null}
 
+        {/* DCA buy price sparkline */}
+        {session.strategy === 'dca' && allOrders.filter(o => o.side === 'buy' && o.status === 'filled').length > 1 && (() => {
+          const buys = allOrders
+            .filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
+            .map(o => ({ price: parseFloat(o.executed_price || o.price), time: new Date(o.created_at).getTime() }))
+            .filter(b => b.price > 0)
+            .sort((a, b) => a.time - b.time)
+          if (buys.length < 2) return null
+          const prices = buys.map(b => b.price)
+          const minP = Math.min(...prices)
+          const maxP = Math.max(...prices)
+          const range = maxP - minP || 1
+          const currentPrice = dcaTicker ? parseFloat(dcaTicker.lastPrice) : null
+          return (
+            <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-4">
+              <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Riwayat Beli</p>
+              <div className="relative w-full h-16">
+                <div className="absolute inset-x-0 bottom-3 top-3 flex items-end">
+                  {buys.map((b, i) => {
+                    const pct = ((b.price - minP) / range) * 100
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center justify-end h-full relative group">
+                        <div
+                          className="w-2 h-2 rounded-full bg-[rgba(255,209,26,0.8)] border border-[rgba(255,209,26,1)] absolute"
+                          style={{ bottom: `${pct}%` }}
+                          title={`${fmtCur(b.price, quote)}`}
+                        />
+                      </div>
+                    )
+                  })}
+                  {currentPrice && (
+                    <div className="flex-1 flex flex-col items-center justify-end h-full relative">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full bg-[#9fe870] border-2 border-white dark:border-[#1e201c] absolute shadow"
+                        style={{ bottom: `${Math.max(0, Math.min(100, ((currentPrice - minP) / range) * 100))}%` }}
+                        title={`Harga saat ini: ${fmtCur(currentPrice, quote)}`}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute left-0 top-0 text-[9px] text-[#686868] dark:text-[#898989]">{fmtCur(maxP, quote)}</div>
+                <div className="absolute left-0 bottom-0 text-[9px] text-[#686868] dark:text-[#898989]">{fmtCur(minP, quote)}</div>
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-[10px] text-[#686868] dark:text-[#898989]">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[rgba(255,209,26,0.8)]" />Harga beli ({buys.length}x)</span>
+                {currentPrice && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#9fe870]" />Harga saat ini</span>}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* DCA stopped with open position warning */}
+        {session.strategy === 'dca' && session.status !== 'running' && dcaStats && dcaStats.total_qty > 0 && dcaTicker && (
+          <div className="mb-4 rounded-[16px] px-4 py-3 border border-[rgba(255,209,26,0.4)] bg-[rgba(255,209,26,0.06)] flex items-start gap-3">
+            <span className="text-lg">⚠️</span>
+            <div className="text-xs">
+              <p className="font-bold text-[#7a5f00] dark:text-[#f5c842] mb-0.5">Session stopped — posisi masih terbuka</p>
+              <p className="text-[#686868] dark:text-[#898989]">
+                Kamu masih pegang <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{dcaStats.total_qty.toFixed(6)} {session.symbol.split('_')[0]}</span> senilai <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(dcaStats.total_qty * parseFloat(dcaTicker.lastPrice), quote)}</span>. Start session kembali untuk melanjutkan DCA atau jual manual di TokoCrypto.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* DCA cost basis strip — computed from orders, no extra API call */}
         {session.strategy === 'dca' && dcaStats && dcaStats.buy_count > 0 && (() => {
           const avgPrice = dcaStats.avg_buy_price
@@ -898,7 +962,7 @@ export default function SessionDetailPage() {
           return (
             <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(255,209,26,0.2)] mb-6">
               <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Cost Basis DCA</p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Total Beli</p>
                   <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">{dcaStats.buy_count}x</p>
@@ -911,7 +975,66 @@ export default function SessionDetailPage() {
                   <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Total Invested</p>
                   <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] mt-0.5">{fmtCur(totalInvested, quote)}</p>
                 </div>
+                {dcaTicker && dcaStats.total_qty > 0 && (() => {
+                  const currentPrice = parseFloat(dcaTicker.lastPrice)
+                  const unrealized = (currentPrice - dcaStats.avg_buy_price) * dcaStats.total_qty
+                  return (
+                    <div>
+                      <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Unrealized</p>
+                      <p className={`text-lg font-black mt-0.5 ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                        {unrealized >= 0 ? '+' : ''}{fmtCur(unrealized, quote)}
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
+              {dcaTicker && dcaStats.avg_buy_price > 0 && (() => {
+                const currentPrice = parseFloat(dcaTicker.lastPrice)
+                const avgPrice = dcaStats.avg_buy_price
+                const distFromAvg = ((currentPrice - avgPrice) / avgPrice) * 100
+                const tpPct = configDisplay.take_profit_pct ?? 0
+                const slPct = configDisplay.stop_loss_pct ?? 0
+                const tpPrice = tpPct > 0 ? avgPrice * (1 + tpPct / 100) : null
+                const slPrice = slPct > 0 ? avgPrice * (1 - slPct / 100) : null
+                const tpProfit = tpPrice && dcaStats.total_qty > 0 ? (tpPrice - avgPrice) * dcaStats.total_qty : null
+                const slLoss = slPrice && dcaStats.total_qty > 0 ? (slPrice - avgPrice) * dcaStats.total_qty : null
+                return (
+                  <div className="mt-3 pt-3 border-t border-[rgba(255,209,26,0.15)] flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#686868] dark:text-[#898989]">
+                    <span>Posisi saat ini <span className={`font-semibold ${distFromAvg >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>{distFromAvg >= 0 ? '+' : ''}{distFromAvg.toFixed(2)}% dari avg</span></span>
+                    {tpProfit !== null && <span>Profit jika TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">+{fmtCur(tpProfit, quote)}</span></span>}
+                    {slLoss !== null && <span>Loss jika SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{fmtCur(slLoss, quote)}</span></span>}
+                    {dcaStats.last_buy_price > 0 && (configDisplay.drop_pct ?? 0) > 0 && (
+                      <span>
+                        Beli terakhir <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(dcaStats.last_buy_price, quote)}</span>
+                        {' · '}turun {configDisplay.drop_pct}% = <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{fmtCur(dcaStats.last_buy_price * (1 - (configDisplay.drop_pct ?? 0) / 100), quote)}</span>
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
+              {(() => {
+                const lastBuyOrder = allOrders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+                const cfg = configDisplay as any
+                if (!lastBuyOrder || !cfg?.interval_sec || session.status !== 'running') return null
+                const nextMs = new Date(lastBuyOrder.created_at).getTime() + cfg.interval_sec * 1000 - Date.now()
+                const dropPct = cfg.drop_pct ?? 0
+                let label = ''
+                if (nextMs > 0) {
+                  const s = Math.floor(nextMs / 1000)
+                  if (s < 60) label = `${s}d lagi`
+                  else if (s < 3600) label = `${Math.floor(s / 60)}m lagi`
+                  else label = `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
+                } else {
+                  label = dropPct > 0 ? 'Siap beli' : 'Siap beli'
+                }
+                return (
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-2 flex items-center gap-1">
+                    <span>⏱</span>
+                    <span>Beli berikutnya: <span className={`font-semibold ${nextMs <= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>{label}</span></span>
+                    {dropPct > 0 && nextMs <= 0 && <span className="text-[10px]">· turun {dropPct}% dari harga beli terakhir</span>}
+                  </p>
+                )
+              })()}
               {(configDisplay.take_profit_pct > 0 || configDisplay.stop_loss_pct > 0) && avgPrice > 0 && dcaTicker && (
                 <div className="mt-4 pt-3 border-t border-[rgba(255,209,26,0.15)]">
                   <DCABar
@@ -1022,7 +1145,7 @@ export default function SessionDetailPage() {
               }`}>
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Unrealized P&L</p>
                 <p className={`text-3xl font-black ${(portfolio.unrealized_pnl ?? 0) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {cur}{(portfolio.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${((portfolio.unrealized_pnl ?? 0)).toFixed(2)}
+                  {fmtCur((portfolio.unrealized_pnl ?? 0), quote)}
                 </p>
                 <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">{portfolio.holdings?.length ?? 0} posisi terbuka</p>
               </div>
@@ -1058,7 +1181,7 @@ export default function SessionDetailPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{ ...tooltipStyle, borderRadius: 10 }}
-                          formatter={(value: number) => [`$${fmt(value)}`, '']}
+                          formatter={(value: number) => [`${fmtCur(value, quote)}`, '']}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -1076,7 +1199,7 @@ export default function SessionDetailPage() {
                           </div>
                           <div className="flex items-center gap-3 font-mono">
                             <span className="text-[#686868] dark:text-[#898989]">@ {fmt(parseFloat(h.avg_price))}</span>
-                            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(parseFloat(h.qty) * parseFloat(h.avg_price))}</span>
+                            <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(parseFloat(h.qty) * parseFloat(h.avg_price), quote)}</span>
                           </div>
                         </div>
                       ))}
@@ -1085,13 +1208,43 @@ export default function SessionDetailPage() {
                           <span className="w-2.5 h-2.5 rounded-full bg-[rgba(14,15,12,0.15)] dark:bg-[rgba(232,235,230,0.15)] flex-shrink-0" />
                           <span className="text-[#686868] dark:text-[#898989]">Cash</span>
                         </div>
-                        <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">${fmt(portfolio.virtual_balance)}</span>
+                        <span className="font-mono font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(portfolio.virtual_balance, quote)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {isDCAPaper && session.virtual_balance != null && (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">Saldo Virtual</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-[24px] p-5 border-2 border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-white dark:bg-[#1e201c]">
+                <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Saldo Virtual</p>
+                <p className="text-3xl font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(session.virtual_balance, quote)}</p>
+                {session.initial_balance != null && (
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">Modal awal {fmtCur(session.initial_balance, quote)}</p>
+                )}
+              </div>
+              {session.initial_balance != null && (
+                <div className={`rounded-[24px] p-5 border-2 ${
+                  session.virtual_balance >= session.initial_balance
+                    ? 'border-[rgba(5,77,40,0.3)] dark:border-[rgba(159,232,112,0.2)] bg-gradient-to-br from-[rgba(5,77,40,0.05)] to-transparent dark:from-[rgba(159,232,112,0.08)]'
+                    : 'border-[rgba(208,50,56,0.3)] dark:border-[rgba(208,50,56,0.2)] bg-gradient-to-br from-[rgba(208,50,56,0.05)] to-transparent dark:from-[rgba(208,50,56,0.08)]'
+                }`}>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-1">Modal Terpakai</p>
+                  <p className={`text-3xl font-black ${session.virtual_balance >= session.initial_balance ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {fmtCur(session.initial_balance - session.virtual_balance, quote)}
+                  </p>
+                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-1.5">
+                    {((session.initial_balance - session.virtual_balance) / session.initial_balance * 100).toFixed(1)}% dari modal
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1183,7 +1336,7 @@ export default function SessionDetailPage() {
             </>)}
             {session.strategy === 'dca' && (<>
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]">
-                ${configDisplay.amount || '?'} / interval
+                {configDisplay.amount ? fmtCur(parseFloat(configDisplay.amount), quote) : '?'} / interval
               </span>
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
                 {configDisplay.interval_sec === 3600 ? 'Setiap 1 jam' : configDisplay.interval_sec === 7200 ? 'Setiap 2 jam' : configDisplay.interval_sec === 21600 ? 'Setiap 6 jam' : configDisplay.interval_sec === 43200 ? 'Setiap 12 jam' : configDisplay.interval_sec === 86400 ? 'Setiap 1 hari' : configDisplay.interval_sec === 604800 ? 'Setiap 1 minggu' : `${configDisplay.interval_sec || '?'}s`}
@@ -1449,7 +1602,7 @@ export default function SessionDetailPage() {
                 {hasPosition ? (
                   <span className="flex items-center gap-1 text-[#686868] dark:text-[#898989]">
                     <Wallet size={10} />
-                    Hold {st.holding_qty!.toFixed(4)} (${st.holding_value?.toFixed(2)})
+                    Hold {st.holding_qty!.toFixed(4)} ({fmtCur(st.holding_value ?? 0, quote)})
                     {st.unrealized_pnl != null && (
                       <span className={`font-semibold ${st.unrealized_pnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                         {st.unrealized_pnl >= 0 ? '+' : ''}{st.unrealized_pnl_pct?.toFixed(2)}%
@@ -1725,11 +1878,12 @@ export default function SessionDetailPage() {
                     <thead className="text-[#686868] dark:text-[#898989] text-xs font-semibold uppercase tracking-wider bg-[#f0f1ee] dark:bg-[#252822]">
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
-                        <th className="px-4 py-3 text-left">Sisi</th>
-                        <th className="px-4 py-3 text-left">Harga</th>
-                        <th className="px-4 py-3 text-left">Jumlah</th>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Tipe</th>
+                         <th className="px-4 py-3 text-left">Sisi</th>
+                         <th className="px-4 py-3 text-left">Harga</th>
+                         <th className="px-4 py-3 text-left">Jumlah</th>
+                         {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Nilai</th>}
+                         {session.strategy !== 'dca' && <th className="px-4 py-3 text-left">Status</th>}
+                         {session.strategy !== 'dca' && <th className="px-4 py-3 text-left">Tipe</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
@@ -1746,15 +1900,28 @@ export default function SessionDetailPage() {
                           </td>
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              o.status === 'filled' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' :
-                              o.status === 'cancelled' ? 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]' :
-                              o.status === 'closed' ? 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]' :
-                              'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
-                            }`}>{o.status}</span>
-                          </td>
-                           <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
+                          {session.strategy === 'dca' && (
+                            <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">
+                              {o.executed_quote_qty && parseFloat(o.executed_quote_qty) > 0
+                                ? fmtCur(parseFloat(o.executed_quote_qty), quote)
+                                : o.executed_price && o.executed_qty
+                                  ? fmtCur(parseFloat(o.executed_price) * parseFloat(o.executed_qty), quote)
+                                  : '-'}
+                            </td>
+                          )}
+                          {session.strategy !== 'dca' && (
+                           <td className="px-4 py-3">
+                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                               o.status === 'filled' ? 'bg-[rgba(5,77,40,0.08)] dark:bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' :
+                               o.status === 'cancelled' ? 'bg-[rgba(208,50,56,0.08)] dark:bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]' :
+                               o.status === 'closed' ? 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]' :
+                               'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
+                             }`}>{o.status}</span>
+                           </td>
+                          )}
+                          {session.strategy !== 'dca' && (
+                            <td className="px-4 py-3 text-xs text-[#686868] dark:text-[#898989]">{o.type}</td>
+                          )}
                         </tr>
                       ))}
                      </tbody>

@@ -229,10 +229,14 @@ export default function DcaPage() {
     return map
   }, [liveIds, livePnlQueries])
 
-  const filteredSessions = useMemo(() =>
-    symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter),
-    [sessions, symbolFilter]
-  )
+  const filteredSessions = useMemo(() => {
+    const result = symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter)
+    return [...result].sort((a, b) => {
+      if (a.status === 'running' && b.status !== 'running') return -1
+      if (a.status !== 'running' && b.status === 'running') return 1
+      return 0
+    })
+  }, [sessions, symbolFilter])
 
   const { data: liveBalance } = useQuery({
     queryKey: ['account-balance'],
@@ -277,6 +281,46 @@ export default function DcaPage() {
 
         <StrategyTabs active="dca" />
         {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
+        {sessions && sessions.length > 0 && (() => {
+          const allStats = Object.values(dcaStatsBySession).filter(Boolean)
+          const totalInvestedAll = allStats.reduce((s, st) => s + (st?.total_invested ?? 0), 0)
+          const totalQtyBySymbol: Record<string, number> = {}
+          const avgPriceBySymbol: Record<string, number> = {}
+          Object.entries(dcaStatsBySession).forEach(([id, st]) => {
+            if (!st) return
+            const session = sessions.find(s => s.id === Number(id))
+            if (!session) return
+            const sym = session.symbol
+            totalQtyBySymbol[sym] = (totalQtyBySymbol[sym] ?? 0) + st.total_qty
+            avgPriceBySymbol[sym] = st.avg_buy_price
+          })
+          let totalUnrealized = 0
+          Object.entries(totalQtyBySymbol).forEach(([sym, qty]) => {
+            const ticker = tickerBySymbol[sym]
+            const avgPrice = avgPriceBySymbol[sym]
+            if (ticker && avgPrice > 0 && qty > 0) {
+              totalUnrealized += (parseFloat(ticker.lastPrice) - avgPrice) * qty
+            }
+          })
+          if (totalInvestedAll <= 0) return null
+          const hasIDR = sessions.some(s => s.symbol.endsWith('_IDR'))
+          const quote = hasIDR ? 'IDR' : 'USDT'
+          const fmtTotal = (v: number) => quote === 'IDR'
+            ? 'Rp' + v.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+            : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          return (
+            <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <span className="text-[#686868] dark:text-[#898989]">Total invested</span>
+              <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtTotal(totalInvestedAll)}</span>
+              {totalUnrealized !== 0 && <>
+                <span className="text-[#686868] dark:text-[#898989]">Unrealized</span>
+                <span className={`font-bold ${totalUnrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {totalUnrealized >= 0 ? '+' : ''}{fmtTotal(totalUnrealized)}
+                </span>
+              </>}
+            </div>
+          )
+        })()}
         <InfoStrip tone="dca" icon={<Coins size={16} />} text="Bot membeli aset secara rutin dalam jumlah tetap, meratakan harga beli rata-rata (cost averaging) dari waktu ke waktu." help="DCA cocok untuk investasi jangka panjang — tidak perlu timing pasar, cukup beli rutin." />
         <StrategyBanner strategy="dca" sessions={sessions ?? []} />
 
@@ -285,16 +329,18 @@ export default function DcaPage() {
           <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">
             Session DCA · {filteredSessions.length}{symbolFilter !== 'all' ? ` (${symbolFilter.replace('_', '/')})` : ` / ${sessions?.length ?? 0}`}
           </p>
-          {uniqueSymbols.length > 1 && (
-            <select
-              value={symbolFilter}
-              onChange={e => setSymbolFilter(e.target.value)}
-              className="text-xs px-3 py-1.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-full text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none"
-            >
-              <option value="all">Semua pair</option>
-              {uniqueSymbols.map(s => <option key={s} value={s}>{s.replace('_', '/')}</option>)}
-            </select>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {uniqueSymbols.length > 1 && (
+              <select
+                value={symbolFilter}
+                onChange={e => setSymbolFilter(e.target.value)}
+                className="text-xs px-3 py-1.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] rounded-full text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none"
+              >
+                <option value="all">Semua pair</option>
+                {uniqueSymbols.map(s => <option key={s} value={s}>{s.replace('_', '/')}</option>)}
+              </select>
+            )}
+          </div>
         </div>
 
         {isLoading ? (
@@ -332,26 +378,43 @@ export default function DcaPage() {
                         ? 'bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.05)] border-[rgba(208,50,56,0.2)]'
                         : 'bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border-[rgba(255,209,26,0.15)]'
                     }`}>
+                      {/* Row 1: config */}
+                      <div className="flex items-center gap-2 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
+                        {s.mode === 'live' && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
+                        )}
+                        <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(parseFloat(cfg.amount), s.symbol)}</span></span>
+                        <span className="opacity-30">·</span>
+                        <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
+                        {cfg.drop_pct && cfg.drop_pct > 0 && (<>
+                          <span className="opacity-30">·</span>
+                          <span>Turun <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cfg.drop_pct}%</span></span>
+                        </>)}
+                        {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
+                          <span className="opacity-30">·</span>
+                          <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
+                        </>)}
+                        {(cfg.stop_loss_pct ?? 0) > 0 && (<>
+                          <span className="opacity-30">·</span>
+                          <span className="flex items-center gap-1"><span className="text-[#d03238] dark:text-[#ff6b6f]">SL</span> <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cfg.stop_loss_pct}%</span></span>
+                        </>)}
+                      </div>
+
+                      <div className="border-t border-[rgba(14,15,12,0.04)] dark:border-[rgba(232,235,230,0.04)] my-2" />
+
+                      {/* Row 2: progress */}
                       <div className="flex items-center justify-between gap-3 flex-wrap">
                         <div className="flex items-center gap-2 text-xs text-[#686868] dark:text-[#898989] flex-wrap">
-                          {s.mode === 'live' && (
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full">⚡ Live Order</span>
-                          )}
-                          <span>Beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(parseFloat(cfg.amount), s.symbol)}</span></span>
-                          <span className="opacity-30">·</span>
-                          <span>Tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span></span>
-                          {cfg.take_profit_pct && cfg.take_profit_pct > 0 && (<>
-                            <span className="opacity-30">·</span>
-                            <span className="flex items-center gap-1"><TrendingUp size={11} className="text-[#054d28] dark:text-[#9fe870]" />TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cfg.take_profit_pct}%</span></span>
-                          </>)}
-                          {(cfg.stop_loss_pct ?? 0) > 0 && (<>
-                            <span className="opacity-30">·</span>
-                            <span className="flex items-center gap-1"><span className="text-[#d03238] dark:text-[#ff6b6f]">SL</span> <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cfg.stop_loss_pct}%</span></span>
-                          </>)}
                           {totalBuys > 0 && (<>
+                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli</span>
+                            {avgBuy > 0 && (<>
+                              <span className="opacity-30">·</span>
+                              <span>avg <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(avgBuy, s.symbol)}</span></span>
+                            </>)}
                             <span className="opacity-30">·</span>
-                            <span><span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}</span> beli · <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(totalInvested, s.symbol)}</span> invested
-                            {s.mode === 'live' && <span className="ml-1 text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1 py-0.5 rounded">real</span>}
+                            <span>
+                              <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(totalInvested, s.symbol)}</span> invested
+                              {s.mode === 'live' && <span className="ml-1 text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1 py-0.5 rounded">real</span>}
                             </span>
                           </>)}
                           {totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] && (() => {
@@ -366,13 +429,38 @@ export default function DcaPage() {
                           })()}
                         </div>
                         {/* Next buy countdown */}
-                        {nextBuyMs !== null && (
-                          <span className="flex items-center gap-1 text-xs text-[#686868] dark:text-[#898989]">
+                        {s.status === 'running' && nextBuyMs !== null && (
+                          <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full ${
+                            nextBuyMs <= 0
+                              ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870] font-semibold'
+                              : 'text-[#686868] dark:text-[#898989]'
+                          }`}>
                             <Clock size={11} />
-                            {formatCountdown(nextBuyMs)}
+                            {nextBuyMs > 0 ? formatCountdown(nextBuyMs) : 'Siap beli'}
                           </span>
                         )}
                       </div>
+
+                      {totalBuys === 0 && s.status === 'running' && (
+                        <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1.5 italic">Menunggu beli pertama...</p>
+                      )}
+
+                      {/* Invested progress bar (paper only) */}
+                      {s.mode === 'paper' && s.virtual_balance != null && s.initial_balance != null && totalInvested > 0 && (() => {
+                        const usedPct = Math.min(100, (totalInvested / s.initial_balance) * 100)
+                        return (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] mb-1">
+                              <span>Modal terpakai</span>
+                              <span>{usedPct.toFixed(1)}% dari {fmtMoney(s.initial_balance, s.symbol)}</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] overflow-hidden">
+                              <div className="h-full rounded-full bg-[rgba(255,209,26,0.6)]" style={{ width: `${usedPct}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })()}
+
                       {/* DCA progress bar toward TP / away from SL */}
                       {avgBuy > 0 && tickerBySymbol[s.symbol] && ((cfg.take_profit_pct ?? 0) > 0 || (cfg.stop_loss_pct ?? 0) > 0) && (
                         <DCABar
