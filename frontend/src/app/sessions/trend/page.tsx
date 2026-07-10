@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
-import { useQuery, useQueries } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -14,6 +14,8 @@ import { EmptyState } from '@/components/sessions/EmptyState'
 import { TrendSparkline } from '@/components/sessions/TrendSparkline'
 import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { TrendingUp, Plus, Clock, Wallet, History, Zap } from 'lucide-react'
+import { useToast } from '@/lib/useToast'
+import { useLivePnl } from '@/lib/useLivePnl'
 
 function parseTrendConfig(config: string): any {
   try { return JSON.parse(config) } catch { return null }
@@ -24,8 +26,10 @@ export default function TrendPage() {
   const router = useRouter()
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
+  const { toast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [confirmId, setConfirmId] = useState<number | null>(null)
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['trend-sessions'],
@@ -50,23 +54,7 @@ export default function TrendPage() {
   const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
 
   const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
-  const livePnlQueries = useQueries({
-    queries: liveIds.map(id => ({
-      queryKey: ['pnl', id],
-      queryFn: () => api.sessions.getPnL(id),
-      enabled: isAuthenticated && liveIds.length > 0,
-      staleTime: 30_000,
-      refetchInterval: 60_000,
-    })),
-  })
-  const livePnlBySession = useMemo(() => {
-    const map: Record<number, { realized: number; trades: number } | null> = {}
-    liveIds.forEach((id, i) => {
-      const d = livePnlQueries[i]?.data
-      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
-    })
-    return map
-  }, [liveIds, livePnlQueries])
+  const livePnlBySession = useLivePnl(liveIds)
 
   const uniqueSymbols = useMemo(() => [...new Set(sessions?.map(s => s.symbol) ?? [])], [sessions])
 
@@ -81,11 +69,19 @@ export default function TrendPage() {
     return (sessions ?? []).filter(s => s.status === (filter === 'running' ? 'running' : 'stopped'))
   }, [sessions, filter])
 
-  async function handleStart(id: number) { await api.sessions.start(id); refetch() }
-  async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
+  async function handleStart(id: number) {
+    try { await api.sessions.start(id); refetch(); toast('Session dimulai', 'success') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
+  async function handleStop(id: number) {
+    try { await api.sessions.stop(id); refetch(); toast('Session dihentikan', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
   async function handleDelete(id: number) {
-    if (!confirm('Hapus session ini? Data sinyal dan order akan hilang permanen.')) return
-    await api.sessions.delete(id); refetch()
+    if (confirmId !== id) { setConfirmId(id); return }
+    setConfirmId(null)
+    try { await api.sessions.delete(id); refetch(); toast('Session dihapus', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
   }
 
   return (
@@ -152,7 +148,7 @@ export default function TrendPage() {
               const cfg = parseTrendConfig(s.config)
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} />
                   {cfg && (
                     <div key={s.id + '-cfg'} className="mx-1 -mt-1 rounded-b-[16px] overflow-hidden border border-t-0 border-[rgba(56,200,255,0.15)]">
                       {/* Config strip */}

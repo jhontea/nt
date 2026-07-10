@@ -44,7 +44,7 @@ func (s *SessionService) Create(ctx context.Context, userID int64, name, strateg
 }
 
 func (s *SessionService) List(ctx context.Context, userID int64) ([]model.Session, error) {
-	return s.repo.ListByUser(ctx, userID)
+	return s.repo.ListByUser(ctx, userID, 50, 0)
 }
 
 func (s *SessionService) ListByStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error) {

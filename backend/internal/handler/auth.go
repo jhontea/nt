@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,15 +31,47 @@ func NewAuthHandler(svc *service.AuthService, clientID, clientSecret, redirectUR
 	return &AuthHandler{svc: svc, oauthCfg: cfg, frontendURL: frontendURL}
 }
 
+func randomState() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
 // GoogleLogin redirects the user to Google's OAuth consent page.
 func (h *AuthHandler) GoogleLogin(c echo.Context) error {
-	// ponytail: static state string fine for single-server dev use; add CSRF state token when needed
-	url := h.oauthCfg.AuthCodeURL("state", oauth2.AccessTypeOnline)
+	state := randomState()
+	c.SetCookie(&http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300,
+		Path:     "/",
+	})
+	url := h.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOnline)
 	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 // GoogleCallback handles the OAuth callback, exchanges code for token, then issues JWT.
 func (h *AuthHandler) GoogleCallback(c echo.Context) error {
+	// Validate CSRF state
+	cookie, err := c.Cookie("oauth_state")
+	if err != nil || cookie.Value == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing state cookie"})
+	}
+	if c.QueryParam("state") != cookie.Value {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "state mismatch"})
+	}
+	// Clear the state cookie
+	c.SetCookie(&http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+		Path:     "/",
+	})
+
 	code := c.QueryParam("code")
 	if code == "" {
 		return c.Redirect(http.StatusTemporaryRedirect, h.frontendURL+"/login?error=no_code")

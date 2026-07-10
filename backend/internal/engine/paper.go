@@ -395,15 +395,17 @@ func (p *PaperEngine) setBalance(sessionID int64, balance float64) error {
 type StopReason string
 
 const (
-	StopReasonSL StopReason = "stop_loss"
-	StopReasonTP StopReason = "take_profit"
+	StopReasonSL       StopReason = "stop_loss"
+	StopReasonTP       StopReason = "take_profit"
+	StopReasonTrailing StopReason = "trailing_stop"
 )
 
 type StopConditionResult struct {
-	Triggered    bool
-	Reason       StopReason
-	TotalValue   float64
-	InitBalance  float64
+	Triggered       bool
+	Reason          StopReason
+	TotalValue      float64
+	InitBalance     float64
+	TrailingStopPct float64
 }
 
 // CheckStopConditions checks SL/TP thresholds for a paper session.
@@ -416,12 +418,13 @@ func (p *PaperEngine) CheckStopConditions(session model.Session, currentPrice st
 		StopLossAmount   *float64 `json:"stop_loss_amount"`
 		TakeProfitPct    *float64 `json:"take_profit_pct"`
 		TakeProfitAmount *float64 `json:"take_profit_amount"`
+		TrailingStopPct  float64  `json:"trailing_stop_pct"`
 	}
 	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
 		return StopConditionResult{}
 	}
 	// Nothing configured
-	if cfg.StopLossPct == nil && cfg.StopLossAmount == nil && cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil {
+	if cfg.StopLossPct == nil && cfg.StopLossAmount == nil && cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil && cfg.TrailingStopPct <= 0 {
 		return StopConditionResult{}
 	}
 
@@ -496,6 +499,10 @@ func (p *PaperEngine) CheckStopConditions(session model.Session, currentPrice st
 			return result
 		}
 	}
+
+	// Trailing stop — caller (Manager) updates the high water mark and passes it via result
+	// so we expose totalValue; the actual peak comparison happens in Manager.checkPaperStopConditions.
+	result.TrailingStopPct = cfg.TrailingStopPct
 
 	return result
 }

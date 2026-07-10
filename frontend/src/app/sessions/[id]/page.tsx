@@ -2,6 +2,8 @@
 import { Grid2x2, TrendingUp, Coins, BarChart2, FileText, Zap, Clipboard, Search, Lock, Star, Skull, Loader, Target, OctagonX, Clock, Wallet, History } from 'lucide-react'
 import { TrendSparkline } from '@/components/sessions/TrendSparkline'
 import { TrendBacktest } from '@/components/sessions/TrendBacktest'
+import { GridBar } from '@/components/sessions/GridBar'
+import { DCABar } from '@/components/sessions/DCABar'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -9,6 +11,7 @@ import { useAuth } from '@/lib/auth'
 import { useSessionWS } from '@/lib/useWS'
 import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '@/lib/theme'
+import { useToast } from '@/lib/useToast'
 import { HelpIcon } from '@/components/HelpIcon'
 import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
@@ -38,80 +41,7 @@ const pnlHelp: Record<string, string> = {
 
 const HOLDING_COLORS = ['#9fe870', '#38c8ff', '#ffd11a', '#c084fc', '#f97316']
 
-function GridBar({ lower, upper, current, gridCount }: { lower: number; upper: number; current: number; gridCount: number }) {
-  const range = upper - lower
-  if (range <= 0) return null
-  const pct = Math.max(0, Math.min(100, ((current - lower) / range) * 100))
-  const mid = (lower + upper) / 2
-  const isBuyZone = current < mid
-  const fmt = (p: number) => p.toLocaleString('en-US', { maximumFractionDigits: 2 })
-  return (
-    <div className="relative w-full h-5 flex items-center">
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{
-        background: 'linear-gradient(to right, rgba(208,50,56,0.08) 0%, rgba(208,50,56,0.08) 50%, rgba(159,232,112,0.1) 50%, rgba(159,232,112,0.1) 100%)'
-      }}>
-        <div className={`absolute inset-y-0 left-0 rounded-full ${isBuyZone ? 'bg-gradient-to-r from-[rgba(208,50,56,0.2)] to-[rgba(208,50,56,0.35)]' : 'bg-gradient-to-r from-[rgba(159,232,112,0.2)] to-[rgba(159,232,112,0.45)]'}`} style={{ width: `${pct}%` }} />
-      </div>
-      {Array.from({ length: gridCount + 1 }, (_, i) => (
-        <div key={i} className="absolute top-0 bottom-0 w-px bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" style={{ left: `${(i / gridCount) * 100}%` }} />
-      ))}
-      <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(14,15,12,0.25)] dark:bg-[rgba(232,235,230,0.25)] rounded-full" style={{ left: '50%' }} />
-      <div
-        className={`absolute top-0 bottom-0 w-0.5 rounded-full ${isBuyZone ? 'bg-[#d03238] dark:bg-[#ff6b6f]' : 'bg-[#163300] dark:bg-[#9fe870]'}`}
-        style={{ left: `${pct}%` }}
-        title={`Harga: ${fmt(current)} · ${isBuyZone ? 'Buy zone' : 'Sell zone'}`}
-      />
-      <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">{fmt(lower)}</span>
-      <span className="absolute -bottom-3.5 text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: '50%', transform: 'translateX(-50%)' }}>Mid</span>
-      <span className="absolute -bottom-3.5 right-0 text-[9px] text-[#686868] dark:text-[#898989]">{fmt(upper)}</span>
-    </div>
-  )
-}
 
-// DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
-function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number; current: number; tpPct: number; slPct: number; cur: string }) {
-  if (avgBuy <= 0) return null
-  const gainPct = ((current - avgBuy) / avgBuy) * 100
-  const leftEdge = slPct > 0 ? -slPct : Math.min(-5, gainPct * 1.2)
-  const rightEdge = tpPct > 0 ? tpPct : Math.max(5, gainPct * 1.2)
-  const totalRange = rightEdge - leftEdge
-  const dotPct = Math.max(0, Math.min(100, ((gainPct - leftEdge) / totalRange) * 100))
-  const avgLinePct = Math.max(0, Math.min(100, ((0 - leftEdge) / totalRange) * 100))
-  const tpLinePct = tpPct > 0 ? Math.max(0, Math.min(100, ((tpPct - leftEdge) / totalRange) * 100)) : null
-  const slLinePct = slPct > 0 ? Math.max(0, Math.min(100, ((-slPct - leftEdge) / totalRange) * 100)) : null
-  const isProfit = gainPct >= 0
-  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8
-  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8
-  const dotColor = nearTP ? '#9fe870' : nearSL ? '#ff6b6f' : isProfit ? '#9fe870' : '#ff6b6f'
-  return (
-    <div className="w-full mt-3 mb-1">
-      <div className="flex items-center justify-between text-[10px] mb-1.5">
-        <span className="text-[#686868] dark:text-[#898989]">Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cur}{avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
-        <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
-          {nearTP && <span className="ml-1 animate-pulse"> · Mendekati TP!</span>}
-          {nearSL && <span className="ml-1 animate-pulse text-[#ff6b6f]"> · Mendekati SL!</span>}
-        </span>
-      </div>
-      <div className="relative w-full h-5 flex items-center">
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{ background: `linear-gradient(to right, rgba(208,50,56,0.15) 0%, rgba(208,50,56,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) 100%)` }} />
-        {slLinePct !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-[#ff6b6f] opacity-70 rounded-full" style={{ left: `${slLinePct}%` }} />}
-        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(140,140,140,0.5)] rounded-full" style={{ left: `${avgLinePct}%` }} />
-        {tpLinePct !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-[#9fe870] opacity-70 rounded-full" style={{ left: `${tpLinePct}%` }} />}
-        <div className="absolute w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow transition-all" style={{ left: `${dotPct}%`, transform: 'translateX(-50%)', background: dotColor }} />
-      </div>
-      <div className="relative mt-1" style={{ height: '14px' }}>
-        {slLinePct !== null && <span className="absolute text-[9px] text-[#d03238] dark:text-[#ff6b6f]" style={{ left: `${slLinePct}%`, transform: 'translateX(-50%)' }}>-{slPct}%</span>}
-        <span className="absolute text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: `${avgLinePct}%`, transform: 'translateX(-50%)' }}>avg</span>
-        {tpLinePct !== null && <span className="absolute text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePct}%`, transform: 'translateX(-50%)' }}>+{tpPct}%</span>}
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
-        {slPct > 0 && <span className="text-[#686868] dark:text-[#898989]">SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cur}{(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(gainPct - (-slPct)).toFixed(2)}% menuju SL)</span>}
-        {tpPct > 0 && <span className="text-[#686868] dark:text-[#898989]">TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cur}{(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> ({(tpPct - gainPct).toFixed(2)}% lagi)</span>}
-      </div>
-    </div>
-  )
-}
 
 export default function SessionDetailPage() {
   const params = useParams()
@@ -135,7 +65,9 @@ export default function SessionDetailPage() {
   const [editRecLoading, setEditRecLoading] = useState(false)
   const [editRecHorizon, setEditRecHorizon] = useState<'short'|'medium'|'long'>('medium')
   const [editRecCapital, setEditRecCapital] = useState('100')
+  const [forceSellConfirmId, setForceSellConfirmId] = useState(false)
   const { theme } = useTheme()
+  const { toast } = useToast()
   const tooltipStyle = { background: theme === 'dark' ? '#1e201c' : '#fff', border: '1px solid ' + (theme === 'dark' ? 'rgba(232,235,230,0.12)' : 'rgba(14,15,12,0.08)'), borderRadius: 12, fontSize: 11, color: theme === 'dark' ? '#e8ebe6' : '#0e0f0c' }
 
   // Fetch all sessions for navigation
@@ -335,6 +267,18 @@ export default function SessionDetailPage() {
       setError(e.message || 'Failed to stop')
     }
     setLoading('')
+  }
+
+  async function handleForceSell() {
+    setForceSellConfirmId(false)
+    try {
+      await api.dca.sessions.forceSell(Number(id))
+      qc.invalidateQueries({ queryKey: ['session', id] })
+      qc.invalidateQueries({ queryKey: ['pnl', id] })
+      toast('Posisi berhasil dijual', 'success')
+    } catch (e: any) {
+      toast(e?.message || 'Gagal force sell', 'error')
+    }
   }
 
   async function handleCopySummary() {
@@ -674,10 +618,21 @@ export default function SessionDetailPage() {
                     {loading === 'start' ? 'Starting...' : session.mode === 'live' ? '⚡ Start Live' : 'Start Bot'}
                   </button>
                 )}
+                {session.strategy === 'dca' && session.mode === 'live' && session.status === 'running' && (
+                  forceSellConfirmId ? (
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs text-[#686868] dark:text-[#898989]">Yakin jual semua?</span>
+                      <button onClick={handleForceSell} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Ya</button>
+                      <button onClick={() => setForceSellConfirmId(false)} className="bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Batal</button>
+                    </span>
+                  ) : (
+                    <button onClick={() => setForceSellConfirmId(true)} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Force Sell</button>
+                  )
+                )}
                 <button
-                  onClick={handleCopySummary}
-                  className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all"
-                >
+                   onClick={handleCopySummary}
+                   className="px-4 py-2 text-sm font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] hover:border-[rgba(14,15,12,0.3)] dark:hover:border-[rgba(232,235,230,0.3)] rounded-full transition-all"
+                 >
                   {copied ? '✓ Copied!' : <><Clipboard size={14} className="inline mr-1" />Copy Summary</>}
                 </button>
                 {session.strategy === 'grid' && (

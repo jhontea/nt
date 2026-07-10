@@ -16,7 +16,7 @@ type StrategySignalRepository interface {
 	ListPending(ctx context.Context, sessionID int64) ([]model.StrategySignal, error)
 	UpdateValidation(ctx context.Context, id int64, status string, resultPct, resultGridSteps, maxFavPct, maxAdvPct, maxFavGrid, maxAdvGrid float64, note string) error
 	GetSummary(ctx context.Context, sessionID int64) (*model.SignalSummary, error)
-	GetGridInsights(ctx context.Context, symbol string) ([]GridInsight, error)
+	GetGridInsights(ctx context.Context, symbol string, userID int64) ([]GridInsight, error)
 }
 
 type GridInsight struct {
@@ -131,7 +131,7 @@ func (r *StrategySignalRepo) GetSummary(ctx context.Context, sessionID int64) (*
 	return &summary, nil
 }
 
-func (r *StrategySignalRepo) GetGridInsights(ctx context.Context, symbol string) ([]GridInsight, error) {
+func (r *StrategySignalRepo) GetGridInsights(ctx context.Context, symbol string, userID int64) ([]GridInsight, error) {
 	var insights []GridInsight
 	err := r.db.SelectContext(ctx, &insights, r.db.Rebind(`
 		SELECT s.id as session_id, s.name, s.config,
@@ -140,11 +140,11 @@ func (r *StrategySignalRepo) GetGridInsights(ctx context.Context, symbol string)
 			SUM(CASE WHEN ss.validation_status = 'invalidated' THEN 1 ELSE 0 END) as invalidated
 		FROM sessions s
 		LEFT JOIN strategy_signals ss ON ss.session_id = s.id
-		WHERE s.symbol = ? AND s.strategy = 'grid' AND s.mode = 'signal'
+		WHERE s.symbol = ? AND s.user_id = ? AND s.strategy = 'grid' AND s.mode = 'signal'
 		GROUP BY s.id, s.name, s.config
 		HAVING COUNT(ss.id) > 0
 		ORDER BY s.created_at DESC
-		LIMIT 20`), symbol)
+		LIMIT 20`), symbol, userID)
 	if err != nil {
 		return nil, err
 	}

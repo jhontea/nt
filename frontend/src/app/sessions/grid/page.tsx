@@ -14,6 +14,9 @@ import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import type { GridConfig, Session, Order, SignalSummary, Ticker } from '@/types'
 import { Grid2x2, Plus, Trophy, RefreshCw, BarChart2, TrendingUp, TrendingDown, DollarSign, Target, Layers, Zap } from 'lucide-react'
+import { useToast } from '@/lib/useToast'
+import { GridBar } from '@/components/sessions/GridBar'
+import { useLivePnl } from '@/lib/useLivePnl'
 
 function parseGridConfig(config: string): GridConfig | null {
   try { return JSON.parse(config) } catch { return null }
@@ -27,49 +30,15 @@ interface SessionExtra {
   portfolio: { virtual_balance: number; initial_balance: number | null; holdings: { avg_price: string; qty: string }[]; unrealized_pnl: number } | null
 }
 
-// Grid bar: a simple horizontal bar showing lower–current–upper with grid lines
-function GridBar({ lower, upper, current, gridCount }: { lower: number; upper: number; current: number; gridCount: number }) {
-  const range = upper - lower
-  if (range <= 0) return null
-  const pct = Math.max(0, Math.min(100, ((current - lower) / range) * 100))
-  const mid = (lower + upper) / 2
-  const isBuyZone = current < mid
-
-  return (
-    <div className="relative w-full h-5 flex items-center">
-      {/* Track — left=buy zone (red tint), right=sell zone (green tint) */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{
-        background: 'linear-gradient(to right, rgba(208,50,56,0.08) 0%, rgba(208,50,56,0.08) 50%, rgba(159,232,112,0.1) 50%, rgba(159,232,112,0.1) 100%)'
-      }}>
-        <div className={`absolute inset-y-0 left-0 rounded-full ${isBuyZone ? 'bg-gradient-to-r from-[rgba(208,50,56,0.2)] to-[rgba(208,50,56,0.35)]' : 'bg-gradient-to-r from-[rgba(159,232,112,0.2)] to-[rgba(159,232,112,0.45)]'}`} style={{ width: `${pct}%` }} />
-      </div>
-      {/* Grid lines */}
-      {Array.from({ length: gridCount + 1 }, (_, i) => (
-        <div key={i} className="absolute top-0 bottom-0 w-px bg-[rgba(14,15,12,0.08)] dark:bg-[rgba(232,235,230,0.08)]" style={{ left: `${(i / gridCount) * 100}%` }} />
-      ))}
-      {/* Midpoint line — more prominent */}
-      <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(14,15,12,0.25)] dark:bg-[rgba(232,235,230,0.25)] rounded-full" style={{ left: '50%' }} />
-      {/* Current price marker */}
-      <div
-        className={`absolute top-0 bottom-0 w-0.5 rounded-full ${isBuyZone ? 'bg-[#d03238] dark:bg-[#ff6b6f]' : 'bg-[#163300] dark:bg-[#9fe870]'}`}
-        style={{ left: `${pct}%` }}
-        title={`Harga: ${formatPrice(current)} · ${isBuyZone ? 'Buy zone' : 'Sell zone'}`}
-      />
-      {/* Labels */}
-      <span className="absolute -bottom-3.5 left-0 text-[9px] text-[#686868] dark:text-[#898989]">{formatPrice(lower)}</span>
-      <span className="absolute -bottom-3.5 text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: '50%', transform: 'translateX(-50%)' }}>Mid</span>
-      <span className="absolute -bottom-3.5 right-0 text-[9px] text-[#686868] dark:text-[#898989]">{formatPrice(upper)}</span>
-    </div>
-  )
-}
-
 export default function GridPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
+  const { toast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [symbolFilter, setSymbolFilter] = useState('all')
+  const [confirmId, setConfirmId] = useState<number | null>(null)
   const [reevalState, setReevalState] = useState<Record<number, { loading: boolean; result: any | null }>>({})
 
   const { data: sessions, isLoading, refetch } = useQuery({
@@ -133,7 +102,7 @@ export default function GridPage() {
     queryFn: () => api.sessions.getTickersBulk(uniqueSymbols),
     enabled: isAuthenticated && uniqueSymbols.length > 0,
     staleTime: 5_000,
-    refetchInterval: 1_000,
+    refetchInterval: 2500,
   })
   const tickerBySymbol = useMemo(() => {
     const map: Record<string, Ticker | null> = {}
@@ -150,24 +119,7 @@ export default function GridPage() {
     return { totalRealized, totalTrades, avgWinRate, count: results.length }
   }, [pnlQueries])
 
-  // Live PnL per session
-  const livePnlQueries = useQueries({
-    queries: liveIds.map(id => ({
-      queryKey: ['pnl', id],
-      queryFn: () => api.sessions.getPnL(id),
-      enabled: isAuthenticated && liveIds.length > 0,
-      staleTime: 30_000,
-      refetchInterval: 60_000,
-    })),
-  })
-  const livePnlBySession = useMemo(() => {
-    const map: Record<number, { realized: number; trades: number } | null> = {}
-    liveIds.forEach((id, i) => {
-      const d = livePnlQueries[i]?.data
-      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
-    })
-    return map
-  }, [liveIds, livePnlQueries])
+  const livePnlBySession = useLivePnl(liveIds)
 
   // === Per-session enrichment map ===
   const sessionExtras = useMemo(() => {
@@ -201,13 +153,20 @@ export default function GridPage() {
   })
   const usdtFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'USDT')?.free ?? '0')
 
-  async function handleStart(id: number) { await api.sessions.start(id); refetch() }
-  async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
-  async function handleDelete(id: number) {
-    if (!confirm('Hapus session ini? Data sinyal dan order akan hilang permanen.')) return
-    await api.sessions.delete(id); refetch()
+  async function handleStart(id: number) {
+    try { await api.sessions.start(id); refetch(); toast('Session dimulai', 'success') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
   }
-  async function handleReevaluate(id: number) {
+  async function handleStop(id: number) {
+    try { await api.sessions.stop(id); refetch(); toast('Session dihentikan', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
+  async function handleDelete(id: number) {
+    if (confirmId !== id) { setConfirmId(id); return }
+    setConfirmId(null)
+    try { await api.sessions.delete(id); refetch(); toast('Session dihapus', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }  async function handleReevaluate(id: number) {
     setReevalState(prev => ({ ...prev, [id]: { loading: true, result: null } }))
     try { const result = await api.sessions.reevaluate(id); setReevalState(prev => ({ ...prev, [id]: { loading: false, result } })) }
     catch { setReevalState(prev => ({ ...prev, [id]: { loading: false, result: null } })) }
@@ -320,7 +279,7 @@ export default function GridPage() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} />
 
                   {/* Grid config + enriched info strip */}
                   {cfg && (

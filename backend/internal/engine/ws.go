@@ -123,12 +123,7 @@ func (h *WSHub) Broadcast(sessionID int64, msg any) {
 	}
 }
 
-func (h *WSHub) HandleWS(c echo.Context) error {
-	// JWT auth via query param
-	tokenStr := c.QueryParam("token")
-	if tokenStr == "" {
-		return c.String(http.StatusUnauthorized, "missing token")
-	}
+func (h *WSHub) parseAndValidateToken(tokenStr string) (*jwt.RegisteredClaims, error) {
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -137,12 +132,15 @@ func (h *WSHub) HandleWS(c echo.Context) error {
 		return []byte(h.jwtSecret), nil
 	})
 	if err != nil || !token.Valid {
-		return c.String(http.StatusUnauthorized, "invalid token")
+		return nil, jwt.ErrSignatureInvalid
 	}
 	if _, err := strconv.ParseInt(claims.Subject, 10, 64); err != nil {
-		return c.String(http.StatusUnauthorized, "invalid subject")
+		return nil, jwt.ErrSignatureInvalid
 	}
+	return claims, nil
+}
 
+func (h *WSHub) HandleWS(c echo.Context) error {
 	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || sessionID <= 0 {
 		return c.String(http.StatusBadRequest, "invalid session id")
@@ -154,6 +152,34 @@ func (h *WSHub) HandleWS(c echo.Context) error {
 		return err
 	}
 	wc := &wsConn{conn: rawConn}
+
+	// JWT auth: prefer first message, fall back to query param for backward compatibility
+	tokenStr := c.QueryParam("token")
+	if tokenStr == "" {
+		// Read auth message with a short deadline
+		rawConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, msg, err := rawConn.ReadMessage()
+		if err != nil {
+			rawConn.Close()
+			return nil
+		}
+		var authMsg struct {
+			Token string `json:"token"`
+		}
+		if err := json.Unmarshal(msg, &authMsg); err != nil || authMsg.Token == "" {
+			rawConn.WriteMessage(websocket.TextMessage, []byte(`{"error":"missing token"}`))
+			rawConn.Close()
+			return nil
+		}
+		tokenStr = authMsg.Token
+	}
+
+	if _, err := h.parseAndValidateToken(tokenStr); err != nil {
+		rawConn.WriteMessage(websocket.TextMessage, []byte(`{"error":"invalid token"}`))
+		rawConn.Close()
+		return nil
+	}
+
 	h.register(sessionID, wc)
 	defer func() {
 		h.unregister(sessionID, wc)

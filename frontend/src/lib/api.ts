@@ -1,6 +1,6 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || '/api'
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem('token')
 }
@@ -16,7 +16,10 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     },
   })
   if (res.status === 401) {
-    if (typeof window !== 'undefined') localStorage.removeItem('token')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
+    }
     throw new Error('Unauthorized')
   }
   if (!res.ok) {
@@ -84,6 +87,8 @@ export const api = {
       list: () => request<import('@/types').Session[]>('/v1/dca/sessions'),
       create: (data: { name: string; mode: string; symbol: string; config: string; initial_balance?: number }) =>
         request<import('@/types').Session>('/v1/dca/sessions', { method: 'POST', body: JSON.stringify(data) }),
+      forceSell: (id: number) =>
+        request<{ qty_sold: string; sell_price: string; realized_pnl: string }>(`/v1/sessions/${id}/force-sell`, { method: 'POST' }),
     },
   },
   account: {

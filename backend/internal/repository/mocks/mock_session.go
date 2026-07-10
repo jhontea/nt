@@ -86,18 +86,18 @@ func (mr *MockSessionRepositoryMockRecorder) FindByID(ctx, id any) *gomock.Call 
 }
 
 // ListByUser mocks base method.
-func (m *MockSessionRepository) ListByUser(ctx context.Context, userID int64) ([]model.Session, error) {
+func (m *MockSessionRepository) ListByUser(ctx context.Context, userID int64, limit, offset int) ([]model.Session, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListByUser", ctx, userID)
+	ret := m.ctrl.Call(m, "ListByUser", ctx, userID, limit, offset)
 	ret0, _ := ret[0].([]model.Session)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListByUser indicates an expected call of ListByUser.
-func (mr *MockSessionRepositoryMockRecorder) ListByUser(ctx, userID any) *gomock.Call {
+func (mr *MockSessionRepositoryMockRecorder) ListByUser(ctx, userID, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockSessionRepository)(nil).ListByUser), ctx, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockSessionRepository)(nil).ListByUser), ctx, userID, limit, offset)
 }
 
 // ListByUserAndStrategy mocks base method.

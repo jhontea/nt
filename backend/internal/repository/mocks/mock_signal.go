@@ -58,18 +58,18 @@ func (mr *MockStrategySignalRepositoryMockRecorder) Create(ctx, s any) *gomock.C
 }
 
 // GetGridInsights mocks base method.
-func (m *MockStrategySignalRepository) GetGridInsights(ctx context.Context, symbol string) ([]repository.GridInsight, error) {
+func (m *MockStrategySignalRepository) GetGridInsights(ctx context.Context, symbol string, userID int64) ([]repository.GridInsight, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetGridInsights", ctx, symbol)
+	ret := m.ctrl.Call(m, "GetGridInsights", ctx, symbol, userID)
 	ret0, _ := ret[0].([]repository.GridInsight)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetGridInsights indicates an expected call of GetGridInsights.
-func (mr *MockStrategySignalRepositoryMockRecorder) GetGridInsights(ctx, symbol any) *gomock.Call {
+func (mr *MockStrategySignalRepositoryMockRecorder) GetGridInsights(ctx, symbol, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGridInsights", reflect.TypeOf((*MockStrategySignalRepository)(nil).GetGridInsights), ctx, symbol)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGridInsights", reflect.TypeOf((*MockStrategySignalRepository)(nil).GetGridInsights), ctx, symbol, userID)
 }
 
 // GetSummary mocks base method.

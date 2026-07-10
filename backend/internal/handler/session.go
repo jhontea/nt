@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -230,6 +231,123 @@ func (h *SessionHandler) GetDCAStats(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	return c.JSON(http.StatusOK, stats)
+}
+
+// computeLivePnLTx calculates realized PnL for a sell using open buy orders within tx.
+// ponytail: duplicated from engine/live.go — shared if a third caller appears
+func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) string {
+	type buyPos struct {
+		Price    string `db:"price"`
+		Quantity string `db:"quantity"`
+	}
+	var buys []buyPos
+	if err := tx.Select(&buys, tx.Rebind(
+		`SELECT executed_price as price, executed_qty as quantity FROM orders
+		 WHERE session_id = ? AND side = 'buy' AND status = 'filled' ORDER BY created_at ASC`), sessionID); err != nil {
+		slog.Warn("computeLivePnLTx: fetch buys", "session", sessionID, "error", err)
+		return "0"
+	}
+	totalQty := 0.0
+	totalCost := 0.0
+	for _, b := range buys {
+		q, _ := strconv.ParseFloat(b.Quantity, 64)
+		p, _ := strconv.ParseFloat(b.Price, 64)
+		totalQty += q
+		totalCost += q * p
+	}
+	if totalQty == 0 {
+		return "0"
+	}
+	avgBuy := totalCost / totalQty
+	sellQty, _ := strconv.ParseFloat(execQty, 64)
+	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
+	pnl := (sellPrice - avgBuy) * sellQty
+	return strconv.FormatFloat(pnl, 'f', 8, 64)
+}
+
+func (h *SessionHandler) ForceSell(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	session, err := h.checkOwnership(c, id)
+	if err != nil {
+		return err
+	}
+
+	if session.Mode != string(model.ModeLive) {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("force sell hanya tersedia untuk live session"))
+	}
+	if session.Status != string(model.StatRunning) {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("session tidak sedang berjalan"))
+	}
+
+	ctx := h.reqContext(c)
+	pos, err := h.svc.PnL.GetHoldingPosition(ctx, id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	}
+	if pos.TotalQty <= 0 {
+		return c.JSON(http.StatusBadRequest, ErrorJSON("tidak ada posisi untuk dijual"))
+	}
+
+	fmtQty := strconv.FormatFloat(pos.TotalQty, 'f', 8, 64)
+
+	order, err := h.client.PlaceOrder(tokocrypto.OrderRequest{
+		Symbol:   session.Symbol,
+		Side:     1,
+		Type:     2,
+		Quantity: fmtQty,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("failed to place sell order: "+err.Error()))
+	}
+
+	orderID := strconv.FormatInt(order.OrderID, 10)
+	execPrice := order.ExecutedPrice
+	if execPrice == "" {
+		execPrice = "0"
+	}
+	execQty := order.ExecutedQty
+	if execQty == "" {
+		execQty = fmtQty
+	}
+
+	tx, err := h.db.BeginTxx(ctx, nil)
+	if err != nil {
+		slog.Error("force sell: order placed but failed to begin DB tx — manual reconciliation required",
+			"session", id, "order_id", orderID, "symbol", session.Symbol, "qty", fmtQty, "error", err)
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but DB error: "+err.Error()))
+	}
+	defer tx.Rollback()
+
+	pnlStr := computeLivePnLTx(tx, id, execPrice, execQty)
+
+	tx.Exec(tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		id, orderID, session.Symbol, "sell", "market",
+		execPrice, execQty, "filled", execQty, execPrice, time.Now())
+
+	tx.Exec(tx.Rebind(`UPDATE orders SET status = ? WHERE session_id = ? AND side = 'buy' AND status = ?`),
+		"closed", id, "filled")
+
+	tx.Exec(tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
+		VALUES (?, ?, ?, ?, ?, ?, '0', '', ?, ?)`),
+		id, orderID, session.Symbol, "sell", execPrice, execQty, pnlStr, time.Now())
+
+	tx.Exec(tx.Rebind(`UPDATE sessions SET status = 'stopped', stopped_at = ? WHERE id = ?`),
+		time.Now(), id)
+
+	if err := tx.Commit(); err != nil {
+		slog.Error("force sell: order placed but DB commit failed — manual reconciliation required",
+			"session", id, "order_id", orderID, "symbol", session.Symbol, "qty", fmtQty, "error", err)
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but DB commit failed: "+err.Error()))
+	}
+
+	h.engine.Stop(id)
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"qty_sold":     execQty,
+		"sell_price":   execPrice,
+		"realized_pnl": pnlStr,
+	})
 }
 
 func (h *SessionHandler) Stop(c echo.Context) error {
@@ -464,7 +582,7 @@ func (h *SessionHandler) GetGridInsights(c echo.Context) error {
 	if symbol == "" {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("symbol is required"))
 	}
-	insights, err := h.signalRepo.GetGridInsights(h.reqContext(c), symbol)
+	insights, err := h.signalRepo.GetGridInsights(h.reqContext(c), symbol, h.userID(c))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}

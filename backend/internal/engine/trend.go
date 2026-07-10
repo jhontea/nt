@@ -94,7 +94,7 @@ func (t *TrendEngine) recoverLastCrossType(sessionID int64) string {
 	}
 	var side string
 	err := t.db.Get(&side, t.db.Rebind(
-		`SELECT side FROM orders WHERE session_id = ? AND type = 'signal'
+		`SELECT side FROM orders WHERE session_id = ? AND type IN ('signal', 'market')
 		 ORDER BY created_at DESC LIMIT 1`), sessionID)
 	if err != nil {
 		return ""

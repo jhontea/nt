@@ -41,4 +41,6 @@ type DCAConfig struct {
 	TakeProfitPct float64 `json:"take_profit_pct"` // sell trigger: price >= avg_buy * (1 + pct/100), 0 = disabled
 	StopLossPct   float64 `json:"stop_loss_pct"`   // sell trigger: price <= avg_buy * (1 - pct/100), 0 = disabled
 	DropPct       float64 `json:"drop_pct"`        // buy trigger: price <= last_buy * (1 - pct/100), 0 = disabled (interval only)
+	MaxBuys       int     `json:"max_buys"`        // max filled buy orders per session; 0 = unlimited
+	MaxInvested   float64 `json:"max_invested"`    // max total USDT invested per session; 0 = unlimited
 }

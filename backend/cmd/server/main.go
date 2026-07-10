@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -127,18 +128,36 @@ func main() {
 	})
 
 	v1.GET("/tickers", func(c echo.Context) error {
-		symbols := strings.Split(c.QueryParam("symbols"), ",")
-		result := make(map[string]any, len(symbols))
-		for _, sym := range symbols {
-			sym = strings.TrimSpace(sym)
-			if sym == "" {
-				continue
+		raw := strings.Split(c.QueryParam("symbols"), ",")
+		// filter blanks
+		symbols := make([]string, 0, len(raw))
+		for _, s := range raw {
+			if s = strings.TrimSpace(s); s != "" {
+				symbols = append(symbols, s)
 			}
-			t, err := tokoClient.GetTicker(sym)
-			if err != nil {
-				result[sym] = map[string]string{"error": err.Error()}
+		}
+		type tickerResult struct {
+			sym    string
+			ticker *tokocrypto.Ticker
+			err    error
+		}
+		results := make([]tickerResult, len(symbols))
+		var wg sync.WaitGroup
+		for i, sym := range symbols {
+			wg.Add(1)
+			go func(idx int, s string) {
+				defer wg.Done()
+				t, err := tokoClient.GetTicker(s)
+				results[idx] = tickerResult{sym: s, ticker: t, err: err}
+			}(i, sym)
+		}
+		wg.Wait()
+		result := make(map[string]any, len(symbols))
+		for _, r := range results {
+			if r.err != nil {
+				result[r.sym] = map[string]string{"error": r.err.Error()}
 			} else {
-				result[sym] = t
+				result[r.sym] = r.ticker
 			}
 		}
 		return c.JSON(200, result)
@@ -154,6 +173,7 @@ func main() {
 	v1.PUT("/sessions/:id", sessionH.Update)
 	v1.POST("/sessions/:id/start", sessionH.Start)
 	v1.POST("/sessions/:id/stop", sessionH.Stop)
+	v1.POST("/sessions/:id/force-sell", sessionH.ForceSell)
 	v1.GET("/sessions/:id/pnl", sessionH.GetPnL)
 	v1.GET("/sessions/:id/orders", sessionH.GetOrders)
 	v1.GET("/sessions/:id/dca-stats", sessionH.GetDCAStats)

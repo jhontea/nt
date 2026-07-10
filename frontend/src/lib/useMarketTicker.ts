@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
-const POLL_INTERVAL = 1000
+const POLL_INTERVAL = 2500
 
 export interface MarketTickerData {
   lastPrice: string

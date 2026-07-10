@@ -61,10 +61,25 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 		bal = balance.Float64
 	}
 
+	// ponytail: unrealized uses last executed_price as a proxy for current price —
+	// no live ticker call here. For real-time accuracy, use the frontend ticker feed.
+	var unrealized float64
+	if pos, err := s.GetHoldingPosition(ctx, sessionID); err == nil && pos.TotalQty > 0 && pos.AvgPrice > 0 {
+		var lastPrice sql.NullFloat64
+		_ = s.db.QueryRowContext(ctx, s.db.Rebind(
+			`SELECT CAST(executed_price AS REAL) FROM orders
+			 WHERE session_id = ? AND side = 'buy' AND status = 'filled'
+			 ORDER BY id DESC LIMIT 1`), sessionID,
+		).Scan(&lastPrice)
+		if lastPrice.Valid && lastPrice.Float64 > 0 {
+			unrealized = (lastPrice.Float64 - pos.AvgPrice) * pos.TotalQty
+		}
+	}
+
 	return &PnLSummary{
 		RealizedPnL:   strconv.FormatFloat(realized, 'f', 2, 64),
-		UnrealizedPnL: "0.00",
-		TotalPnL:      strconv.FormatFloat(realized, 'f', 2, 64),
+		UnrealizedPnL: strconv.FormatFloat(unrealized, 'f', 2, 64),
+		TotalPnL:      strconv.FormatFloat(realized+unrealized, 'f', 2, 64),
 		WinCount:      winCount,
 		LossCount:     lossCount,
 		WinRate:       winRate,
@@ -85,13 +100,27 @@ type LastSignal struct {
 }
 
 func (s *PnLService) GetHoldingPosition(ctx context.Context, sessionID int64) (*HoldingPosition, error) {
+	// Net holding = total bought - total sold (filled only).
+	// We compute avg_price only from buy side using weighted average.
 	var pos HoldingPosition
+	var totalSoldQty sql.NullFloat64
+	if err := s.db.QueryRowContext(ctx, s.db.Rebind(
+		`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0)
+		 FROM orders WHERE session_id = ? AND side = 'sell' AND status = 'filled'`), sessionID,
+	).Scan(&totalSoldQty); err != nil {
+		return nil, err
+	}
 	err := s.db.GetContext(ctx, &pos, s.db.Rebind(
-		`SELECT COALESCE(SUM(CAST(quantity AS REAL)),0) as total_qty,
-		        COALESCE(AVG(CAST(price AS REAL)),0) as avg_price
-		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), sessionID)
+		`SELECT
+		    COALESCE(SUM(CAST(executed_qty AS REAL)), 0) - ? as total_qty,
+		    COALESCE(SUM(CAST(executed_qty AS REAL) * CAST(executed_price AS REAL)) / NULLIF(SUM(CAST(executed_qty AS REAL)), 0), 0) as avg_price
+		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
+		totalSoldQty.Float64, sessionID)
 	if err != nil {
 		return nil, err
+	}
+	if pos.TotalQty < 0 {
+		pos.TotalQty = 0
 	}
 	return &pos, nil
 }

@@ -5,13 +5,18 @@ import { Grid2x2, TrendingUp, Coins, Zap, FileText, BarChart2, X, AlertTriangle,
 import { PriceBadge } from '@/components/PriceBadge'
 import type { Session } from '@/types'
 
-export function SessionCard({ session, onStart, onStop, onDelete, onDetail, livePnl }: {
+export function SessionCard({ session, onStart, onStop, onDelete, onDetail, livePnl, confirmDelete, onCancelDelete, onForceSell, forceSellConfirm, onCancelForceSell }: {
   session: Session
   onStart: (id: number) => void
   onStop: (id: number) => void
   onDelete: (id: number) => void
   onDetail: (id: number) => void
   livePnl?: { realized: number; trades: number } | null
+  confirmDelete?: boolean
+  onCancelDelete?: () => void
+  onForceSell?: (id: number) => void
+  forceSellConfirm?: boolean
+  onCancelForceSell?: () => void
 }) {
   const qc = useQueryClient()
   const [showLiveConfirm, setShowLiveConfirm] = useState(false)
@@ -232,10 +237,46 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                 {session.mode === 'live' ? '⚡ Start Live' : 'Start'}
               </button>
             )}
-            <button className="flex items-center gap-1 px-3 py-2 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">
-              <X size={14} />
-              <span className="sr-only sm:not-sr-only text-xs font-medium">Hapus</span>
-            </button>
+            {/* Force Sell — DCA live running only */}
+            {session.strategy === 'dca' && session.mode === 'live' && session.status === 'running' && onForceSell && (
+              forceSellConfirm ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-[#686868] dark:text-[#898989] mr-1">Jual semua?</span>
+                  <button
+                    className="px-3 py-2 text-xs font-semibold bg-[#d03238] text-white hover:bg-[#b02028] rounded-full transition"
+                    onClick={() => onForceSell(session.id)}
+                  >Ya</button>
+                  <button
+                    className="px-3 py-2 text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.12)] rounded-full transition"
+                    onClick={onCancelForceSell}
+                  >Batal</button>
+                </div>
+              ) : (
+                <button
+                  className="px-3 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition"
+                  onClick={() => onForceSell(session.id)}
+                  title="Jual semua posisi sekarang"
+                >Force Sell</button>
+              )
+            )}
+            {confirmDelete ? (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-[#686868] dark:text-[#898989] mr-1">Yakin?</span>
+                <button
+                  className="px-3 py-2 text-xs font-semibold bg-[#d03238] text-white hover:bg-[#b02028] rounded-full transition"
+                  onClick={() => onDelete(session.id)}
+                >Ya</button>
+                <button
+                  className="px-3 py-2 text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.12)] rounded-full transition"
+                  onClick={onCancelDelete}
+                >Batal</button>
+              </div>
+            ) : (
+              <button className="flex items-center gap-1 px-3 py-2 text-[#686868] hover:text-[#d03238] hover:bg-[rgba(208,50,56,0.08)] dark:hover:text-[#ff6b6f] dark:hover:bg-[rgba(208,50,56,0.15)] rounded-full text-sm transition" onClick={() => onDelete(session.id)} title="Hapus">
+                <X size={14} />
+                <span className="sr-only sm:not-sr-only text-xs font-medium">Hapus</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

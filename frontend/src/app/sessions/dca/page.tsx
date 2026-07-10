@@ -14,6 +14,9 @@ import { InfoStrip } from '@/components/sessions/InfoStrip'
 import { EmptyState } from '@/components/sessions/EmptyState'
 import type { DCAConfig, Order, Ticker } from '@/types'
 import { Coins, Plus, Clock, TrendingUp, Zap } from 'lucide-react'
+import { useToast } from '@/lib/useToast'
+import { DCABar } from '@/components/sessions/DCABar'
+import { useLivePnl } from '@/lib/useLivePnl'
 
 function parseDCAConfig(config: string): DCAConfig | null {
   try { return JSON.parse(config) } catch { return null }
@@ -26,7 +29,7 @@ function fmtMoney(value: number, symbol: string): string {
 }
 
 function formatInterval(sec: number): string {
-  if (sec < 60) return `${sec}d`
+  if (sec < 60) return `${sec}s`
   if (sec < 3600) return `${Math.round(sec / 60)}m`
   if (sec < 86400) return `${Math.round(sec / 3600)}j`
   return `${Math.round(sec / 86400)}h`
@@ -40,114 +43,16 @@ function formatCountdown(ms: number): string {
   return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
 }
 
-// DCABar: SL (kiri) ←→ Avg (tengah) ←→ TP (kanan), dot = posisi harga saat ini
-function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number; current: number; tpPct: number; slPct: number; cur: string }) {
-  if (avgBuy <= 0) return null
-  const gainPct = ((current - avgBuy) / avgBuy) * 100
-
-  // Range: dari -slPct (atau -5% min) di kiri, sampai +tpPct (atau +5% min) di kanan
-  const leftEdge = slPct > 0 ? -slPct : Math.min(-5, gainPct * 1.2)
-  const rightEdge = tpPct > 0 ? tpPct : Math.max(5, gainPct * 1.2)
-  const totalRange = rightEdge - leftEdge
-
-  // posisi dot: gainPct dipetakan ke 0-100%
-  const dotPct = Math.max(0, Math.min(100, ((gainPct - leftEdge) / totalRange) * 100))
-  // posisi garis avg (selalu = titik 0)
-  const avgLinePct = Math.max(0, Math.min(100, ((0 - leftEdge) / totalRange) * 100))
-  // posisi garis TP
-  const tpLinePct = tpPct > 0 ? Math.max(0, Math.min(100, ((tpPct - leftEdge) / totalRange) * 100)) : null
-  // posisi garis SL
-  const slLinePct = slPct > 0 ? Math.max(0, Math.min(100, ((-slPct - leftEdge) / totalRange) * 100)) : null
-
-  const isProfit = gainPct >= 0
-  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8
-  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8
-
-  const dotColor = nearTP ? '#9fe870' : nearSL ? '#ff6b6f' : isProfit ? '#9fe870' : '#ff6b6f'
-
-  return (
-    <div className="w-full mt-3 mb-1">
-      {/* Top labels */}
-      <div className="flex items-center justify-between text-[10px] mb-1.5">
-        <span className="text-[#686868] dark:text-[#898989]">
-          Avg beli <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cur}{avgBuy.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
-        </span>
-        <span className={`font-bold ${isProfit ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
-          {nearTP && <span className="ml-1 animate-pulse"> · Mendekati TP!</span>}
-          {nearSL && <span className="ml-1 animate-pulse text-[#ff6b6f]"> · Mendekati SL!</span>}
-        </span>
-      </div>
-
-      {/* Bar */}
-      <div className="relative w-full h-5 flex items-center">
-        {/* Track background: kiri merah (rugi), kanan hijau (untung) */}
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden" style={{
-          background: `linear-gradient(to right, rgba(208,50,56,0.15) 0%, rgba(208,50,56,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) ${avgLinePct}%, rgba(159,232,112,0.15) 100%)`
-        }} />
-
-        {/* SL line (kiri, merah) */}
-        {slLinePct !== null && (
-          <div className="absolute top-0 bottom-0 w-0.5 bg-[#ff6b6f] opacity-70 rounded-full" style={{ left: `${slLinePct}%` }} />
-        )}
-        {/* Avg line (tengah, abu) */}
-        <div className="absolute top-0 bottom-0 w-0.5 bg-[rgba(140,140,140,0.5)] rounded-full" style={{ left: `${avgLinePct}%` }} />
-        {/* TP line (kanan, hijau) */}
-        {tpLinePct !== null && (
-          <div className="absolute top-0 bottom-0 w-0.5 bg-[#9fe870] opacity-70 rounded-full" style={{ left: `${tpLinePct}%` }} />
-        )}
-
-        {/* Dot = posisi harga saat ini */}
-        <div className="absolute w-3 h-3 rounded-full border-2 border-white dark:border-[#1e201c] shadow transition-all" style={{
-          left: `${dotPct}%`,
-          transform: 'translateX(-50%)',
-          background: dotColor,
-        }} />
-      </div>
-
-      {/* Bottom labels: SL · Avg · TP */}
-      <div className="relative mt-1" style={{ height: '14px' }}>
-        {slLinePct !== null && (
-          <span className="absolute text-[9px] text-[#d03238] dark:text-[#ff6b6f]" style={{ left: `${slLinePct}%`, transform: 'translateX(-50%)' }}>
-            -{slPct}%
-          </span>
-        )}
-        <span className="absolute text-[9px] text-[#686868] dark:text-[#898989]" style={{ left: `${avgLinePct}%`, transform: 'translateX(-50%)' }}>
-          avg
-        </span>
-        {tpLinePct !== null && (
-          <span className="absolute text-[9px] text-[#054d28] dark:text-[#9fe870]" style={{ left: `${tpLinePct}%`, transform: 'translateX(-50%)' }}>
-            +{tpPct}%
-          </span>
-        )}
-      </div>
-
-      {/* Status line */}
-      <div className="mt-2 flex items-center justify-between text-[10px] flex-wrap gap-1">
-        {slPct > 0 && (
-          <span className="text-[#686868] dark:text-[#898989]">
-            SL <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cur}{(avgBuy * (1 - slPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
-            {' '}({(gainPct - (-slPct)).toFixed(2)}% menuju SL)
-          </span>
-        )}
-        {tpPct > 0 && (
-          <span className="text-[#686868] dark:text-[#898989]">
-            TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cur}{(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
-            {' '}({(tpPct - gainPct).toFixed(2)}% lagi)
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function DcaPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
+  const { toast } = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [symbolFilter, setSymbolFilter] = useState('all')
+  const [confirmId, setConfirmId] = useState<number | null>(null)
+  const [forceSellConfirmId, setForceSellConfirmId] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now())
 
   // tick every 10s to update countdowns
@@ -202,7 +107,7 @@ export default function DcaPage() {
     queryFn: () => api.sessions.getTickersBulk(uniqueSymbols),
     enabled: isAuthenticated && uniqueSymbols.length > 0,
     staleTime: 5_000,
-    refetchInterval: 1_000,
+    refetchInterval: 2500,
   })
   const tickerBySymbol = useMemo(() => {
     const map: Record<string, Ticker | null> = {}
@@ -211,23 +116,7 @@ export default function DcaPage() {
   }, [uniqueSymbols, tickerMap])
 
   const liveIds = useMemo(() => sessions?.filter(s => s.mode === 'live').map(s => s.id) ?? [], [sessions])
-  const livePnlQueries = useQueries({
-    queries: liveIds.map(id => ({
-      queryKey: ['pnl', id],
-      queryFn: () => api.sessions.getPnL(id),
-      enabled: isAuthenticated && liveIds.length > 0,
-      staleTime: 30_000,
-      refetchInterval: 60_000,
-    })),
-  })
-  const livePnlBySession = useMemo(() => {
-    const map: Record<number, { realized: number; trades: number } | null> = {}
-    liveIds.forEach((id, i) => {
-      const d = livePnlQueries[i]?.data
-      map[id] = d ? { realized: parseFloat(d.realized_pnl), trades: d.trade_count } : null
-    })
-    return map
-  }, [liveIds, livePnlQueries])
+  const livePnlBySession = useLivePnl(liveIds)
 
   const filteredSessions = useMemo(() => {
     const result = symbolFilter === 'all' ? (sessions ?? []) : (sessions ?? []).filter(s => s.symbol === symbolFilter)
@@ -247,11 +136,28 @@ export default function DcaPage() {
   })
   const idrFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'IDR')?.free ?? '0')
 
-  async function handleStart(id: number) { await api.sessions.start(id); refetch() }
-  async function handleStop(id: number) { await api.sessions.stop(id); refetch() }
+  async function handleStart(id: number) {
+    try { await api.sessions.start(id); refetch(); toast('Session dimulai', 'success') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
+  async function handleStop(id: number) {
+    try { await api.sessions.stop(id); refetch(); toast('Session dihentikan', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
   async function handleDelete(id: number) {
-    if (!confirm('Hapus session ini? Data sinyal dan order akan hilang permanen.')) return
-    await api.sessions.delete(id); refetch()
+    if (confirmId !== id) { setConfirmId(id); return }
+    setConfirmId(null)
+    try { await api.sessions.delete(id); refetch(); toast('Session dihapus', 'info') }
+    catch (e: any) { toast(e?.message || 'Terjadi kesalahan', 'error') }
+  }
+
+  async function handleForceSell(id: number) {
+    setForceSellConfirmId(null)
+    try {
+      await api.dca.sessions.forceSell(id)
+      refetch()
+      toast('Posisi berhasil dijual', 'success')
+    } catch (e: any) { toast(e?.message || 'Gagal force sell', 'error') }
   }
 
   return (
@@ -369,7 +275,7 @@ export default function DcaPage() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} onForceSell={() => setForceSellConfirmId(s.id)} forceSellConfirm={forceSellConfirmId === s.id} onCancelForceSell={() => setForceSellConfirmId(null)} />
 
                   {/* DCA config strip */}
                   {cfg && (

@@ -18,19 +18,20 @@ import (
 )
 
 type Manager struct {
-	mu         sync.Mutex
-	wg         sync.WaitGroup
-	sessions   map[int64]*RunningSession
-	client     *tokocrypto.Client
-	db         *sqlx.DB
-	strategies map[string]StrategyEvaluator
-	paper      *PaperEngine
-	live       *LiveEngine
-	notifier   *service.Notifier
-	Hub        *WSHub
-	signalRepo repository.StrategySignalRepository
-	validator  *SignalValidator
-	reconciler *Reconciler
+	mu             sync.Mutex
+	wg             sync.WaitGroup
+	sessions       map[int64]*RunningSession
+	highWaterMark  map[int64]float64
+	client         *tokocrypto.Client
+	db             *sqlx.DB
+	strategies     map[string]StrategyEvaluator
+	paper          *PaperEngine
+	live           *LiveEngine
+	notifier       *service.Notifier
+	Hub            *WSHub
+	signalRepo     repository.StrategySignalRepository
+	validator      *SignalValidator
+	reconciler     *Reconciler
 }
 
 type RunningSession struct {
@@ -40,8 +41,9 @@ type RunningSession struct {
 
 func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub, signalRepo repository.StrategySignalRepository) *Manager {
 	m := &Manager{
-		sessions: make(map[int64]*RunningSession),
-		client:   client,
+		sessions:      make(map[int64]*RunningSession),
+		highWaterMark: make(map[int64]float64),
+		client:        client,
 		db:       db,
 		strategies: map[string]StrategyEvaluator{
 			string(model.StratGrid):  NewGridEngine(client, db),
@@ -110,6 +112,7 @@ func (m *Manager) Stop(sessionID int64) {
 		rs.Cancel()
 		delete(m.sessions, sessionID)
 	}
+	m.resetEngineState(sessionID)
 }
 
 // stopSession cancels the session goroutine without sending a manual stop notification.
@@ -120,6 +123,22 @@ func (m *Manager) stopSession(sessionID int64) {
 	if rs, ok := m.sessions[sessionID]; ok {
 		rs.Cancel()
 		delete(m.sessions, sessionID)
+		delete(m.highWaterMark, sessionID)
+	}
+	m.resetEngineState(sessionID)
+}
+
+// resetEngineState evicts in-memory strategy state for a session from all engines.
+// Must be called with m.mu held or after the session is no longer running.
+func (m *Manager) resetEngineState(sessionID int64) {
+	if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+		dca.Reset(sessionID)
+	}
+	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
+		grid.Reset(sessionID)
+	}
+	if trend, ok := m.strategies[string(model.StratTrend)].(*TrendEngine); ok {
+		trend.Reset(sessionID)
 	}
 }
 
@@ -529,6 +548,25 @@ func (m *Manager) validatePendingTrendSignals(session model.Session) {
 
 func (m *Manager) checkPaperStopConditions(session model.Session, currentPrice string) {
 	result := m.paper.CheckStopConditions(session, currentPrice)
+	if result.Triggered {
+		// SL/TP already fired — fall through to stop
+	} else if result.TrailingStopPct > 0 {
+		// Trailing stop: update high water mark and check drawdown
+		m.mu.Lock()
+		peak, ok := m.highWaterMark[session.ID]
+		if !ok || result.TotalValue > peak {
+			m.highWaterMark[session.ID] = result.TotalValue
+			peak = result.TotalValue
+		}
+		m.mu.Unlock()
+		if peak > 0 {
+			drawdown := (peak - result.TotalValue) / peak * 100
+			if drawdown >= result.TrailingStopPct {
+				result.Triggered = true
+				result.Reason = StopReasonTrailing
+			}
+		}
+	}
 	if !result.Triggered {
 		return
 	}
@@ -565,12 +603,13 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 		StopLossAmount   *float64 `json:"stop_loss_amount"`
 		TakeProfitPct    *float64 `json:"take_profit_pct"`
 		TakeProfitAmount *float64 `json:"take_profit_amount"`
+		TrailingStopPct  float64  `json:"trailing_stop_pct"`
 	}
 	if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
 		return
 	}
 	if cfg.StopLossPct == nil && cfg.StopLossAmount == nil &&
-		cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil {
+		cfg.TakeProfitPct == nil && cfg.TakeProfitAmount == nil && cfg.TrailingStopPct <= 0 {
 		return
 	}
 
@@ -629,6 +668,22 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 		if totalValue >= initBal+*cfg.TakeProfitAmount {
 			reason = StopReasonTP
 			triggered = true
+		}
+	}
+	if !triggered && cfg.TrailingStopPct > 0 {
+		m.mu.Lock()
+		peak, ok := m.highWaterMark[session.ID]
+		if !ok || totalValue > peak {
+			m.highWaterMark[session.ID] = totalValue
+			peak = totalValue
+		}
+		m.mu.Unlock()
+		if peak > 0 {
+			drawdown := (peak - totalValue) / peak * 100
+			if drawdown >= cfg.TrailingStopPct {
+				reason = StopReasonTrailing
+				triggered = true
+			}
 		}
 	}
 	if !triggered {

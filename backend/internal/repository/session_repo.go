@@ -12,7 +12,7 @@ import (
 type SessionRepository interface {
 	Create(ctx context.Context, s *model.Session) (*model.Session, error)
 	FindByID(ctx context.Context, id int64) (*model.Session, error)
-	ListByUser(ctx context.Context, userID int64) ([]model.Session, error)
+	ListByUser(ctx context.Context, userID int64, limit, offset int) ([]model.Session, error)
 	ListRunning(ctx context.Context) ([]model.Session, error)
 	ListByUserAndStrategy(ctx context.Context, userID int64, strategy string) ([]model.Session, error)
 	UpdateStatus(ctx context.Context, id int64, status string) error
@@ -54,9 +54,14 @@ func (r *SessionRepo) FindByID(ctx context.Context, id int64) (*model.Session, e
 	return &s, nil
 }
 
-func (r *SessionRepo) ListByUser(ctx context.Context, userID int64) ([]model.Session, error) {
+func (r *SessionRepo) ListByUser(ctx context.Context, userID int64, limit, offset int) ([]model.Session, error) {
+	if limit <= 0 {
+		limit = 50
+	}
 	var sessions []model.Session
-	err := r.db.SelectContext(ctx, &sessions, r.db.Rebind("SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC"), userID)
+	err := r.db.SelectContext(ctx, &sessions,
+		r.db.Rebind("SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"),
+		userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

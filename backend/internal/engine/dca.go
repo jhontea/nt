@@ -125,7 +125,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		if err := d.db.Get(&avg, d.db.Rebind(
 			`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) AS total_qty,
 			        COALESCE(SUM(CAST(quantity AS REAL) * CAST(price AS REAL)), 0) AS total_cost
-			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`,
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status = 'filled'`,
 		), session.ID, session.Symbol); err == nil && avg.TotalQty > 0 {
 			d.avgBuyPrice[session.ID] = avg.TotalCost / avg.TotalQty
 		}
@@ -155,6 +155,29 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	} else {
 		// interval-only DCA
 		shouldBuy = intervalReady
+	}
+
+	if shouldBuy {
+		// max_buys check
+		if cfg.MaxBuys > 0 {
+			var buyCount int
+			if err := d.db.Get(&buyCount, d.db.Rebind(
+				`SELECT COUNT(*) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
+				session.ID); err == nil && buyCount >= cfg.MaxBuys {
+				slog.Info("dca max_buys reached, skipping", "session_id", session.ID, "max_buys", cfg.MaxBuys)
+				shouldBuy = false
+			}
+		}
+		// max_invested check
+		if shouldBuy && cfg.MaxInvested > 0 {
+			var totalInvested float64
+			if err := d.db.Get(&totalInvested, d.db.Rebind(
+				`SELECT COALESCE(SUM(CAST(executed_quote_qty AS REAL)), 0) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
+				session.ID); err == nil && totalInvested >= cfg.MaxInvested {
+				slog.Info("dca max_invested reached, skipping", "session_id", session.ID, "max_invested", cfg.MaxInvested, "total_invested", totalInvested)
+				shouldBuy = false
+			}
+		}
 	}
 
 	if shouldBuy {
