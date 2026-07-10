@@ -1,5 +1,9 @@
 .env
 .env.local
+.env.production
+.env*.local
+backend/.env
+frontend/.env
 data/
 *.exe
 *.exe~
