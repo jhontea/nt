@@ -153,6 +153,9 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 	if side == orderSideSell {
 		req.Quantity = resolvedQty
+	} else if signal.QuoteQty != "" {
+		// DCA: use exact quote amount to avoid qty rounding causing notional < minNotional
+		req.QuoteOrderQty = signal.QuoteQty
 	} else {
 		req.QuoteOrderQty = strconv.FormatFloat(notional, 'f', 8, 64)
 	}

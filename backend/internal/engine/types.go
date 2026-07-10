@@ -4,10 +4,11 @@ package engine
 type Signal struct {
 	SessionID int64  `json:"session_id"`
 	Symbol    string `json:"symbol"`
-	Side      string `json:"side"` // "buy" | "sell"
+	Side      string `json:"side"`     // "buy" | "sell"
 	Price     string `json:"price"`
 	Quantity  string `json:"quantity"`
-	Reason    string `json:"reason"` // e.g. "grid_level", "golden_cross", "dca_interval"
+	QuoteQty  string `json:"quote_qty,omitempty"` // if set, live executor uses quoteOrderQty directly (avoids qty rounding)
+	Reason    string `json:"reason"`   // e.g. "grid_level", "golden_cross", "dca_interval"
 	Timestamp int64  `json:"timestamp"`
 }
 

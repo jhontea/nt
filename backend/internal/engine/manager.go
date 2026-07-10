@@ -240,9 +240,6 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 					dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
 				}
 			}
-			if m.notifier != nil {
-				m.notifier.SendSignal(session.Name, session.Strategy, session.Mode, sig.Symbol, sig.Side, sig.Price, sig.Quantity, sig.Reason)
-			}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}

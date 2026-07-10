@@ -197,6 +197,13 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
           config.horizon = horizon
         }
       } else {
+        const amountNum = parseFloat(dcaAmount) || 0
+        const isIDR = symbol.endsWith('_IDR')
+        if (mode === 'live' && isIDR && amountNum < 20000) {
+          alert('Amount DCA live untuk pair IDR minimal Rp20.000 (batas minimum notional TokoCrypto).')
+          setCreating(false)
+          return
+        }
         config = { interval_sec: parseInt(dcaInterval), amount: dcaAmount, take_profit_pct: parseFloat(dcaTakeProfit) || 0, stop_loss_pct: parseFloat(dcaStopLoss) || 0, drop_pct: parseFloat(dcaDropPct) || 0 }
       }
       const createFn = strategy === 'grid' ? api.grid.sessions.create : strategy === 'trend' ? api.trend.sessions.create : api.dca.sessions.create
@@ -519,6 +526,9 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Jumlah (IDR)</span>{renderConfigHelp('dca_amount')}</div>
                   <input inputMode="numeric" className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="50,000" value={groupNumber(dcaAmount)} onChange={e => setDcaAmount(ungroup(e.target.value))} />
+                  {mode === 'live' && symbol.endsWith('_IDR') && (parseFloat(dcaAmount) || 0) < 20000 && (
+                    <p className="text-xs text-[#d03238] dark:text-[#ff6b6f] mt-1">⚠ Minimal Rp20.000 untuk live order IDR (batas notional TokoCrypto)</p>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Beli saat turun %</span></div>

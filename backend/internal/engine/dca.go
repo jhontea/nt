@@ -158,7 +158,9 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		qty := amount / currentPrice
 		qtyStr := strconv.FormatFloat(math.Round(qty*1e8)/1e8, 'f', 8, 64)
 		signals = append(signals, Signal{
-			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr, Reason: reason,
+			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr,
+			QuoteQty: cfg.Amount, // live executor uses this directly → exact amount, no rounding loss
+			Reason: reason,
 		})
 		// ponytail: do NOT update avgBuyPrice here — order has not been confirmed yet.
 		// Manager calls ConfirmBuy after live.Execute succeeds, or RevertLastBuy on failure.
