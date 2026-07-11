@@ -148,6 +148,19 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 	notional := qtyF * priceF
 
+	// IDR pairs have 20000 min notional; USDT pairs ~5. Skip dust sells.
+	if signal.Side == string(model.SideSell) {
+		minNotional := 5.0
+		if strings.HasSuffix(session.Symbol, "_IDR") {
+			minNotional = 20000.0
+		}
+		if notional < minNotional {
+			slog.Warn("live sell: notional below minimum, skipping dust",
+				"session", session.ID, "notional", notional, "min", minNotional, "qty", resolvedQty)
+			return nil
+		}
+	}
+
 	var riskCfg RiskConfig
 	if err := json.Unmarshal([]byte(session.Config), &riskCfg); err != nil {
 		riskCfg = RiskConfig{}
