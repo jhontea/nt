@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -281,21 +282,48 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 
 	ctx := h.reqContext(c)
 
-	// For force sell, we want all open (filled, not yet closed) buy orders.
-	// GetHoldingPosition subtracts sell qty which may undercount if prior sells
-	// used 'closed' status on buys. Query directly for unfilled-sell qty.
-	var openBuyQty float64
-	if err := h.db.QueryRowContext(ctx, h.db.Rebind(
-		`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0)
-		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), id,
-	).Scan(&openBuyQty); err != nil {
-		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
+	// Use exchange free balance as source of truth — DB qty can differ due to fees.
+	baseAsset := strings.Split(session.Symbol, "_")[0]
+	account, err := h.client.GetAccount()
+	if err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("failed to fetch account balance: "+err.Error()))
 	}
-	if openBuyQty <= 0 {
+	var exchangeQty float64
+	for _, a := range account.AccountAssets {
+		if a.Asset == baseAsset {
+			exchangeQty, _ = strconv.ParseFloat(a.Free, 64)
+			break
+		}
+	}
+	if exchangeQty <= 0 {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("tidak ada posisi untuk dijual"))
 	}
 
-	fmtQty := strconv.FormatFloat(openBuyQty, 'f', 8, 64)
+	// Floor to symbol stepSize precision
+	idrPrecision := map[string]int{
+		"BTC_IDR": 5, "ETH_IDR": 4, "BNB_IDR": 3,
+		"SOL_IDR": 4, "DOGE_IDR": 0, "XRP_IDR": 1,
+		"ADA_IDR": 1, "AVAX_IDR": 2, "HBAR_IDR": 1,
+		"POL_IDR": 1, "TKO_IDR": 2, "ARB_IDR": 1,
+		"SUI_IDR": 2, "WLD_IDR": 2, "WIF_IDR": 2,
+	}
+	precision := 8
+	if strings.HasSuffix(session.Symbol, "_IDR") {
+		if p, ok := idrPrecision[session.Symbol]; ok {
+			precision = p
+		} else {
+			precision = 2
+		}
+	}
+	factor := 1.0
+	for i := 0; i < precision; i++ {
+		factor *= 10
+	}
+	if factor > 0 {
+		exchangeQty = float64(int64(exchangeQty*factor)) / factor
+	}
+
+	fmtQty := strconv.FormatFloat(exchangeQty, 'f', precision, 64)
 
 	order, err := h.client.PlaceOrder(tokocrypto.OrderRequest{
 		Symbol:   session.Symbol,
