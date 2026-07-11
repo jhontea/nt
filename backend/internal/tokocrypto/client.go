@@ -530,6 +530,7 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	}
 	var res OrderResponse
 	if err := json.Unmarshal(body, &res); err != nil {
+		slog.Error("PlaceOrder unmarshal failed", "body", string(body), "error", err)
 		return nil, err
 	}
 	if res.Code != 0 {

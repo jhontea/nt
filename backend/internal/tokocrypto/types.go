@@ -38,20 +38,20 @@ type OrderRequest struct {
 }
 
 type OrderResponseData struct {
-	OrderID          int64             `json:"orderId"`
-	ClientID         string            `json:"clientId"`
-	Symbol           string            `json:"symbol"`
-	SymbolType       int               `json:"symbolType"`
-	Side             int               `json:"side"`
-	Type             string            `json:"type"`
-	Price            string            `json:"price"`
-	OrigQty          string            `json:"origQty"`
-	OrigQuoteQty     string            `json:"origQuoteQty"`
-	ExecutedQty      string            `json:"executedQty"`
-	ExecutedPrice    string            `json:"executedPrice"`
-	ExecutedQuoteQty string            `json:"executedQuoteQty"`
-	Status           string            `json:"status"`
-	CreateTime       int64             `json:"createTime"`
+	OrderID          int64  `json:"orderId"`
+	ClientID         string `json:"clientId"`
+	Symbol           string `json:"symbol"`
+	SymbolType       string `json:"symbolType"`
+	Side             string `json:"side"`
+	Type             string `json:"type"`
+	Price            string `json:"price"`
+	OrigQty          string `json:"origQty"`
+	OrigQuoteQty     string `json:"origQuoteQty"`
+	ExecutedQty      string `json:"executedQty"`
+	ExecutedPrice    string `json:"executedPrice"`
+	ExecutedQuoteQty string `json:"executedQuoteQty"`
+	Status           string `json:"status"`
+	CreateTime       int64  `json:"createTime"`
 }
 
 func (o *OrderResponseData) StatusInt() int {
