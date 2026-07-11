@@ -82,6 +82,17 @@ func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, price, qty float6
 	slog.Info("dca: buy confirmed, avg price updated", "session", sessionID, "price", price, "qty", qty)
 }
 
+// ConfirmSell clears avgBuyPrice after a live sell order is confirmed on the exchange.
+// Must be called by Manager after live.Execute succeeds for a sell signal.
+// ponytail: deletes here instead of in evaluate() to prevent infinite TP loop on failed sells.
+func (d *DCAEngine) ConfirmSell(sessionID int64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.avgBuyPrice, sessionID)
+	delete(d.lastBuyPrice, sessionID)
+	slog.Info("dca: sell confirmed, avg price cleared", "session", sessionID)
+}
+
 // RevertLastBuy rolls back price/avg state when a live buy order fails at the exchange,
 // but keeps lastBuy timestamp so the interval is respected — DCA will retry at next interval,
 // not immediately. This prevents hammering the exchange on repeated failures.
@@ -212,16 +223,15 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 				signals = append(signals, Signal{
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_take_profit",
 				})
-				delete(d.avgBuyPrice, session.ID)
-				delete(d.lastBuyPrice, session.ID)
+				// ponytail: do NOT delete avgBuyPrice here — sell not confirmed yet.
+				// Manager calls ConfirmSell after live.Execute succeeds.
 				slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
 			} else if cfg.StopLossPct > 0 && currentPrice <= avgPrice*(1-cfg.StopLossPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
 				signals = append(signals, Signal{
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
 				})
-				delete(d.avgBuyPrice, session.ID)
-				delete(d.lastBuyPrice, session.ID)
+				// ponytail: do NOT delete avgBuyPrice here — sell not confirmed yet.
 				slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
 			}
 		}

@@ -242,23 +242,30 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		for _, sig := range deduped {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
-				// If live execute fails for DCA buy, revert in-memory state
-				if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
-					if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-						dca.RevertLastBuy(session.ID)
-					}
-				}
-				continue
-			}
-			// DCA: confirm buy after successful execution so avgBuyPrice is updated
-			// with the confirmed order, not speculatively before exchange confirms.
+			// If live execute fails for DCA buy, revert in-memory state
 			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-					priceF, _ := strconv.ParseFloat(sig.Price, 64)
-					qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
-					dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
+					dca.RevertLastBuy(session.ID)
 				}
 			}
+			continue
+		}
+		// DCA: confirm buy after successful execution so avgBuyPrice is updated
+		// with the confirmed order, not speculatively before exchange confirms.
+		if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
+			if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+				priceF, _ := strconv.ParseFloat(sig.Price, 64)
+				qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
+				dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
+			}
+		}
+		// DCA: confirm sell after successful execution so avgBuyPrice is cleared.
+		// ponytail: no revert on sell failure — engine will retry on next tick if price still at TP.
+		if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideSell) {
+			if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+				dca.ConfirmSell(session.ID)
+			}
+		}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
