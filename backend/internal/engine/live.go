@@ -108,7 +108,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	if signal.Side == string(model.SideSell) {
 		var dbQty float64
 		if err := l.db.Get(&dbQty, l.db.Rebind(
-			`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) FROM orders
+			`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
 			 WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
 			session.ID); err == nil && dbQty > 0 {
 			resolvedQty = strconv.FormatFloat(dbQty, 'f', 8, 64)
@@ -228,8 +228,16 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		execPrice = price
 	}
 	execQty := order.ExecutedQty
-	if execQty == "" {
-		execQty = resolvedQty
+	// ponytail: for quoteOrderQty market buys, executedQty may be "0" or wrong (LOT_SIZE stepSize)
+	// compute actual received qty from executedQuoteQty/executedPrice when executedQty looks wrong
+	if execQtyF, _ := strconv.ParseFloat(execQty, 64); execQtyF <= 0 {
+		execPriceF, _ := strconv.ParseFloat(execPrice, 64)
+		execQuoteQtyF, _ := strconv.ParseFloat(order.ExecutedQuoteQty, 64)
+		if execPriceF > 0 && execQuoteQtyF > 0 {
+			execQty = strconv.FormatFloat(execQuoteQtyF/execPriceF, 'f', 8, 64)
+		} else {
+			execQty = resolvedQty
+		}
 	}
 
 	// All post-exchange DB writes in one transaction.
