@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Bot, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useLivePnl } from '@/lib/useLivePnl'
 import { Navbar } from '@/components/Navbar'
 import { MarketTicker } from '@/components/sessions/MarketTicker'
 import { MarketMovers } from '@/components/sessions/MarketMovers'
 import { StrategyCards } from '@/components/sessions/StrategyCard'
 import { PerformanceSummary } from '@/components/sessions/PerformanceSummary'
 import { EmptyState } from '@/components/sessions/EmptyState'
+import type { DCAConfig } from '@/types'
 
 const STABLE_ASSETS = new Set(['USDT', 'FDUSD', 'USDC', 'BUSD', 'IDR'])
 
@@ -19,7 +21,7 @@ export default function SessionsOverviewPage() {
   const router = useRouter()
   useEffect(() => { if (initialized && !isAuthenticated) router.push('/login') }, [initialized, isAuthenticated, router])
 
-  const [portfolioOpen, setPortfolioOpen] = useState(false)
+  const [portfolioOpen, setPortfolioOpen] = useState(true)
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: ['sessions'],
@@ -60,6 +62,22 @@ export default function SessionsOverviewPage() {
   const paperPnl = sessions?.filter(s => s.mode === 'paper' && s.virtual_balance != null)
     .reduce((sum, s) => sum + ((s.virtual_balance ?? 0) - (s.initial_balance ?? 0)), 0) ?? 0
 
+  // DCA total invested: sum max_invested from live DCA sessions that are running
+  const dcaTotalInvested = liveRunning
+    .filter(s => s.strategy === 'dca')
+    .reduce((sum, s) => {
+      try {
+        const cfg = JSON.parse(s.config) as DCAConfig
+        return sum + (cfg.max_invested ?? 0)
+      } catch { return sum }
+    }, 0)
+
+  // Live P&L from useLivePnl hook
+  const liveRunningIds = liveRunning.map(s => s.id)
+  const livePnlBySession = useLivePnl(liveRunningIds)
+  const liveRealizedPnl = liveRunningIds.reduce((sum, id) => sum + (livePnlBySession[id]?.realized ?? 0), 0)
+  const hasLivePnl = liveRunningIds.some(id => livePnlBySession[id] != null)
+
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
       <Navbar active="sessions" />
@@ -74,27 +92,66 @@ export default function SessionsOverviewPage() {
         {/* Status mini cards */}
         {sessions && sessions.length > 0 && (
           <div className="grid grid-cols-3 gap-2 mb-6">
+            {/* Card 1: Live Running */}
             <div className={`rounded-[14px] px-3 py-2.5 border ${liveRunning.length > 0 ? 'border-[rgba(208,50,56,0.2)] bg-[rgba(208,50,56,0.04)] dark:bg-[rgba(208,50,56,0.08)]' : 'border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]'}`}>
               <div className="flex items-center gap-1.5 mb-1">
                 {liveRunning.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse" />}
-                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide">Live</span>
+                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide">Live Running</span>
               </div>
               <p className={`text-lg font-black ${liveRunning.length > 0 ? 'text-[#d03238] dark:text-[#ff6b6f]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>{liveRunning.length}</p>
             </div>
-            <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]">
+            {/* Card 2: Total Invested DCA */}
+            <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(255,209,26,0.2)] bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] dark:border-[rgba(255,209,26,0.15)]">
               <div className="flex items-center gap-1.5 mb-1">
-                {paperRunning.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse" />}
-                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide">Paper</span>
+                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">DCA Invested</span>
               </div>
-              <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{paperRunning.length}</p>
-            </div>
-            <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">P&L</span>
-              </div>
-              <p className={`text-lg font-black ${paperPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                {paperPnl >= 0 ? '+' : ''}${paperPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] tabular-nums">
+                {dcaTotalInvested > 0 ? `$${dcaTotalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
               </p>
+            </div>
+            {/* Card 3: Realized P&L Live */}
+            <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">P&L Live</span>
+              </div>
+              <p className={`text-lg font-black tabular-nums ${!hasLivePnl ? 'text-[#686868] dark:text-[#898989]' : liveRealizedPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                {!hasLivePnl ? '—' : `${liveRealizedPnl >= 0 ? '+' : ''}$${liveRealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Live sessions panel — compact per-session cards, only when live+running */}
+        {liveRunning.length > 0 && (
+          <div className="mb-6 rounded-[20px] border border-[rgba(208,50,56,0.25)] bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.06)] p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse" />
+              <span className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6] uppercase tracking-widest">Live Sessions</span>
+              <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(208,50,56,0.12)] text-[#d03238] dark:text-[#ff6b6f]">{liveRunning.length} running</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {liveRunning.map(s => {
+                const pnl = livePnlBySession[s.id]
+                return (
+                  <button key={s.id} onClick={() => router.push(`/sessions/${s.id}`)}
+                    className="text-left px-3 py-2.5 rounded-[14px] border border-[rgba(208,50,56,0.2)] bg-white dark:bg-[#1e201c] hover:border-[rgba(208,50,56,0.4)] transition-colors">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d03238] animate-pulse flex-shrink-0" />
+                      <span className="text-[10px] font-bold text-[#0e0f0c] dark:text-[#e8ebe6] truncate">{s.name}</span>
+                    </div>
+                    <p className="text-[9px] text-[#686868] dark:text-[#898989] truncate mb-1">
+                      {s.symbol.replace('_', '/')} · <span className="capitalize">{s.strategy}</span>
+                    </p>
+                    {pnl != null ? (
+                      <p className={`text-[10px] font-bold tabular-nums ${pnl.realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                        {pnl.realized >= 0 ? '+' : ''}${pnl.realized.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </p>
+                    ) : (
+                      <p className="text-[9px] text-[#686868] dark:text-[#898989]">P&L —</p>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -106,12 +163,31 @@ export default function SessionsOverviewPage() {
         {(liveBalance || balanceLoading) && (
           <div className="mb-6 bg-white dark:bg-[#1e201c] rounded-[20px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-              <div className="flex items-center gap-2">
-                <Zap size={14} className="text-[#d03238] dark:text-[#ff6b6f]" />
+              <div className="flex items-center gap-2 min-w-0">
+                <Zap size={14} className="text-[#d03238] dark:text-[#ff6b6f] flex-shrink-0" />
                 <span className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6] uppercase tracking-wider">Akun TokoCrypto</span>
+                {liveBalance && (() => {
+                  const usdtFree = parseFloat(liveBalance.assets.find(a => a.asset === 'USDT')?.free ?? '0')
+                  const idrFree = parseFloat(liveBalance.assets.find(a => a.asset === 'IDR')?.free ?? '0')
+                  const idrRate = usdtIdrTicker ? parseFloat(usdtIdrTicker.lastPrice ?? '0') : 0
+                  const portfolioUSDT = liveBalance.assets
+                    .filter(a => !STABLE_ASSETS.has(a.asset))
+                    .reduce((sum, a) => {
+                      const sym = `${a.asset}_USDT`
+                      const price = portfolioTickers?.[sym] ? parseFloat(portfolioTickers[sym].lastPrice ?? '0') : 0
+                      return sum + parseFloat(a.free) * price
+                    }, 0)
+                  const totalIDR = (usdtFree + portfolioUSDT) * idrRate + idrFree
+                  if (totalIDR <= 0 || idrRate <= 0) return null
+                  return (
+                    <span className="text-[10px] text-[#686868] dark:text-[#898989] truncate">
+                      · Rp{totalIDR.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                    </span>
+                  )
+                })()}
               </div>
               {liveBalance && (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${liveBalance.can_trade === 1 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${liveBalance.can_trade === 1 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
                   {liveBalance.can_trade === 1 ? '✓ Bisa Trading' : '✗ Diblokir'}
                 </span>
               )}

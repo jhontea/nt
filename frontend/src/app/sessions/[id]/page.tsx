@@ -649,6 +649,26 @@ export default function SessionDetailPage() {
           </div>
         </div>
 
+        {/* DCA sticky summary strip — live + running only */}
+        {session.strategy === 'dca' && session.mode === 'live' && session.status === 'running' && (
+          <div className="sticky top-0 z-30 bg-white/90 dark:bg-[#1e201c]/90 backdrop-blur-sm border-b border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-4 py-2 flex items-center gap-4 text-xs flex-wrap -mx-4 sm:-mx-6 mb-4">
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{session.symbol.replace('_', '/')}</span>
+            {dcaStats && dcaStats.buy_count > 0 && (
+              <>
+                <span className="text-[#686868] dark:text-[#898989]">Invested: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(dcaStats.total_invested, quote)}</span></span>
+                <span className="text-[#686868] dark:text-[#898989]">Avg Beli: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtCur(dcaStats.avg_buy_price, quote)}</span></span>
+                {dcaStats.total_qty > 0 && (
+                  <span className="text-[#686868] dark:text-[#898989]">Qty: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{dcaStats.total_qty.toFixed(6)}</span></span>
+                )}
+              </>
+            )}
+            {pnl && (
+              <span className="text-[#686868] dark:text-[#898989]">Realized: <span className={parseFloat(pnl.realized_pnl) >= 0 ? 'font-semibold text-[#054d28] dark:text-[#9fe870]' : 'font-semibold text-[#d03238] dark:text-[#ff6b6f]'}>{cur}{parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}{pnl.realized_pnl}</span></span>
+            )}
+            <PriceBadge symbol={session.symbol} compact />
+          </div>
+        )}
+
         {/* Live mode warning banner */}
         {session.mode === 'live' && (
           <div className="mb-6 rounded-[16px] border border-[rgba(208,50,56,0.3)] bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] px-4 py-3 flex items-start gap-3">
@@ -943,6 +963,18 @@ export default function SessionDetailPage() {
                   )
                 })()}
               </div>
+              {/* DCABar — shown right after position grid */}
+              {(configDisplay.take_profit_pct > 0 || configDisplay.stop_loss_pct > 0) && avgPrice > 0 && dcaTicker && (
+                <div className="mt-4 pt-3 border-t border-[rgba(255,209,26,0.15)]">
+                  <DCABar
+                    avgBuy={avgPrice}
+                    current={parseFloat(dcaTicker.lastPrice)}
+                    tpPct={configDisplay.take_profit_pct ?? 0}
+                    slPct={configDisplay.stop_loss_pct ?? 0}
+                    cur={cur}
+                  />
+                </div>
+              )}
               {dcaTicker && dcaStats.avg_buy_price > 0 && (() => {
                 const currentPrice = parseFloat(dcaTicker.lastPrice)
                 const avgPrice = dcaStats.avg_buy_price
@@ -967,40 +999,52 @@ export default function SessionDetailPage() {
                   </div>
                 )
               })()}
+              {/* Next buy — prominent card */}
               {(() => {
                 const lastBuyOrder = allOrders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
                 const cfg = configDisplay as any
                 if (!lastBuyOrder || !cfg?.interval_sec || session.status !== 'running') return null
                 const nextMs = new Date(lastBuyOrder.created_at).getTime() + cfg.interval_sec * 1000 - Date.now()
                 const dropPct = cfg.drop_pct ?? 0
-                let label = ''
+                const nextTime = new Date(new Date(lastBuyOrder.created_at).getTime() + cfg.interval_sec * 1000)
+                const nextTimeStr = nextTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                let countdown = ''
                 if (nextMs > 0) {
                   const s = Math.floor(nextMs / 1000)
-                  if (s < 60) label = `${s}d lagi`
-                  else if (s < 3600) label = `${Math.floor(s / 60)}m lagi`
-                  else label = `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
-                } else {
-                  label = dropPct > 0 ? 'Siap beli' : 'Siap beli'
+                  if (s < 60) countdown = `${s}d`
+                  else if (s < 3600) countdown = `${Math.floor(s / 60)}m ${s % 60}d`
+                  else countdown = `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m`
                 }
+                const triggerPrice = dropPct > 0 && dcaStats.last_buy_price > 0
+                  ? dcaStats.last_buy_price * (1 - dropPct / 100)
+                  : null
                 return (
-                  <p className="text-xs text-[#686868] dark:text-[#898989] mt-2 flex items-center gap-1">
-                    <span>⏱</span>
-                    <span>Beli berikutnya: <span className={`font-semibold ${nextMs <= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#0e0f0c] dark:text-[#e8ebe6]'}`}>{label}</span></span>
-                    {dropPct > 0 && nextMs <= 0 && <span className="text-[10px]">· turun {dropPct}% dari harga beli terakhir</span>}
-                  </p>
+                  <div className="mt-3 pt-3 border-t border-[rgba(255,209,26,0.15)]">
+                    <div className="bg-[rgba(255,209,26,0.06)] rounded-[14px] px-4 py-3 flex items-center gap-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-[#7a5f00] dark:text-[#f5c842] flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase tracking-wider">Beli berikutnya</p>
+                          {nextMs > 0 ? (
+                            <p className="text-xl font-black text-[#7a5f00] dark:text-[#f5c842]">{countdown}</p>
+                          ) : (
+                            <p className="text-xl font-black text-[#054d28] dark:text-[#9fe870]">Siap beli</p>
+                          )}
+                        </div>
+                      </div>
+                      {nextMs > 0 && (
+                        <p className="text-xs text-[#686868] dark:text-[#898989]">sekitar pukul <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{nextTimeStr}</span></p>
+                      )}
+                      {triggerPrice !== null && nextMs <= 0 && (
+                        <p className="text-xs text-[#686868] dark:text-[#898989]">
+                          Harga trigger: <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{fmtCur(triggerPrice, quote)}</span>
+                          <span className="ml-1 text-[10px]">(turun {dropPct}%)</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )
               })()}
-              {(configDisplay.take_profit_pct > 0 || configDisplay.stop_loss_pct > 0) && avgPrice > 0 && dcaTicker && (
-                <div className="mt-4 pt-3 border-t border-[rgba(255,209,26,0.15)]">
-                  <DCABar
-                    avgBuy={avgPrice}
-                    current={parseFloat(dcaTicker.lastPrice)}
-                    tpPct={configDisplay.take_profit_pct ?? 0}
-                    slPct={configDisplay.stop_loss_pct ?? 0}
-                    cur={cur}
-                  />
-                </div>
-              )}
             </div>
           )
         })()}
@@ -1309,6 +1353,16 @@ export default function SessionDetailPage() {
               {configDisplay.drop_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
                   Beli saat turun {configDisplay.drop_pct}%
+                </span>
+              )}
+              {configDisplay.max_buys > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                  Maks {configDisplay.max_buys} beli
+                </span>
+              )}
+              {configDisplay.max_invested > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                  Modal maks {fmtCur(configDisplay.max_invested, quote)}
                 </span>
               )}
             </>)}
