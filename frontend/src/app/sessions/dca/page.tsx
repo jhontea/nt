@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import { useQuery, useQueries } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -43,7 +43,7 @@ function formatCountdown(ms: number): string {
   return `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m lagi`
 }
 
-export default function DcaPage() {
+function DcaPageInner() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -463,5 +463,13 @@ export default function DcaPage() {
       </div>
       <CreateSessionModal strategy="dca" open={showCreate} onClose={() => setShowCreate(false)} onCreated={() => refetch()} />
     </div>
+  )
+}
+
+export default function DcaPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]" />}>
+      <DcaPageInner />
+    </Suspense>
   )
 }
