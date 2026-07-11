@@ -1,6 +1,6 @@
 package tokocrypto
 
-import "encoding/json"
+import "strconv"
 
 type TickerResponse struct {
 	Code    int    `json:"code"`
@@ -50,12 +50,12 @@ type OrderResponseData struct {
 	ExecutedQty      string            `json:"executedQty"`
 	ExecutedPrice    string            `json:"executedPrice"`
 	ExecutedQuoteQty string            `json:"executedQuoteQty"`
-	Status           json.Number       `json:"status"`
+	Status           string            `json:"status"`
 	CreateTime       int64             `json:"createTime"`
 }
 
 func (o *OrderResponseData) StatusInt() int {
-	v, _ := o.Status.Int64()
+	v, _ := strconv.ParseInt(o.Status, 10, 64)
 	return int(v)
 }
 
