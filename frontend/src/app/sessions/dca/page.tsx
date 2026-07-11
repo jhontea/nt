@@ -230,14 +230,14 @@ function DcaPageInner() {
         </div>
         {sessions && <StrategyOverview sessions={sessions.filter(s => s.mode === modeTab)} strategy="dca" />}
         {sessions && sessions.length > 0 && (() => {
-          const allStats = Object.values(dcaStatsBySession).filter(Boolean)
+          const liveSessions = sessions.filter(s => s.mode === 'live')
+          const allStats = liveSessions.map(s => dcaStatsBySession[s.id]).filter(Boolean)
           const totalInvestedAll = allStats.reduce((s, st) => s + (st?.total_invested ?? 0), 0)
           const totalQtyBySymbol: Record<string, number> = {}
           const avgPriceBySymbol: Record<string, number> = {}
-          Object.entries(dcaStatsBySession).forEach(([id, st]) => {
+          liveSessions.forEach(session => {
+            const st = dcaStatsBySession[session.id]
             if (!st) return
-            const session = sessions.find(s => s.id === Number(id))
-            if (!session) return
             const sym = session.symbol
             totalQtyBySymbol[sym] = (totalQtyBySymbol[sym] ?? 0) + st.total_qty
             avgPriceBySymbol[sym] = st.avg_buy_price
