@@ -1,6 +1,31 @@
 package tokocrypto
 
-import "strconv"
+import (
+	"encoding/json"
+	"strconv"
+)
+
+// OrderResponseData captures fields callers use.
+// ponytail: status/symbolType/side/type can be int on success or string "ERROR"
+// on failure — use json.Number which accepts both.
+type OrderResponseData struct {
+	OrderID          int64       `json:"orderId"`
+	ExecutedQty      string      `json:"executedQty"`
+	ExecutedPrice    string      `json:"executedPrice"`
+	ExecutedQuoteQty string      `json:"executedQuoteQty"`
+	Status           json.Number `json:"status"`
+}
+
+func (o *OrderResponseData) StatusInt() int {
+	v, _ := strconv.ParseInt(o.Status.String(), 10, 64)
+	return int(v)
+}
+
+type OrderResponse struct {
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	Data    OrderResponseData `json:"data"`
+}
 
 type TickerResponse struct {
 	Code    int    `json:"code"`
@@ -35,34 +60,6 @@ type OrderRequest struct {
 	Quantity      string
 	QuoteOrderQty string
 	Price         string
-}
-
-type OrderResponseData struct {
-	OrderID          int64  `json:"orderId"`
-	ClientID         string `json:"clientId"`
-	Symbol           string `json:"symbol"`
-	SymbolType       string `json:"symbolType"`
-	Side             string `json:"side"`
-	Type             string `json:"type"`
-	Price            string `json:"price"`
-	OrigQty          string `json:"origQty"`
-	OrigQuoteQty     string `json:"origQuoteQty"`
-	ExecutedQty      string `json:"executedQty"`
-	ExecutedPrice    string `json:"executedPrice"`
-	ExecutedQuoteQty string `json:"executedQuoteQty"`
-	Status           string `json:"status"`
-	CreateTime       int64  `json:"createTime"`
-}
-
-func (o *OrderResponseData) StatusInt() int {
-	v, _ := strconv.ParseInt(o.Status, 10, 64)
-	return int(v)
-}
-
-type OrderResponse struct {
-	Code    int               `json:"code"`
-	Message string            `json:"message"`
-	Data    OrderResponseData `json:"data"`
 }
 
 type AccountResponse struct {
