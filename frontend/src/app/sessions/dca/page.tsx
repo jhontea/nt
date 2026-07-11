@@ -28,6 +28,19 @@ function fmtMoney(value: number, symbol: string): string {
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
+function fmtMoneyCompact(value: number, symbol: string): string {
+  const quote = symbol.split('_')[1] || 'USDT'
+  if (quote === 'IDR') {
+    if (value >= 1_000_000_000) return 'Rp' + (value / 1_000_000_000).toFixed(1) + 'M'
+    if (value >= 1_000_000) return 'Rp' + (value / 1_000_000).toFixed(1) + 'jt'
+    if (value >= 1_000) return 'Rp' + (value / 1_000).toFixed(0) + 'rb'
+    return 'Rp' + value.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+  }
+  if (value >= 1_000_000) return '$' + (value / 1_000_000).toFixed(2) + 'M'
+  if (value >= 1_000) return '$' + (value / 1_000).toFixed(2) + 'K'
+  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
 function formatInterval(sec: number): string {
   if (sec < 60) return `${sec}s`
   if (sec < 3600) return `${Math.round(sec / 60)}m`
@@ -315,7 +328,7 @@ function DcaPageInner() {
                     }`}>
 
                       {/* 2-column: P&L kiri, Posisi Beli kanan */}
-                      <div className="grid grid-cols-2 gap-4 text-xs mb-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-3">
 
                         {/* Kolom kiri: P&L — angka besar, label kecil di bawah */}
                         <div className="space-y-2">
@@ -327,26 +340,26 @@ function DcaPageInner() {
                             return (<>
                               <div>
                                 <p className={`font-bold text-base leading-tight ${realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                  {realized >= 0 ? '+' : ''}{fmtMoney(realized, s.symbol)}
+                                  {realized >= 0 ? '+' : ''}{fmtMoneyCompact(realized, s.symbol)}
                                 </p>
                                 <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">realized</p>
                               </div>
                               {unrealized !== null && (
                                 <div>
                                   <p className={`font-semibold text-sm leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                    {unrealized >= 0 ? '+' : ''}{fmtMoney(unrealized, s.symbol)}
-                                  </p>
-                                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
-                                </div>
-                              )}
-                            </>)
-                          })() : totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] ? (() => {
-                            const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
-                            const unrealized = (currentPrice - avgBuy) * totalQty
-                            return (
-                              <div>
-                                <p className={`font-bold text-base leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                  {unrealized >= 0 ? '+' : ''}{fmtMoney(unrealized, s.symbol)}
+                                    {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
+                                   </p>
+                                   <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
+                                 </div>
+                               )}
+                             </>)
+                           })() : totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] ? (() => {
+                             const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
+                             const unrealized = (currentPrice - avgBuy) * totalQty
+                             return (
+                               <div>
+                                 <p className={`font-bold text-base leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                   {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
                                 </p>
                                 <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
                               </div>
@@ -368,7 +381,7 @@ function DcaPageInner() {
                               <div>
                                 <div className="flex items-baseline gap-1.5">
                                   <p className="font-bold text-base leading-tight text-[#0e0f0c] dark:text-[#e8ebe6]">
-                                    {avgBuy > 0 ? fmtMoney(avgBuy, s.symbol) : '—'}
+                                     {avgBuy > 0 ? fmtMoneyCompact(avgBuy, s.symbol) : '—'}
                                   </p>
                                   {distPct !== null && (
                                     <span className={`text-[10px] font-semibold ${distPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
@@ -380,9 +393,9 @@ function DcaPageInner() {
                               </div>
                               <div>
                                 <p className="font-semibold text-sm text-[#0e0f0c] dark:text-[#e8ebe6]">
-                                  {fmtMoney(totalInvested, s.symbol)}
-                                  {(cfg.max_invested ?? 0) > 0 && (
-                                    <span className="text-[#686868] dark:text-[#898989] font-normal text-xs"> / {fmtMoney(cfg.max_invested!, s.symbol)}</span>
+                                   {fmtMoneyCompact(totalInvested, s.symbol)}
+                                   {(cfg.max_invested ?? 0) > 0 && (
+                                     <span className="text-[#686868] dark:text-[#898989] font-normal text-xs"> / {fmtMoneyCompact(cfg.max_invested!, s.symbol)}</span>
                                   )}
                                 </p>
                                 <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">invested</p>
@@ -444,12 +457,12 @@ function DcaPageInner() {
                             </span>
                           )}
                           {(cfg.take_profit_pct ?? 0) > 0 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870] font-semibold">
+                            <span className="hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870] font-semibold">
                               TP {cfg.take_profit_pct}%
                             </span>
                           )}
                           {(cfg.stop_loss_pct ?? 0) > 0 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] font-semibold">
+                            <span className="hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] font-semibold">
                               SL {cfg.stop_loss_pct}%
                             </span>
                           )}

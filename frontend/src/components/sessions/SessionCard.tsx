@@ -160,7 +160,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
         }`}
         onClick={() => onDetail(session.id)}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
           {/* Strategy icon utama + mode badge kecil */}
           <div className="relative flex-shrink-0">
             <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center ${strategyBg} ${strategyIconColor}`}>
@@ -222,7 +222,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
             )}
           </div>
           {/* Actions */}
-          <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end sm:flex-nowrap sm:flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0" onClick={e => e.stopPropagation()}>
             {session.status === 'running' ? (
               <button className="px-4 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
             ) : (
@@ -256,7 +256,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                   className="px-3 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition"
                   onClick={() => onForceSell(session.id)}
                   title="Jual semua posisi sekarang"
-                >Force Sell</button>
+                ><span className="sm:hidden">Jual</span><span className="hidden sm:inline">Force Sell</span></button>
               )
             )}
             {confirmDelete ? (
