@@ -540,16 +540,26 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	if err != nil {
 		return nil, err
 	}
-	var res OrderResponse
-	if err := json.Unmarshal(body, &res); err != nil {
+	// Parse envelope first — error responses have a different data shape
+	var envelope struct {
+		Code    int             `json:"code"`
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
 		slog.Error("PlaceOrder unmarshal failed", "body", string(body), "error", err)
 		return nil, err
 	}
-	if res.Code != 0 {
-		slog.Error("PlaceOrder API error", "code", res.Code, "message", res.Message, "body", string(body))
-		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
+	if envelope.Code != 0 {
+		slog.Error("PlaceOrder API error", "code", envelope.Code, "message", envelope.Message, "body", string(body))
+		return nil, fmt.Errorf("tokocrypto error code %d: %s", envelope.Code, envelope.Message)
 	}
-	return &res.Data, nil
+	var data OrderResponseData
+	if err := json.Unmarshal(envelope.Data, &data); err != nil {
+		slog.Error("PlaceOrder data unmarshal failed", "data", string(envelope.Data), "error", err)
+		return nil, err
+	}
+	return &data, nil
 }
 
 func retryCall[T any](fn func() (T, error)) (T, error) {
