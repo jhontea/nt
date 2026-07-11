@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -121,19 +120,10 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 				if a.Asset == baseAsset {
 					if exchangeQty, err := strconv.ParseFloat(a.Free, 64); err == nil && exchangeQty > 0 {
 						dbQtyF, _ := strconv.ParseFloat(resolvedQty, 64)
-						useQty := exchangeQty
-						if useQty > dbQtyF {
-							useQty = dbQtyF
+						if exchangeQty < dbQtyF {
+							// ponytail: use exchange's own string representation — already at correct stepSize precision
+							resolvedQty = a.Free
 						}
-						// truncate to stepSize precision (IDR pairs: 5dp, others: 8dp)
-						// ponytail: fixed precision, upgrade to symbol-info API if more pairs need different steps
-						precision := 8
-						if strings.HasSuffix(session.Symbol, "_IDR") {
-							precision = 5
-						}
-						factor := math.Pow(10, float64(precision))
-						useQty = math.Floor(useQty*factor) / factor
-						resolvedQty = strconv.FormatFloat(useQty, 'f', precision, 64)
 					}
 					break
 				}
