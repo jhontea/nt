@@ -43,7 +43,7 @@ type OrderResponseData struct {
 	Symbol           string            `json:"symbol"`
 	SymbolType       int               `json:"symbolType"`
 	Side             int               `json:"side"`
-	Type             int               `json:"type"`
+	Type             string            `json:"type"`
 	Price            string            `json:"price"`
 	OrigQty          string            `json:"origQty"`
 	OrigQuoteQty     string            `json:"origQuoteQty"`

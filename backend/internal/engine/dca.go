@@ -123,8 +123,8 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			TotalCost float64 `db:"total_cost"`
 		}
 		if err := d.db.Get(&avg, d.db.Rebind(
-			`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) AS total_qty,
-			        COALESCE(SUM(CAST(quantity AS REAL) * CAST(price AS REAL)), 0) AS total_cost
+			`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) AS total_qty,
+			        COALESCE(SUM(CAST(executed_qty AS REAL) * CAST(executed_price AS REAL)), 0) AS total_cost
 			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status = 'filled'`,
 		), session.ID, session.Symbol); err == nil && avg.TotalQty > 0 {
 			d.avgBuyPrice[session.ID] = avg.TotalCost / avg.TotalQty
