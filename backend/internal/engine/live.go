@@ -120,10 +120,25 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 				if a.Asset == baseAsset {
 					if exchangeQty, err := strconv.ParseFloat(a.Free, 64); err == nil && exchangeQty > 0 {
 						dbQtyF, _ := strconv.ParseFloat(resolvedQty, 64)
-						if exchangeQty < dbQtyF {
-							// ponytail: use exchange's own string representation — already at correct stepSize precision
-							resolvedQty = a.Free
+						useQty := exchangeQty
+						if useQty > dbQtyF {
+							useQty = dbQtyF
 						}
+						// ponytail: floor to stepSize precision per symbol
+						// BTC_IDR=5dp, others IDR=4dp, USDT=8dp
+						precision := 8
+						if strings.HasSuffix(session.Symbol, "_IDR") {
+							precision = 4
+							if strings.HasPrefix(session.Symbol, "BTC_") {
+								precision = 5
+							}
+						}
+						factor := 1.0
+						for i := 0; i < precision; i++ {
+							factor *= 10
+						}
+						useQty = float64(int64(useQty*factor)) / factor
+						resolvedQty = strconv.FormatFloat(useQty, 'f', precision, 64)
 					}
 					break
 				}

@@ -218,13 +218,23 @@ func (c *Client) runAllMiniTickerStream() {
 }
 
 func (c *Client) GetTicker(symbol string) (*Ticker, error) {
-	// Check cache (updated by WS in real-time)
+	// Check WS cache (updated by WS in real-time)
 	c.mu.Lock()
 	if entry, ok := c.tickCache[symbol]; ok && time.Now().Before(entry.expiresAt) {
 		c.mu.Unlock()
 		return entry.data, nil
 	}
 	c.mu.Unlock()
+
+	// For IDR pairs: check idrTickers cache before hitting klines endpoint
+	if strings.HasSuffix(symbol, "_IDR") {
+		c.idrMu.Lock()
+		if t, ok := c.idrTickers[symbol]; ok && t != nil {
+			c.idrMu.Unlock()
+			return t, nil
+		}
+		c.idrMu.Unlock()
+	}
 
 	// Fallback: fetch daily kline
 	altSymbol := strings.ReplaceAll(symbol, "_", "")
