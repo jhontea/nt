@@ -280,15 +280,22 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 	}
 
 	ctx := h.reqContext(c)
-	pos, err := h.svc.PnL.GetHoldingPosition(ctx, id)
-	if err != nil {
+
+	// For force sell, we want all open (filled, not yet closed) buy orders.
+	// GetHoldingPosition subtracts sell qty which may undercount if prior sells
+	// used 'closed' status on buys. Query directly for unfilled-sell qty.
+	var openBuyQty float64
+	if err := h.db.QueryRowContext(ctx, h.db.Rebind(
+		`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0)
+		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), id,
+	).Scan(&openBuyQty); err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
-	if pos.TotalQty <= 0 {
+	if openBuyQty <= 0 {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("tidak ada posisi untuk dijual"))
 	}
 
-	fmtQty := strconv.FormatFloat(pos.TotalQty, 'f', 8, 64)
+	fmtQty := strconv.FormatFloat(openBuyQty, 'f', 8, 64)
 
 	order, err := h.client.PlaceOrder(tokocrypto.OrderRequest{
 		Symbol:   session.Symbol,

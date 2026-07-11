@@ -62,6 +62,8 @@ export interface DCAConfig {
   take_profit_pct?: number
   stop_loss_pct?: number
   drop_pct?: number
+  max_buys?: number
+  max_invested?: number
 }
 
 export interface Ticker {

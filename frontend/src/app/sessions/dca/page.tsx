@@ -275,7 +275,7 @@ export default function DcaPage() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} onForceSell={() => setForceSellConfirmId(s.id)} forceSellConfirm={forceSellConfirmId === s.id} onCancelForceSell={() => setForceSellConfirmId(null)} />
+                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} onForceSell={(id) => forceSellConfirmId === id ? handleForceSell(id) : setForceSellConfirmId(id)} forceSellConfirm={forceSellConfirmId === s.id} onCancelForceSell={() => setForceSellConfirmId(null)} />
 
                   {/* DCA config strip */}
                   {cfg && (
@@ -303,6 +303,14 @@ export default function DcaPage() {
                         {(cfg.stop_loss_pct ?? 0) > 0 && (<>
                           <span className="opacity-30">·</span>
                           <span className="flex items-center gap-1"><span className="text-[#d03238] dark:text-[#ff6b6f]">SL</span> <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">{cfg.stop_loss_pct}%</span></span>
+                        </>)}
+                        {(cfg.max_buys ?? 0) > 0 && (<>
+                          <span className="opacity-30">·</span>
+                          <span>Maks <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{totalBuys}/{cfg.max_buys}</span> beli</span>
+                        </>)}
+                        {(cfg.max_invested ?? 0) > 0 && (<>
+                          <span className="opacity-30">·</span>
+                          <span>Modal maks <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(cfg.max_invested!, s.symbol)}</span></span>
                         </>)}
                       </div>
 
