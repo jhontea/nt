@@ -124,20 +124,31 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 						if useQty > dbQtyF {
 							useQty = dbQtyF
 						}
-						// ponytail: floor to stepSize precision per symbol
-						// BTC_IDR=5dp, others IDR=4dp, USDT=8dp
-						precision := 8
-						if strings.HasSuffix(session.Symbol, "_IDR") {
-							precision = 4
-							if strings.HasPrefix(session.Symbol, "BTC_") {
-								precision = 5
-							}
+					// ponytail: stepSize precision per IDR symbol from exchange API
+					// upgrade to symbol-info API call if more symbols need different steps
+					idrPrecision := map[string]int{
+						"BTC_IDR": 5, "ETH_IDR": 4, "BNB_IDR": 3,
+						"SOL_IDR": 4, "DOGE_IDR": 0, "XRP_IDR": 1,
+						"ADA_IDR": 1, "AVAX_IDR": 2, "HBAR_IDR": 1,
+						"POL_IDR": 1, "TKO_IDR": 2, "ARB_IDR": 1,
+						"SUI_IDR": 2, "WLD_IDR": 2, "WIF_IDR": 2,
+					}
+					precision := 8
+					if strings.HasSuffix(session.Symbol, "_IDR") {
+						if p, ok := idrPrecision[session.Symbol]; ok {
+							precision = p
+						} else {
+							precision = 2 // safe default for unknown IDR pairs
 						}
-						factor := 1.0
-						for i := 0; i < precision; i++ {
-							factor *= 10
-						}
-						useQty = float64(int64(useQty*factor)) / factor
+					}
+					factor := 1.0
+					for i := 0; i < precision; i++ {
+						factor *= 10
+					}
+					if factor == 0 {
+						factor = 1
+					}
+					useQty = float64(int64(useQty*factor)) / factor
 						resolvedQty = strconv.FormatFloat(useQty, 'f', precision, 64)
 					}
 					break
