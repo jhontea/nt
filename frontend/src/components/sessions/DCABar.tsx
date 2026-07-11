@@ -12,8 +12,8 @@ export function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number;
   const slLinePct = slPct > 0 ? Math.max(0, Math.min(100, ((-slPct - leftEdge) / totalRange) * 100)) : null
 
   const isProfit = gainPct >= 0
-  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8
-  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8
+  const nearTP = tpPct > 0 && gainPct >= tpPct * 0.8 && gainPct < tpPct
+  const nearSL = slPct > 0 && gainPct <= -slPct * 0.8 && gainPct > -slPct
 
   const dotColor = nearTP ? '#9fe870' : nearSL ? '#ff6b6f' : isProfit ? '#9fe870' : '#ff6b6f'
 
@@ -74,7 +74,7 @@ export function DCABar({ avgBuy, current, tpPct, slPct, cur }: { avgBuy: number;
         {tpPct > 0 && (
           <span className="text-[#686868] dark:text-[#898989]">
             TP <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">{cur}{(avgBuy * (1 + tpPct / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
-            {' '}({(tpPct - gainPct).toFixed(2)}% lagi)
+            {' '}{gainPct >= tpPct ? <span className="text-[#054d28] dark:text-[#9fe870] font-semibold">(sudah terlampaui +{(gainPct - tpPct).toFixed(2)}%)</span> : `(${(tpPct - gainPct).toFixed(2)}% lagi)`}
           </span>
         )}
       </div>
