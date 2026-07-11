@@ -42,7 +42,8 @@ func TestAuthHandler_GoogleCallback_NoCode(t *testing.T) {
 	h, _ := setupAuthTest(t)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?state=teststate", nil)
+	req.Header.Set("Cookie", "oauth_state=teststate")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 

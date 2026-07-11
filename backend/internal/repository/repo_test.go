@@ -97,7 +97,7 @@ func TestSessionRepo_CreateAndList(t *testing.T) {
 		t.Fatal("expected non-zero ID")
 	}
 
-	sessions, err := repo.ListByUser(context.Background(), 1)
+	sessions, err := repo.ListByUser(context.Background(), 1, 50, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

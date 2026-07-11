@@ -228,7 +228,7 @@ function DcaPageInner() {
             )
           })}
         </div>
-        {sessions && <StrategyOverview sessions={sessions} strategy="dca" />}
+        {sessions && <StrategyOverview sessions={sessions.filter(s => s.mode === modeTab)} strategy="dca" />}
         {sessions && sessions.length > 0 && (() => {
           const allStats = Object.values(dcaStatsBySession).filter(Boolean)
           const totalInvestedAll = allStats.reduce((s, st) => s + (st?.total_invested ?? 0), 0)
@@ -337,7 +337,16 @@ function DcaPageInner() {
                             const realized = pnl.realized ?? 0
                             const currentPrice = tickerBySymbol[s.symbol] ? parseFloat(tickerBySymbol[s.symbol]!.lastPrice) : 0
                             const unrealized = currentPrice > 0 && avgBuy > 0 && totalQty > 0 ? (currentPrice - avgBuy) * totalQty : null
+                            const totalPnl = realized + (unrealized ?? 0)
+                            const pnlPct = unrealized !== null && totalInvested > 0 ? (unrealized / totalInvested * 100) : null
                             return (<>
+                              {/* #1: Total P&L as primary number */}
+                              <div>
+                                <p className={`font-black text-lg leading-tight ${totalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                  {totalPnl >= 0 ? '+' : ''}{fmtMoneyCompact(totalPnl, s.symbol)}
+                                </p>
+                                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">Total P&L</p>
+                              </div>
                               <div>
                                 <p className={`font-bold text-base leading-tight ${realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                   {realized >= 0 ? '+' : ''}{fmtMoneyCompact(realized, s.symbol)}
@@ -346,20 +355,28 @@ function DcaPageInner() {
                               </div>
                               {unrealized !== null && (
                                 <div>
-                                  <p className={`font-semibold text-sm leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                    {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
-                                   </p>
-                                   <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
-                                 </div>
-                               )}
-                             </>)
-                           })() : totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] ? (() => {
-                             const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
-                             const unrealized = (currentPrice - avgBuy) * totalQty
-                             return (
-                               <div>
-                                 <p className={`font-bold text-base leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                   {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
+                                  <div className="flex items-baseline gap-1">
+                                    <p className={`font-semibold text-sm leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                      {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
+                                    </p>
+                                    {/* #3: % P&L dari modal */}
+                                    {pnlPct !== null && (
+                                      <span className={`text-[10px] font-semibold ${pnlPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                        ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
+                                </div>
+                              )}
+                            </>)
+                          })() : totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] ? (() => {
+                            const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
+                            const unrealized = (currentPrice - avgBuy) * totalQty
+                            return (
+                              <div>
+                                <p className={`font-bold text-base leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                  {unrealized >= 0 ? '+' : ''}{fmtMoneyCompact(unrealized, s.symbol)}
                                 </p>
                                 <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
                               </div>
@@ -400,6 +417,21 @@ function DcaPageInner() {
                                 </p>
                                 <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">invested</p>
                               </div>
+                              {/* #2: Qty holding + nilai holding (live only) */}
+                              {s.mode === 'live' && (() => {
+                                const currentPrice = tickerBySymbol[s.symbol] ? parseFloat(tickerBySymbol[s.symbol]!.lastPrice) : 0
+                                const holdingValue = totalQty * currentPrice
+                                if (totalQty <= 0 || currentPrice <= 0) return null
+                                return (
+                                  <div>
+                                    <p className="font-semibold text-sm text-[#0e0f0c] dark:text-[#e8ebe6]">
+                                      {totalQty.toFixed(6)} {s.symbol.split('_')[0]}
+                                    </p>
+                                    <p className="text-[10px] text-[#686868] dark:text-[#898989]">≈ {fmtMoneyCompact(holdingValue, s.symbol)}</p>
+                                    <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">holding saat ini</p>
+                                  </div>
+                                )
+                              })()}
                               {(cfg.max_buys ?? 0) > 0 && (() => {
                                 const pct = Math.min(100, (totalBuys / cfg.max_buys!) * 100)
                                 return (
@@ -477,9 +509,33 @@ function DcaPageInner() {
                           }`}>
                             <Clock size={10} />
                             {nextBuyMs > 0 ? formatCountdown(nextBuyMs) : 'Siap beli'}
+                            {/* #5: Estimasi jam beli berikutnya */}
+                            {(() => {
+                              const nextBuyTime = nextBuyMs !== null && nextBuyMs > 0 ? new Date(Date.now() + nextBuyMs) : null
+                              return nextBuyTime ? (
+                                <span className="opacity-70">• ~{nextBuyTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                              ) : null
+                            })()}
                           </span>
                         )}
                       </div>
+
+                      {/* #4: Trigger price beli berikutnya (live only) */}
+                      {s.mode === 'live' && (cfg.drop_pct ?? 0) > 0 && (stats?.last_buy_price ?? 0) > 0 && (() => {
+                        const triggerPrice = stats!.last_buy_price * (1 - cfg.drop_pct! / 100)
+                        return (
+                          <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">
+                            Trigger: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoneyCompact(triggerPrice, s.symbol)}</span>
+                          </p>
+                        )
+                      })()}
+
+                      {/* #6: Warning saldo tidak cukup (live + IDR only) */}
+                      {s.mode === 'live' && s.status === 'running' && s.symbol.endsWith('_IDR') && idrFree > 0 && parseFloat(cfg.amount) > idrFree && (
+                        <p className="text-[10px] text-[#d03238] dark:text-[#ff6b6f] font-semibold mt-1">
+                          ⚠ Saldo tidak cukup untuk beli berikutnya ({fmtMoneyCompact(idrFree, s.symbol)} tersedia)
+                        </p>
+                      )}
 
                       {/* Paper: modal progress bar */}
                       {s.mode === 'paper' && s.virtual_balance != null && s.initial_balance != null && totalInvested > 0 && (() => {

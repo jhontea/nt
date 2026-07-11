@@ -120,7 +120,7 @@ func TestSessionHandler_List(t *testing.T) {
 	h, mockRepo, c, rec := setupSessionTest(t)
 
 	sessions := []model.Session{{ID: 1, Name: "s1"}, {ID: 2, Name: "s2"}}
-	mockRepo.EXPECT().ListByUser(gomock.Any(), int64(1)).Return(sessions, nil)
+	mockRepo.EXPECT().ListByUser(gomock.Any(), int64(1), 50, 0).Return(sessions, nil)
 
 	_ = h.List(c)
 
