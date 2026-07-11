@@ -520,7 +520,9 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 		params["quoteOrderQty"] = []string{req.QuoteOrderQty}
 	} else {
 		params["quantity"] = []string{req.Quantity}
-		params["price"] = []string{req.Price}
+		if req.Price != "" {
+			params["price"] = []string{req.Price}
+		}
 	}
 	// ponytail: no retry on PlaceOrder — retrying a timed-out order risks placing duplicates.
 	// Caller must handle the error and decide whether to retry via reconciliation.
@@ -534,6 +536,7 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 		return nil, err
 	}
 	if res.Code != 0 {
+		slog.Error("PlaceOrder API error", "code", res.Code, "message", res.Message, "body", string(body))
 		return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
 	}
 	return &res.Data, nil

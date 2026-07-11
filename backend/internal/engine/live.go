@@ -102,19 +102,34 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 			"session", session.ID, "side", signal.Side, "recent_count", recentCount)
 		return nil
 	}
-	// For grid sell signals: override quantity with actual holdings to avoid
-	// selling more than we own. Grid config quantity is per-level, not total.
+	// For sell signals: use minimum of DB holdings vs actual exchange balance
+	// to avoid selling more than we own (DB can exceed exchange due to prior sells/fees).
 	resolvedQty := signal.Quantity
 	if signal.Side == string(model.SideSell) {
-		var actualQty float64
-		if err := l.db.Get(&actualQty, l.db.Rebind(
+		var dbQty float64
+		if err := l.db.Get(&dbQty, l.db.Rebind(
 			`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) FROM orders
 			 WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
-			session.ID); err == nil && actualQty > 0 {
-			resolvedQty = strconv.FormatFloat(actualQty, 'f', 8, 64)
-			slog.Info("live sell: using actual holdings qty", "session", session.ID,
-				"signal_qty", signal.Quantity, "actual_qty", resolvedQty)
+			session.ID); err == nil && dbQty > 0 {
+			resolvedQty = strconv.FormatFloat(dbQty, 'f', 8, 64)
 		}
+		// clamp to actual exchange balance to avoid 2202 insufficient balance errors
+		baseAsset := strings.Split(session.Symbol, "_")[0]
+		if account, err := l.client.GetAccount(); err == nil {
+			for _, a := range account.AccountAssets {
+				if a.Asset == baseAsset {
+					if exchangeQty, err := strconv.ParseFloat(a.Free, 64); err == nil && exchangeQty > 0 {
+						dbQtyF, _ := strconv.ParseFloat(resolvedQty, 64)
+						if exchangeQty < dbQtyF {
+							resolvedQty = strconv.FormatFloat(exchangeQty, 'f', 8, 64)
+						}
+					}
+					break
+				}
+			}
+		}
+		slog.Info("live sell: resolved qty", "session", session.ID,
+			"signal_qty", signal.Quantity, "resolved_qty", resolvedQty)
 	}
 
 	ticker, err := l.client.GetTicker(session.Symbol)
