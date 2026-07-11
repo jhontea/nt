@@ -50,6 +50,7 @@ func withStrategy(strat string, h echo.HandlerFunc) echo.HandlerFunc {
 
 func main() {
 	cfg := config.Load()
+	slog.Info("SERVER BUILD", "version", "2026-07-12-v1", "commit", "4212474")
 
 	if cfg.TokenAPIKey == "" || cfg.TokenSecretKey == "" {
 		slog.Warn("TOKO_API_KEY or TOKO_SECRET_KEY not set. Live trading will fail.")
