@@ -308,84 +308,90 @@ function DcaPageInner() {
 
                   {/* DCA config strip */}
                   {cfg && (
-                    <div className={`mx-1 -mt-1 border border-t-0 rounded-b-[16px] px-4 py-2.5 ${
+                    <div className={`mx-1 -mt-1 border border-t-0 rounded-b-[16px] px-4 pt-3 pb-3 ${
                       s.mode === 'live'
                         ? 'bg-[rgba(208,50,56,0.03)] dark:bg-[rgba(208,50,56,0.05)] border-[rgba(208,50,56,0.2)]'
                         : 'bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] border-[rgba(255,209,26,0.15)]'
                     }`}>
-                      {/* Live badge */}
-                      {s.mode === 'live' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.1)] px-1.5 py-0.5 rounded-full mb-2">⚡ Live Order</span>
-                      )}
 
-                      {/* Top: 2-column grid — P&L | Posisi Beli */}
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        {/* Left: P&L */}
-                        <div>
-                          <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide mb-1">P&L</p>
+                      {/* 2-column: P&L kiri, Posisi Beli kanan */}
+                      <div className="grid grid-cols-2 gap-4 text-xs mb-3">
+
+                        {/* Kolom kiri: P&L — angka besar, label kecil di bawah */}
+                        <div className="space-y-2">
                           {s.mode === 'live' && livePnlBySession[s.id] ? (() => {
                             const pnl = livePnlBySession[s.id]!
                             const realized = pnl.realized ?? 0
                             const currentPrice = tickerBySymbol[s.symbol] ? parseFloat(tickerBySymbol[s.symbol]!.lastPrice) : 0
                             const unrealized = currentPrice > 0 && avgBuy > 0 && totalQty > 0 ? (currentPrice - avgBuy) * totalQty : null
-                            return (
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[#686868] dark:text-[#898989]">Realized:</span>
-                                  <span className={`font-semibold ${realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                    {realized >= 0 ? '+' : ''}{fmtMoney(realized, s.symbol)}
-                                  </span>
-                                </div>
-                                {unrealized !== null && (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[#686868] dark:text-[#898989]">Unrealized:</span>
-                                    <span className={`font-semibold ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                                      {unrealized >= 0 ? '+' : ''}{fmtMoney(unrealized, s.symbol)}
-                                    </span>
-                                  </div>
-                                )}
+                            return (<>
+                              <div>
+                                <p className={`font-bold text-base leading-tight ${realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                  {realized >= 0 ? '+' : ''}{fmtMoney(realized, s.symbol)}
+                                </p>
+                                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">realized</p>
                               </div>
-                            )
+                              {unrealized !== null && (
+                                <div>
+                                  <p className={`font-semibold text-sm leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                    {unrealized >= 0 ? '+' : ''}{fmtMoney(unrealized, s.symbol)}
+                                  </p>
+                                  <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
+                                </div>
+                              )}
+                            </>)
                           })() : totalQty > 0 && avgBuy > 0 && tickerBySymbol[s.symbol] ? (() => {
                             const currentPrice = parseFloat(tickerBySymbol[s.symbol]!.lastPrice)
                             const unrealized = (currentPrice - avgBuy) * totalQty
                             return (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[#686868] dark:text-[#898989]">Unrealized:</span>
-                                <span className={`font-semibold ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              <div>
+                                <p className={`font-bold text-base leading-tight ${unrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                                   {unrealized >= 0 ? '+' : ''}{fmtMoney(unrealized, s.symbol)}
-                                </span>
+                                </p>
+                                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">unrealized</p>
                               </div>
                             )
                           })() : (
-                            <span className="text-[#686868] dark:text-[#898989]">—</span>
+                            <div>
+                              <p className="font-bold text-base text-[#686868] dark:text-[#898989]">—</p>
+                              <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">P&L</p>
+                            </div>
                           )}
                         </div>
 
-                        {/* Right: Posisi Beli */}
-                        <div>
-                          <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide mb-1">Posisi Beli</p>
-                          {totalBuys > 0 ? (
-                            <div className="space-y-0.5">
-                              <p className="text-[#0e0f0c] dark:text-[#e8ebe6]">
-                                <span className="font-semibold">{totalBuys}</span>
-                                <span className="text-[#686868] dark:text-[#898989]"> beli</span>
-                                {avgBuy > 0 && <> · avg <span className="font-semibold">{fmtMoney(avgBuy, s.symbol)}</span></>}
-                              </p>
-                              <p className="text-[#686868] dark:text-[#898989]">
-                                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(totalInvested, s.symbol)}</span>
-                                {(cfg.max_invested ?? 0) > 0
-                                  ? <> / <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(cfg.max_invested!, s.symbol)}</span> maks</>
-                                  : <> invested</>
-                                }
-                                {s.mode === 'live' && <span className="ml-1 text-[9px] font-bold text-[#d03238] dark:text-[#ff6b6f] bg-[rgba(208,50,56,0.08)] px-1 py-0.5 rounded">real</span>}
-                              </p>
-                              {/* Progress bar — only if max_buys configured */}
+                        {/* Kolom kanan: Posisi Beli + % jarak dari avg */}
+                        <div className="space-y-2">
+                          {totalBuys > 0 ? (() => {
+                            const currentPrice = tickerBySymbol[s.symbol] ? parseFloat(tickerBySymbol[s.symbol]!.lastPrice) : 0
+                            const distPct = currentPrice > 0 && avgBuy > 0 ? ((currentPrice - avgBuy) / avgBuy * 100) : null
+                            return (<>
+                              <div>
+                                <div className="flex items-baseline gap-1.5">
+                                  <p className="font-bold text-base leading-tight text-[#0e0f0c] dark:text-[#e8ebe6]">
+                                    {avgBuy > 0 ? fmtMoney(avgBuy, s.symbol) : '—'}
+                                  </p>
+                                  {distPct !== null && (
+                                    <span className={`text-[10px] font-semibold ${distPct >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                                      {distPct >= 0 ? '+' : ''}{distPct.toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">avg beli · {totalBuys}x</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm text-[#0e0f0c] dark:text-[#e8ebe6]">
+                                  {fmtMoney(totalInvested, s.symbol)}
+                                  {(cfg.max_invested ?? 0) > 0 && (
+                                    <span className="text-[#686868] dark:text-[#898989] font-normal text-xs"> / {fmtMoney(cfg.max_invested!, s.symbol)}</span>
+                                  )}
+                                </p>
+                                <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">invested</p>
+                              </div>
                               {(cfg.max_buys ?? 0) > 0 && (() => {
                                 const pct = Math.min(100, (totalBuys / cfg.max_buys!) * 100)
                                 return (
-                                  <div className="mt-1">
-                                    <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] mb-0.5">
+                                  <div>
+                                    <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] mb-1">
                                       <span>{totalBuys}/{cfg.max_buys} beli</span>
                                       <span>{pct.toFixed(0)}%</span>
                                     </div>
@@ -395,43 +401,78 @@ function DcaPageInner() {
                                   </div>
                                 )
                               })()}
+                            </>)
+                          })() : s.status === 'running' ? (
+                            <div>
+                              <p className="font-bold text-base text-[#686868] dark:text-[#898989]">—</p>
+                              <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5 italic">menunggu beli pertama</p>
                             </div>
-                          ) : s.status === 'running' ? (
-                            <span className="text-[10px] text-[#686868] dark:text-[#898989] italic">Menunggu beli pertama...</span>
                           ) : (
-                            <span className="text-[#686868] dark:text-[#898989]">—</span>
+                            <div>
+                              <p className="font-bold text-base text-[#686868] dark:text-[#898989]">—</p>
+                              <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-0.5">posisi</p>
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="border-t border-[rgba(14,15,12,0.04)] dark:border-[rgba(232,235,230,0.04)] my-2" />
+                      {/* DCABar — dipindah ke atas config pills */}
+                      {avgBuy > 0 && tickerBySymbol[s.symbol] && ((cfg.take_profit_pct ?? 0) > 0 || (cfg.stop_loss_pct ?? 0) > 0) && (
+                        <div className="mb-2.5">
+                          <DCABar
+                            avgBuy={avgBuy}
+                            current={parseFloat(tickerBySymbol[s.symbol]!.lastPrice)}
+                            tpPct={cfg.take_profit_pct ?? 0}
+                            slPct={cfg.stop_loss_pct ?? 0}
+                            cur={s.symbol.split('_')[1] === 'IDR' ? 'Rp' : '$'}
+                          />
+                        </div>
+                      )}
 
-                      {/* Bottom: config summary + countdown */}
+                      {/* Divider */}
+                      <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-2.5" />
+
+                      {/* Config pills + countdown */}
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <p className="text-xs text-[#686868] dark:text-[#898989]">
-                          <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(parseFloat(cfg.amount), s.symbol)}</span>
-                          {' '}tiap <span className="font-semibold text-[#7a5f00] dark:text-[#f5c842]">{formatInterval(cfg.interval_sec)}</span>
-                          {(cfg.drop_pct ?? 0) > 0 && <> · Turun <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cfg.drop_pct}%</span></>}
-                          {(cfg.take_profit_pct ?? 0) > 0 && <> · <span className="font-semibold text-[#054d28] dark:text-[#9fe870]">TP {cfg.take_profit_pct}%</span></>}
-                          {(cfg.stop_loss_pct ?? 0) > 0 && <> · <span className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">SL {cfg.stop_loss_pct}%</span></>}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] font-medium">
+                            {fmtMoney(parseFloat(cfg.amount), s.symbol)} / {formatInterval(cfg.interval_sec)}
+                          </span>
+                          {(cfg.drop_pct ?? 0) > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] font-medium">
+                              Turun {cfg.drop_pct}%
+                            </span>
+                          )}
+                          {(cfg.take_profit_pct ?? 0) > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870] font-semibold">
+                              TP {cfg.take_profit_pct}%
+                            </span>
+                          )}
+                          {(cfg.stop_loss_pct ?? 0) > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] font-semibold">
+                              SL {cfg.stop_loss_pct}%
+                            </span>
+                          )}
+                        </div>
                         {s.status === 'running' && nextBuyMs !== null && (
-                          <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
                             nextBuyMs <= 0
-                              ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870] font-semibold'
-                              : 'text-[#686868] dark:text-[#898989]'
+                              ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]'
+                              : nextBuyMs <= 5 * 60 * 1000
+                              ? 'bg-[rgba(255,209,26,0.15)] text-[#7a5f00] dark:text-[#f5c842]'
+                              : 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]'
                           }`}>
-                            <Clock size={11} />
+                            <Clock size={10} />
                             {nextBuyMs > 0 ? formatCountdown(nextBuyMs) : 'Siap beli'}
                           </span>
                         )}
                       </div>
 
-                      {/* Invested progress bar (paper only) */}
+                      {/* Paper: modal progress bar */}
                       {s.mode === 'paper' && s.virtual_balance != null && s.initial_balance != null && totalInvested > 0 && (() => {
                         const usedPct = Math.min(100, (totalInvested / s.initial_balance) * 100)
                         return (
-                          <div className="mt-2">
+                          <div className="mt-2.5">
                             <div className="flex items-center justify-between text-[10px] text-[#686868] dark:text-[#898989] mb-1">
                               <span>Modal terpakai</span>
                               <span>{usedPct.toFixed(1)}% dari {fmtMoney(s.initial_balance, s.symbol)}</span>
@@ -442,17 +483,6 @@ function DcaPageInner() {
                           </div>
                         )
                       })()}
-
-                      {/* DCA progress bar toward TP / away from SL */}
-                      {avgBuy > 0 && tickerBySymbol[s.symbol] && ((cfg.take_profit_pct ?? 0) > 0 || (cfg.stop_loss_pct ?? 0) > 0) && (
-                        <DCABar
-                          avgBuy={avgBuy}
-                          current={parseFloat(tickerBySymbol[s.symbol]!.lastPrice)}
-                          tpPct={cfg.take_profit_pct ?? 0}
-                          slPct={cfg.stop_loss_pct ?? 0}
-                          cur={s.symbol.split('_')[1] === 'IDR' ? 'Rp' : '$'}
-                        />
-                      )}
                     </div>
                   )}
                 </div>
