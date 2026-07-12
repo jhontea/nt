@@ -229,10 +229,16 @@ function DcaPageInner() {
           })}
         </div>
         {sessions && <StrategyOverview sessions={sessions.filter(s => s.mode === modeTab)} strategy="dca" />}
-        {sessions && sessions.length > 0 && (() => {
-          const liveSessions = sessions.filter(s => s.mode === 'live')
+        {modeTab === 'live' && sessions && sessions.length > 0 && (() => {
+          const liveSessions = sessions.filter(s =>
+            s.mode === 'live' &&
+            s.status === 'running'
+          )
+          if (liveSessions.length === 0) return null
           const allStats = liveSessions.map(s => dcaStatsBySession[s.id]).filter(Boolean)
           const totalInvestedAll = allStats.reduce((s, st) => s + (st?.total_invested ?? 0), 0)
+          const totalRealized = liveSessions.reduce((sum, session) =>
+            sum + (livePnlBySession[session.id]?.realized ?? 0), 0)
           const totalQtyBySymbol: Record<string, number> = {}
           const totalCostBySymbol: Record<string, number> = {}
           liveSessions.forEach(session => {
@@ -250,22 +256,82 @@ function DcaPageInner() {
               totalUnrealized += (parseFloat(ticker.lastPrice) - avgPrice) * qty
             }
           })
-          if (totalInvestedAll <= 0) return null
-          const hasIDR = sessions.some(s => s.symbol.endsWith('_IDR'))
+          const totalPnl = totalRealized + totalUnrealized
+          const performers = liveSessions.flatMap(session => {
+            const pnl = livePnlBySession[session.id]
+            if (!pnl) return []
+            const stats = dcaStatsBySession[session.id]
+            const ticker = tickerBySymbol[session.symbol]
+            const unrealized = stats && ticker && stats.total_qty > 0 && stats.avg_buy_price > 0
+              ? (parseFloat(ticker.lastPrice) - stats.avg_buy_price) * stats.total_qty
+              : 0
+            return [{ session, totalPnl: pnl.realized + unrealized }]
+          }).sort((a, b) => b.totalPnl - a.totalPnl)
+          const bestPerformer = performers[0]
+          const worstPerformer = performers[performers.length - 1]
+          const hasIDR = liveSessions.some(s => s.symbol.endsWith('_IDR'))
           const quote = hasIDR ? 'IDR' : 'USDT'
           const fmtTotal = (v: number) => quote === 'IDR'
             ? 'Rp' + v.toLocaleString('id-ID', { maximumFractionDigits: 0 })
             : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           return (
-            <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-              <span className="text-[#686868] dark:text-[#898989]">Total invested</span>
-              <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtTotal(totalInvestedAll)}</span>
-              {totalUnrealized !== 0 && <>
-                <span className="text-[#686868] dark:text-[#898989]">Unrealized</span>
-                <span className={`font-bold ${totalUnrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {totalUnrealized >= 0 ? '+' : ''}{fmtTotal(totalUnrealized)}
-                </span>
-              </>}
+            <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">Total DCA Live Berjalan</p>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]">{liveSessions.length} session</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase">Total P&amp;L</p>
+                  <p className={`text-lg font-black ${totalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {totalPnl >= 0 ? '+' : ''}{fmtTotal(totalPnl)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase">Realized</p>
+                  <p className={`text-lg font-bold ${totalRealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {totalRealized >= 0 ? '+' : ''}{fmtTotal(totalRealized)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase">Unrealized</p>
+                  <p className={`text-lg font-bold ${totalUnrealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                    {totalUnrealized >= 0 ? '+' : ''}{fmtTotal(totalUnrealized)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#686868] dark:text-[#898989] uppercase">Invested Aktif</p>
+                  <p className="text-lg font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtTotal(totalInvestedAll)}</p>
+                </div>
+              </div>
+              {bestPerformer && worstPerformer && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                  <div className="rounded-[14px] px-3 py-2.5 bg-[rgba(5,77,40,0.05)] dark:bg-[rgba(159,232,112,0.06)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#054d28] dark:text-[#9fe870]">Best Performer</p>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6] truncate">{bestPerformer.session.name}</p>
+                        <p className="text-[10px] text-[#686868] dark:text-[#898989]">{bestPerformer.session.symbol.replace('_', '/')}</p>
+                      </div>
+                      <p className={`text-sm font-black whitespace-nowrap ${bestPerformer.totalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                        {bestPerformer.totalPnl >= 0 ? '+' : ''}{fmtTotal(bestPerformer.totalPnl)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-[14px] px-3 py-2.5 bg-[rgba(208,50,56,0.05)] dark:bg-[rgba(208,50,56,0.06)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#d03238] dark:text-[#ff6b6f]">Worst Performer</p>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6] truncate">{worstPerformer.session.name}</p>
+                        <p className="text-[10px] text-[#686868] dark:text-[#898989]">{worstPerformer.session.symbol.replace('_', '/')}</p>
+                      </div>
+                      <p className={`text-sm font-black whitespace-nowrap ${worstPerformer.totalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                        {worstPerformer.totalPnl >= 0 ? '+' : ''}{fmtTotal(worstPerformer.totalPnl)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })()}
