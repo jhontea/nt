@@ -249,6 +249,32 @@ func TestHMACSignature(t *testing.T) {
 	}
 }
 
+func TestGetAccountCachesSuccessBriefly(t *testing.T) {
+	var calls int
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		json.NewEncoder(w).Encode(AccountResponse{Code: 0, Data: Account{CanTrade: 1}})
+	})
+
+	if _, err := c.GetAccount(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.GetAccount(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
+	}
+
+	time.Sleep(1600 * time.Millisecond)
+	if _, err := c.GetAccount(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("calls after expiry = %d, want 2", calls)
+	}
+}
+
 func TestPlaceOrderSendsClientID(t *testing.T) {
 	clientID := "0123456789abcdef0123456789abcdef"
 	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
