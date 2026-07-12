@@ -1925,7 +1925,8 @@ export default function SessionDetailPage() {
                       <tr>
                         <th className="px-4 py-3 text-left">Waktu</th>
                          <th className="px-4 py-3 text-left">Sisi</th>
-                         <th className="px-4 py-3 text-left">Harga</th>
+                         <th className="px-4 py-3 text-left">{session.strategy === 'dca' ? 'Harga Sinyal' : 'Harga'}</th>
+                         {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Harga Eksekusi</th>}
                          <th className="px-4 py-3 text-left">Jumlah</th>
                          {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Executed Qty</th>}
                          {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Nilai</th>}
@@ -1946,6 +1947,11 @@ export default function SessionDetailPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
+                          {session.strategy === 'dca' && (
+                            <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">
+                              {o.executed_price && parseFloat(o.executed_price) > 0 ? o.executed_price : '-'}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
                           {session.strategy === 'dca' && (
                             <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">
