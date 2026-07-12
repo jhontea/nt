@@ -304,7 +304,9 @@ function DcaPageInner() {
             {filteredSessions.map(s => {
               const cfg = parseDCAConfig(s.config)
               const orders: Order[] = ordersBySession[s.id] ?? []
-              const lastBuy = orders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+              const cycleStart = s.started_at ? new Date(s.started_at).getTime() : null
+              const cycleOrders = cycleStart ? orders.filter(o => new Date(o.created_at).getTime() >= cycleStart) : orders
+              const lastBuy = cycleOrders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
               const nextBuyMs = cfg && lastBuy && s.status === 'running'
                 ? new Date(lastBuy.created_at).getTime() + cfg.interval_sec * 1000 - now
                 : null

@@ -75,10 +75,10 @@ func (d *DCAEngine) Reset(sessionID int64) {
 
 // ConfirmBuy updates avgBuyPrice after a live buy order is confirmed on the exchange.
 // Must be called by Manager after live.Execute succeeds.
-func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, price, qty float64) {
+func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.Time, price, qty float64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.updateAvgPrice(sessionID, symbol, price, qty)
+	d.updateAvgPrice(sessionID, symbol, startedAt, price, qty)
 	slog.Info("dca: buy confirmed, avg price updated", "session", sessionID, "price", price, "qty", qty)
 }
 
@@ -114,6 +114,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			Epoch int64   `db:"epoch"`
 			Price float64 `db:"price_val"`
 		}
+		var startedAtClause string
+		args := []any{session.ID, session.Symbol}
+		if session.StartedAt != nil {
+			startedAtClause = " AND created_at >= ?"
+			args = append(args, *session.StartedAt)
+		}
 		epochExpr := "CAST(strftime('%s', created_at) AS INTEGER)"
 		if d.db.DriverName() != "sqlite" {
 			epochExpr = "COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0)"
@@ -121,9 +127,9 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		if err := d.db.Get(&row, d.db.Rebind(
 			`SELECT `+epochExpr+` AS epoch,
 			        COALESCE(CAST(price AS REAL), 0) AS price_val
-			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'`+startedAtClause+`
 			 ORDER BY id DESC LIMIT 1`,
-		), session.ID, session.Symbol); err == nil && row.Epoch > 0 {
+		), args...); err == nil && row.Epoch > 0 {
 			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
 			d.lastBuyPrice[session.ID] = row.Price
 		}
@@ -137,11 +143,17 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			TotalQty  float64 `db:"total_qty"`
 			TotalCost float64 `db:"total_cost"`
 		}
+		var startedAtClause string
+		args := []any{session.ID, session.Symbol}
+		if session.StartedAt != nil {
+			startedAtClause = " AND created_at >= ?"
+			args = append(args, *session.StartedAt)
+		}
 		if err := d.db.Get(&avg, d.db.Rebind(
 			`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) AS total_qty,
 			        COALESCE(SUM(CAST(executed_qty AS REAL) * CAST(executed_price AS REAL)), 0) AS total_cost
-			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status = 'filled'`,
-		), session.ID, session.Symbol); err == nil && avg.TotalQty > 0 {
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status = 'filled'`+startedAtClause,
+		), args...); err == nil && avg.TotalQty > 0 {
 			d.avgBuyPrice[session.ID] = avg.TotalCost / avg.TotalQty
 		}
 	}
@@ -176,9 +188,15 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		// max_buys check
 		if cfg.MaxBuys > 0 {
 			var buyCount int
+			var startedAtClause string
+			args := []any{session.ID}
+			if session.StartedAt != nil {
+				startedAtClause = " AND created_at >= ?"
+				args = append(args, *session.StartedAt)
+			}
 			if err := d.db.Get(&buyCount, d.db.Rebind(
-				`SELECT COUNT(*) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
-				session.ID); err == nil && buyCount >= cfg.MaxBuys {
+				`SELECT COUNT(*) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`+startedAtClause),
+				args...); err == nil && buyCount >= cfg.MaxBuys {
 				slog.Info("dca max_buys reached, skipping", "session_id", session.ID, "max_buys", cfg.MaxBuys)
 				shouldBuy = false
 			}
@@ -186,9 +204,15 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		// max_invested check
 		if shouldBuy && cfg.MaxInvested > 0 {
 			var totalInvested float64
+			var startedAtClause string
+			args := []any{session.ID}
+			if session.StartedAt != nil {
+				startedAtClause = " AND created_at >= ?"
+				args = append(args, *session.StartedAt)
+			}
 			if err := d.db.Get(&totalInvested, d.db.Rebind(
-				`SELECT COALESCE(SUM(CAST(executed_quote_qty AS REAL)), 0) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`),
-				session.ID); err == nil && totalInvested >= cfg.MaxInvested {
+				`SELECT COALESCE(SUM(CAST(executed_quote_qty AS REAL)), 0) FROM orders WHERE session_id=? AND side='buy' AND status='filled'`+startedAtClause),
+				args...); err == nil && totalInvested >= cfg.MaxInvested {
 				slog.Info("dca max_invested reached, skipping", "session_id", session.ID, "max_invested", cfg.MaxInvested, "total_invested", totalInvested)
 				shouldBuy = false
 			}
@@ -215,10 +239,16 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
 			var totalQty float64
+			var startedAtClause string
+			args := []any{session.ID, session.Symbol}
+			if session.StartedAt != nil {
+				startedAtClause = " AND created_at >= ?"
+				args = append(args, *session.StartedAt)
+			}
 			if err := d.db.Get(&totalQty,
 				d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
-				session.ID, session.Symbol); err != nil {
+				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
+				args...); err != nil {
 				slog.Warn("dca: fetch totalQty for TP/SL", "session", session.ID, "error", err)
 			}
 
@@ -243,17 +273,23 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	return signals
 }
 
-func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, price, qty float64) {
+func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, startedAt *time.Time, price, qty float64) {
 	oldAvg, ok := d.avgBuyPrice[sessionID]
 	if !ok || oldAvg == 0 {
 		d.avgBuyPrice[sessionID] = price
 		return
 	}
 	var existingQty float64
+	args := []any{sessionID, symbol}
+	startedAtClause := ""
+	if startedAt != nil {
+		startedAtClause = " AND created_at >= ?"
+		args = append(args, *startedAt)
+	}
 	if err := d.db.Get(&existingQty,
 		d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`),
-		sessionID, symbol); err != nil {
+		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
+		args...); err != nil {
 		slog.Warn("dca: fetch existingQty for avgPrice", "session", sessionID, "error", err)
 		return
 	}

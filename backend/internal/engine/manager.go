@@ -21,6 +21,8 @@ type Manager struct {
 	mu            sync.Mutex
 	wg            sync.WaitGroup
 	sessions      map[int64]*RunningSession
+	stopping      map[int64]bool
+	execLocks     map[int64]*sync.Mutex
 	highWaterMark map[int64]float64
 	client        *tokocrypto.Client
 	db            *sqlx.DB
@@ -42,6 +44,8 @@ type RunningSession struct {
 func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub, signalRepo repository.StrategySignalRepository) *Manager {
 	m := &Manager{
 		sessions:      make(map[int64]*RunningSession),
+		stopping:      make(map[int64]bool),
+		execLocks:     make(map[int64]*sync.Mutex),
 		highWaterMark: make(map[int64]float64),
 		client:        client,
 		db:            db,
@@ -61,6 +65,36 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 	// start reconciler in background — syncs live orders stuck in non-terminal status
 	go m.reconciler.Run(context.Background(), 5*time.Minute)
 	return m
+}
+
+func (m *Manager) execLock(sessionID int64) *sync.Mutex {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if lock, ok := m.execLocks[sessionID]; ok {
+		return lock
+	}
+	lock := &sync.Mutex{}
+	m.execLocks[sessionID] = lock
+	return lock
+}
+
+func (m *Manager) startExecution(sessionID int64) (*sync.Mutex, bool) {
+	lock := m.execLock(sessionID)
+	lock.Lock()
+	m.mu.Lock()
+	stopping := m.stopping[sessionID]
+	m.mu.Unlock()
+	if stopping {
+		lock.Unlock()
+		return nil, false
+	}
+	return lock, true
+}
+
+func (m *Manager) finishExecution(lock *sync.Mutex) {
+	if lock != nil {
+		lock.Unlock()
+	}
 }
 
 func (m *Manager) Start(session model.Session) error {
@@ -97,6 +131,7 @@ func (m *Manager) Start(session model.Session) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	m.stopping[session.ID] = false
 	m.sessions[session.ID] = &RunningSession{
 		Session: session,
 		Cancel:  cancel,
@@ -109,12 +144,19 @@ func (m *Manager) Start(session model.Session) error {
 
 func (m *Manager) Stop(sessionID int64) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	m.stopping[sessionID] = true
 	if rs, ok := m.sessions[sessionID]; ok {
 		rs.Cancel()
-		delete(m.sessions, sessionID)
 	}
+	lock := m.execLock(sessionID)
+	m.mu.Unlock()
+
+	lock.Lock()
+	m.mu.Lock()
+	delete(m.sessions, sessionID)
+	delete(m.stopping, sessionID)
+	m.mu.Unlock()
+	lock.Unlock()
 	m.resetEngineState(sessionID)
 }
 
@@ -122,13 +164,11 @@ func (m *Manager) Stop(sessionID int64) {
 // Used by SL/TP triggers which send their own SendStopAlert notification.
 func (m *Manager) stopSession(sessionID int64) {
 	m.mu.Lock()
+	m.stopping[sessionID] = true
 	defer m.mu.Unlock()
 	if rs, ok := m.sessions[sessionID]; ok {
 		rs.Cancel()
-		delete(m.sessions, sessionID)
-		delete(m.highWaterMark, sessionID)
 	}
-	m.resetEngineState(sessionID)
 }
 
 // resetEngineState evicts in-memory strategy state for a session from all engines.
@@ -147,11 +187,24 @@ func (m *Manager) resetEngineState(sessionID int64) {
 
 func (m *Manager) StopAll() {
 	m.mu.Lock()
+	ids := make([]int64, 0, len(m.sessions))
 	for id, rs := range m.sessions {
 		rs.Cancel()
-		delete(m.sessions, id)
+		m.stopping[id] = true
+		ids = append(ids, id)
 	}
 	m.mu.Unlock()
+
+	for _, id := range ids {
+		lock := m.execLock(id)
+		lock.Lock()
+		lock.Unlock()
+		m.mu.Lock()
+		delete(m.sessions, id)
+		delete(m.stopping, id)
+		m.mu.Unlock()
+		m.resetEngineState(id)
+	}
 	m.wg.Wait()
 }
 
@@ -184,7 +237,12 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 				slog.Error("read session", "id", session.ID, "error", err)
 				continue
 			}
+			lock, ok := m.startExecution(session.ID)
+			if !ok {
+				return
+			}
 			m.evaluate(ctx, fresh)
+			m.finishExecution(lock)
 			// Run validator on every tick for grid+signal sessions
 			switch {
 			case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
@@ -259,7 +317,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
 					priceF, _ := strconv.ParseFloat(sig.Price, 64)
 					qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
-					dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
+					dca.ConfirmBuy(session.ID, session.Symbol, session.StartedAt, priceF, qtyF)
 				}
 			}
 			// DCA: confirm sell after successful execution so avgBuyPrice is cleared.

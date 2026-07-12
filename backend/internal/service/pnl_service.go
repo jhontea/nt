@@ -184,11 +184,19 @@ func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStat
 					ELSE CAST(quantity AS REAL) * CAST(price AS REAL)
 				END
 			), 0) AS total_invested,
-			COALESCE((SELECT CAST(price AS REAL) FROM orders
-				WHERE session_id=? AND side='buy'
-				AND status IN ('filled','signal') ORDER BY id DESC LIMIT 1), 0) AS last_buy_price
-		FROM orders
-		WHERE session_id=? AND side='buy' AND status IN ('filled','signal')
+			COALESCE((SELECT CAST(o.price AS REAL) FROM orders o
+				JOIN sessions s ON s.id = o.session_id
+				WHERE o.session_id=?
+				  AND o.side='buy'
+				  AND o.status IN ('filled','signal')
+				  AND (s.started_at IS NULL OR o.created_at >= s.started_at)
+				ORDER BY o.id DESC LIMIT 1), 0) AS last_buy_price
+		FROM orders o
+		JOIN sessions s ON s.id = o.session_id
+		WHERE o.session_id=?
+		  AND o.side='buy'
+		  AND o.status IN ('filled','signal')
+		  AND (s.started_at IS NULL OR o.created_at >= s.started_at)
 	`), sessionID, sessionID)
 	if err != nil {
 		return nil, err
