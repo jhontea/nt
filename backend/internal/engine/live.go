@@ -51,7 +51,14 @@ func (l *LiveEngine) PreflightBuy(symbol, quoteOrderQty string) error {
 	if err != nil {
 		return fmt.Errorf("tidak bisa terhubung ke TokoCrypto: %w", err)
 	}
-	return validateBuyBalance(acc, symbol, quoteOrderQty)
+	if err := validateBuyBalance(acc, symbol, quoteOrderQty); err != nil {
+		if strings.Contains(err.Error(), "tidak cukup") || strings.Contains(err.Error(), "tidak ditemukan") {
+			slog.Warn("preflight buy balance warning", "symbol", symbol, "quote_order_qty", quoteOrderQty, "error", err)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (l *LiveEngine) buyLock(quoteAsset string) *sync.Mutex {
