@@ -33,6 +33,9 @@ type Client struct {
 	http          *http.Client
 	mu            sync.Mutex
 	tickCache     map[string]cacheEntry
+	accountMu     sync.Mutex
+	accountCache  *Account
+	accountExpiry time.Time
 	idrMu         sync.Mutex
 	idrTickers    map[string]*Ticker
 	streamStarted bool
@@ -52,6 +55,33 @@ func NewClient(apiKey, secretKey string) *Client {
 	go c.runAllMiniTickerStream()
 	go c.runIDRRefresh()
 	return c
+}
+
+func (c *Client) getCachedAccount() *Account {
+	c.accountMu.Lock()
+	defer c.accountMu.Unlock()
+	if c.accountCache == nil || time.Now().After(c.accountExpiry) {
+		return nil
+	}
+	account := *c.accountCache
+	return &account
+}
+
+func (c *Client) setCachedAccount(account *Account, ttl time.Duration) {
+	c.accountMu.Lock()
+	defer c.accountMu.Unlock()
+	if account == nil {
+		c.accountCache = nil
+		c.accountExpiry = time.Time{}
+		return
+	}
+	copyAccount := *account
+	c.accountCache = &copyAccount
+	c.accountExpiry = time.Now().Add(ttl)
+}
+
+func (c *Client) InvalidateAccountCache() {
+	c.setCachedAccount(nil, 0)
 }
 
 func (c *Client) doPublic(path string, params url.Values) ([]byte, error) {
@@ -486,6 +516,9 @@ func (c *Client) GetCandles(symbol, interval string, limit int) ([][]any, error)
 }
 
 func (c *Client) GetAccount() (*Account, error) {
+	if cached := c.getCachedAccount(); cached != nil {
+		return cached, nil
+	}
 	return retryCall(func() (*Account, error) {
 		body, err := c.doSigned("GET", "/open/v1/account/spot", nil)
 		if err != nil {
@@ -498,6 +531,7 @@ func (c *Client) GetAccount() (*Account, error) {
 		if res.Code != 0 {
 			return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
 		}
+		c.setCachedAccount(&res.Data, 1500*time.Millisecond)
 		return &res.Data, nil
 	})
 }

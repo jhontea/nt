@@ -272,6 +272,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		}
 		return fmt.Errorf("place order: %w", err)
 	}
+	l.client.InvalidateAccountCache()
 
 	orderStatus := liveOrderStatus(order.StatusInt())
 	orderID := fmt.Sprintf("%d", order.OrderID)

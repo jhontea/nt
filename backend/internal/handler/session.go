@@ -416,6 +416,7 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 		// a user retry cannot create a duplicate sell before reconciliation.
 		return c.JSON(http.StatusBadGateway, ErrorJSON("sell order status unknown; retry diblokir sampai rekonsiliasi: "+err.Error()))
 	}
+	h.client.InvalidateAccountCache()
 
 	orderID := strconv.FormatInt(order.OrderID, 10)
 	orderStatus := tokocrypto.ExchangeOrderStatus(order.StatusInt())
