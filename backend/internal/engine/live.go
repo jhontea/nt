@@ -269,13 +269,16 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 
 	order, err := l.placeOrder(req)
 	if err != nil {
-		status := string(model.OrdUnknown)
 		var notSubmitted *orderNotSubmittedError
 		if errors.As(err, &notSubmitted) || tokocrypto.IsDefiniteOrderRejection(err) {
-			status = string(model.OrdRejected)
-		}
-		if _, updateErr := l.db.Exec(l.db.Rebind(`UPDATE orders SET status = ? WHERE client_id = ?`), status, clientID); updateErr != nil {
-			slog.Error("live: failed to update unsuccessful order intent", "client_id", clientID, "status", status, "error", updateErr)
+			// A definite rejection (including insufficient balance) never created an
+			// exchange order, so it must not appear as a zero-value trade locally.
+			if _, deleteErr := l.db.Exec(l.db.Rebind(`DELETE FROM orders WHERE client_id = ? AND status = ?`), clientID, string(model.OrdSubmitting)); deleteErr != nil {
+				slog.Error("live: failed to remove rejected order intent", "client_id", clientID, "error", deleteErr)
+			}
+		} else if _, updateErr := l.db.Exec(l.db.Rebind(`UPDATE orders SET status = ? WHERE client_id = ?`), string(model.OrdUnknown), clientID); updateErr != nil {
+			// Ambiguous network errors remain stored for exchange reconciliation.
+			slog.Error("live: failed to mark ambiguous order intent", "client_id", clientID, "error", updateErr)
 		}
 		return fmt.Errorf("place order: %w", err)
 	}
@@ -304,6 +307,13 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		execQty = "0"
 	}
 	if orderStatus != string(model.OrdFilled) {
+		execQtyF, _ := strconv.ParseFloat(execQty, 64)
+		if execQtyF <= 0 && (orderStatus == string(model.OrdRejected) || orderStatus == string(model.OrdCanceled) || orderStatus == string(model.OrdExpired)) {
+			if _, deleteErr := l.db.Exec(l.db.Rebind(`DELETE FROM orders WHERE client_id = ?`), clientID); deleteErr != nil {
+				return fmt.Errorf("remove unexecuted terminal order: %w", deleteErr)
+			}
+			return fmt.Errorf("order not executed; exchange status %s", orderStatus)
+		}
 		if _, updateErr := l.db.Exec(l.db.Rebind(`UPDATE orders SET
 			order_id=?, status=?, executed_qty=?, executed_price=?, executed_quote_qty=? WHERE client_id=?`),
 			orderID, orderStatus, execQty, execPrice, order.ExecutedQuoteQty, clientID); updateErr != nil {

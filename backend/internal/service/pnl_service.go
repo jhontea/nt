@@ -225,11 +225,15 @@ func (s *PnLService) GetOrders(ctx context.Context, sessionID, cursor, limit int
 	if cursor > 0 {
 		err = s.db.SelectContext(ctx, &orders,
 			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-			 FROM orders WHERE session_id = ? AND id < ? ORDER BY id DESC LIMIT ?`), sessionID, cursor, limit)
+			 FROM orders WHERE session_id = ? AND id < ?
+			   AND NOT (status IN ('rejected','canceled','expired') AND CAST(executed_qty AS REAL) <= 0)
+			 ORDER BY id DESC LIMIT ?`), sessionID, cursor, limit)
 	} else {
 		err = s.db.SelectContext(ctx, &orders,
 			s.db.Rebind(`SELECT id, session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at
-			 FROM orders WHERE session_id = ? ORDER BY id DESC LIMIT ?`), sessionID, limit)
+			 FROM orders WHERE session_id = ?
+			   AND NOT (status IN ('rejected','canceled','expired') AND CAST(executed_qty AS REAL) <= 0)
+			 ORDER BY id DESC LIMIT ?`), sessionID, limit)
 	}
 	if err != nil {
 		return nil, err
