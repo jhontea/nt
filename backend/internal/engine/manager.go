@@ -143,21 +143,26 @@ func (m *Manager) Start(session model.Session) error {
 }
 
 func (m *Manager) Stop(sessionID int64) {
+	start := time.Now()
 	m.mu.Lock()
 	m.stopping[sessionID] = true
 	if rs, ok := m.sessions[sessionID]; ok {
+		slog.Info("engine stop cancel session", "session_id", sessionID)
 		rs.Cancel()
 	}
 	lock := m.execLock(sessionID)
 	m.mu.Unlock()
 
+	slog.Info("engine stop waiting execution lock", "session_id", sessionID)
 	lock.Lock()
+	slog.Info("engine stop acquired execution lock", "session_id", sessionID)
 	m.mu.Lock()
 	delete(m.sessions, sessionID)
 	delete(m.stopping, sessionID)
 	m.mu.Unlock()
 	lock.Unlock()
 	m.resetEngineState(sessionID)
+	slog.Info("engine stop completed", "session_id", sessionID, "elapsed", time.Since(start))
 }
 
 // stopSession cancels the session goroutine without sending a manual stop notification.
@@ -186,6 +191,7 @@ func (m *Manager) resetEngineState(sessionID int64) {
 }
 
 func (m *Manager) StopAll() {
+	start := time.Now()
 	m.mu.Lock()
 	ids := make([]int64, 0, len(m.sessions))
 	for id, rs := range m.sessions {
@@ -197,6 +203,7 @@ func (m *Manager) StopAll() {
 
 	for _, id := range ids {
 		lock := m.execLock(id)
+		slog.Info("engine stopall waiting execution lock", "session_id", id)
 		lock.Lock()
 		lock.Unlock()
 		m.mu.Lock()
@@ -206,6 +213,7 @@ func (m *Manager) StopAll() {
 		m.resetEngineState(id)
 	}
 	m.wg.Wait()
+	slog.Info("engine stopall completed", "session_count", len(ids), "elapsed", time.Since(start))
 }
 
 func (m *Manager) IsRunning(sessionID int64) bool {
@@ -232,6 +240,8 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 			slog.Info("session stopped", "id", session.ID)
 			return
 		case <-ticker.C:
+			tickStart := time.Now()
+			slog.Info("session tick start", "id", session.ID, "strategy", session.Strategy, "mode", session.Mode)
 			var fresh model.Session
 			if err := m.db.Get(&fresh, m.db.Rebind("SELECT * FROM sessions WHERE id = ?"), session.ID); err != nil {
 				slog.Error("read session", "id", session.ID, "error", err)
@@ -239,9 +249,12 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 			}
 			lock, ok := m.startExecution(session.ID)
 			if !ok {
+				slog.Info("session tick skipped because stopping", "id", session.ID, "elapsed", time.Since(tickStart))
 				return
 			}
+			slog.Info("session evaluate start", "id", session.ID, "strategy", fresh.Strategy, "mode", fresh.Mode)
 			m.evaluate(ctx, fresh)
+			slog.Info("session evaluate end", "id", session.ID, "elapsed", time.Since(tickStart))
 			m.finishExecution(lock)
 			// Run validator on every tick for grid+signal sessions
 			switch {
@@ -301,6 +314,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		// when multiple grid levels trigger simultaneously.
 		deduped := deduplicateSignals(signals)
 		for _, sig := range deduped {
+			slog.Info("live execute start", "session_id", session.ID, "side", sig.Side, "symbol", sig.Symbol, "price", sig.Price, "quantity", sig.Quantity)
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
 				// If live execute fails for DCA buy, revert in-memory state
@@ -330,6 +344,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
+			slog.Info("live execute end", "session_id", session.ID, "side", sig.Side, "symbol", sig.Symbol)
 		}
 		if len(signals) > 0 {
 			// Fetch fresh ticker for stop condition check — signal price may be

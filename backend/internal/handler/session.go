@@ -499,29 +499,39 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 }
 
 func (h *SessionHandler) Stop(c echo.Context) error {
+	start := time.Now()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	_, err := h.checkOwnership(c, id)
+	session, err := h.checkOwnership(c, id)
 	if err != nil {
 		return err
 	}
+	slog.Info("stop session requested", "session_id", id, "mode", session.Mode, "strategy", session.Strategy, "status", session.Status, "path", c.Path())
 	h.engine.Stop(id)
 	if err := h.svc.UpdateStopped(h.reqContext(c), id); err != nil {
 		slog.Warn("failed to update session stopped", "id", id, "error", err)
 	}
+	slog.Info("stop session completed", "session_id", id, "elapsed", time.Since(start))
 	return c.JSON(http.StatusOK, map[string]string{"status": "stopped"})
 }
 
 func (h *SessionHandler) Delete(c echo.Context) error {
+	start := time.Now()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	_, err := h.checkOwnership(c, id)
+	session, err := h.checkOwnership(c, id)
 	if err != nil {
 		return err
 	}
-	// Stop if running
-	h.engine.Stop(id)
+	slog.Info("delete session requested", "session_id", id, "mode", session.Mode, "strategy", session.Strategy, "status", session.Status, "path", c.Path())
+	// Graceful delete only applies to live sessions.
+	// Paper/signal sessions can be deleted directly without waiting for engine shutdown.
+	if session.Mode == string(model.ModeLive) {
+		h.engine.Stop(id)
+	}
 	if err := h.svc.Delete(h.reqContext(c), id); err != nil {
+		slog.Error("delete session failed", "session_id", id, "mode", session.Mode, "strategy", session.Strategy, "status", session.Status, "error", err, "elapsed", time.Since(start))
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
+	slog.Info("delete session completed", "session_id", id, "mode", session.Mode, "strategy", session.Strategy, "status", session.Status, "elapsed", time.Since(start))
 	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
