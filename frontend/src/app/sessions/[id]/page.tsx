@@ -1928,7 +1928,7 @@ export default function SessionDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
-                      {cycleOrders.map(o => (
+                      {allOrders.map(o => (
                         <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
