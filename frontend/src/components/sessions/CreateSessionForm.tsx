@@ -522,6 +522,8 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
                 <div>
                   <div className="flex items-center gap-1 mb-1.5"><span className="text-xs text-[#686868] dark:text-[#898989]">Interval Beli</span>{renderConfigHelp('dca_interval')}</div>
                   <select className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" value={dcaInterval} onChange={e => setDcaInterval(e.target.value)}>
+                    <option value="600">Setiap 10 Menit</option>
+                    <option value="1800">Setiap 30 Menit</option>
                     <option value="3600">Setiap 1 Jam</option>
                     <option value="7200">Setiap 2 Jam</option>
                     <option value="21600">Setiap 6 Jam</option>

@@ -44,8 +44,8 @@ func (o *OrderResponseData) HasExecutedQuantity() bool {
 	return ok && qty.Sign() > 0
 }
 
-func NewClientID(prefix string) string {
-	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
+func NewClientID(_ string) string {
+	return strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
 func ExchangeOrderStatus(status int) string {

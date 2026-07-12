@@ -17,6 +17,7 @@ import { PriceBadge } from '@/components/PriceBadge'
 import { Navbar } from '@/components/Navbar'
 import { StrategyTabs } from '@/components/sessions/StrategyTabs'
 import { TrendEditConfigForm } from '@/components/sessions/TrendEditConfigForm'
+import { DCAEditConfigForm } from '@/components/sessions/DCAEditConfigForm'
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, PieChart, Pie } from 'recharts'
 
 const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
@@ -1340,7 +1341,7 @@ export default function SessionDetailPage() {
                 {configDisplay.amount ? fmtCur(parseFloat(configDisplay.amount), quote) : '?'} / interval
               </span>
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
-                {configDisplay.interval_sec === 3600 ? 'Setiap 1 jam' : configDisplay.interval_sec === 7200 ? 'Setiap 2 jam' : configDisplay.interval_sec === 21600 ? 'Setiap 6 jam' : configDisplay.interval_sec === 43200 ? 'Setiap 12 jam' : configDisplay.interval_sec === 86400 ? 'Setiap 1 hari' : configDisplay.interval_sec === 604800 ? 'Setiap 1 minggu' : `${configDisplay.interval_sec || '?'}s`}
+                {configDisplay.interval_sec === 600 ? 'Setiap 10 menit' : configDisplay.interval_sec === 1800 ? 'Setiap 30 menit' : configDisplay.interval_sec === 3600 ? 'Setiap 1 jam' : configDisplay.interval_sec === 7200 ? 'Setiap 2 jam' : configDisplay.interval_sec === 21600 ? 'Setiap 6 jam' : configDisplay.interval_sec === 43200 ? 'Setiap 12 jam' : configDisplay.interval_sec === 86400 ? 'Setiap 1 hari' : configDisplay.interval_sec === 604800 ? 'Setiap 1 minggu' : `${configDisplay.interval_sec || '?'}s`}
               </span>
               {configDisplay.take_profit_pct > 0 && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870]">
@@ -1441,6 +1442,15 @@ export default function SessionDetailPage() {
             {editingConfig ? (
               session.strategy === 'trend' ? (
                 <TrendEditConfigForm
+                  sessionId={Number(id)}
+                  symbol={session.symbol}
+                  currentConfig={configDisplay}
+                  sessionRunning={session.status === 'running'}
+                  onSaved={() => { setEditingConfig(false); qc.invalidateQueries({ queryKey: ['session', id] }) }}
+                  onCancel={() => setEditingConfig(false)}
+                />
+              ) : session.strategy === 'dca' ? (
+                <DCAEditConfigForm
                   sessionId={Number(id)}
                   symbol={session.symbol}
                   currentConfig={configDisplay}

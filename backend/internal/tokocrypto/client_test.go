@@ -250,7 +250,7 @@ func TestHMACSignature(t *testing.T) {
 }
 
 func TestPlaceOrderSendsClientID(t *testing.T) {
-	clientID := "force" + "0123456789abcdef0123456789abcdef"
+	clientID := "0123456789abcdef0123456789abcdef"
 	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Query().Get("clientId"); got != clientID {
 			t.Fatalf("clientId = %q, want %s", got, clientID)
@@ -287,14 +287,16 @@ func TestPlaceOrderSendsClientID(t *testing.T) {
 
 func TestNewClientIDUsesTokocryptoSafeFormat(t *testing.T) {
 	clientID := NewClientID("live")
-	if !strings.HasPrefix(clientID, "live") {
-		t.Fatalf("clientID = %q, want live prefix", clientID)
-	}
 	if strings.Contains(clientID, "-") {
 		t.Fatalf("clientID = %q, must not contain hyphen", clientID)
 	}
-	if len(clientID) != len("live")+32 {
-		t.Fatalf("clientID length = %d, want %d", len(clientID), len("live")+32)
+	if len(clientID) != 32 {
+		t.Fatalf("clientID length = %d, want 32", len(clientID))
+	}
+	for _, r := range clientID {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			t.Fatalf("clientID = %q, contains non-hex character %q", clientID, r)
+		}
 	}
 }
 
