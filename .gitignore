@@ -5,6 +5,8 @@
 backend/.env
 frontend/.env
 data/
+.superpowers/
+.opencode/
 *.exe
 *.exe~
 *.dll
@@ -21,3 +23,5 @@ coverage*
 *.prof
 *.db
 tmp/
+frontend/tsconfig.tsbuildinfo
+backend/server.exe
