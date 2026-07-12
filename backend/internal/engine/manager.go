@@ -71,10 +71,8 @@ func (m *Manager) Start(session model.Session) error {
 		return ErrSessionRunning
 	}
 
-	// Reset strategy state on restart
-	if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-		dca.Reset(session.ID)
-	}
+	// Reset strategy state on restart for non-DCA sessions.
+	// DCA cycle should only reset after confirmed sell / force sell.
 	if grid, ok := m.strategies[string(model.StratGrid)].(*GridEngine); ok {
 		grid.Reset(session.ID)
 	}
