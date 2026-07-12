@@ -128,3 +128,33 @@ func TestBuyLockSerializesSameQuoteAsset(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestComputeLivePnLTx_FIFOExcludesPreviouslySoldLots(t *testing.T) {
+	_, db := setupDCA(t)
+	fixtures := []struct {
+		side, qty, price, created string
+	}{
+		{"buy", "2", "100", "2026-07-12 10:00:00"},
+		{"sell", "1", "110", "2026-07-12 10:01:00"},
+		{"buy", "1", "200", "2026-07-12 10:02:00"},
+	}
+	for i, f := range fixtures {
+		_, err := db.Exec(`INSERT INTO orders
+			(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at)
+			VALUES (1, ?, 'BTC_IDR', ?, 'market', ?, '999', 'filled', ?, ?, ?)`,
+			i+1, f.side, f.price, f.qty, f.price, f.created)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+
+	// Remaining FIFO lots are 1 @ 100 and 1 @ 200. Selling both @ 300 = 300 P&L.
+	if got := computeLivePnLTx(tx, 1, "300", "2"); got != "300.00000000" {
+		t.Fatalf("sell P&L = %s, want 300.00000000", got)
+	}
+}

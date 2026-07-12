@@ -90,7 +90,7 @@ func (r *SessionRepo) ListByUserAndStrategy(ctx context.Context, userID int64, s
 
 func (r *SessionRepo) UpdateStarted(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, r.db.Rebind(
-		"UPDATE sessions SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE id = ?"), id)
+		"UPDATE sessions SET status = 'running', started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = ?"), id)
 	return err
 }
 

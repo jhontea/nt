@@ -31,16 +31,8 @@ func NewPnLService(db *sqlx.DB) *PnLService {
 }
 
 func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSummary, error) {
-	var realizedPnL sql.NullFloat64
-	var winCount, lossCount, tradeCount int
-	if err := s.db.QueryRowContext(ctx,
-		s.db.Rebind(`SELECT
-			COALESCE(SUM(CAST(pnl AS REAL)), 0),
-			COUNT(*) FILTER (WHERE CAST(pnl AS REAL) > 0),
-			COUNT(*) FILTER (WHERE CAST(pnl AS REAL) <= 0),
-			COUNT(*)
-		FROM trades WHERE session_id = ?`), sessionID,
-	).Scan(&realizedPnL, &winCount, &lossCount, &tradeCount); err != nil {
+	position, err := s.calculateOrderPnL(ctx, sessionID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -50,14 +42,11 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 	}
 
 	winRate := 0.0
-	if tradeCount > 0 {
-		winRate = float64(winCount) / float64(tradeCount) * 100
+	if position.SellCount > 0 {
+		winRate = float64(position.WinCount) / float64(position.SellCount) * 100
 	}
 
-	realized := 0.0
-	if realizedPnL.Valid {
-		realized = realizedPnL.Float64
-	}
+	realized := position.RealizedPnL
 	bal := 0.0
 	if balance.Valid {
 		bal = balance.Float64
@@ -66,7 +55,7 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 	// ponytail: unrealized uses last executed_price as a proxy for current price —
 	// no live ticker call here. For real-time accuracy, use the frontend ticker feed.
 	var unrealized float64
-	if pos, err := s.GetHoldingPosition(ctx, sessionID); err == nil && pos.TotalQty > 0 && pos.AvgPrice > 0 {
+	if position.OpenQty > 0 && position.AvgOpenPrice > 0 {
 		var lastPrice sql.NullFloat64
 		_ = s.db.QueryRowContext(ctx, s.db.Rebind(
 			`SELECT CAST(executed_price AS REAL) FROM orders
@@ -74,7 +63,7 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 			 ORDER BY id DESC LIMIT 1`), sessionID,
 		).Scan(&lastPrice)
 		if lastPrice.Valid && lastPrice.Float64 > 0 {
-			unrealized = (lastPrice.Float64 - pos.AvgPrice) * pos.TotalQty
+			unrealized = (lastPrice.Float64 - position.AvgOpenPrice) * position.OpenQty
 		}
 	}
 
@@ -82,12 +71,82 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 		RealizedPnL:   strconv.FormatFloat(realized, 'f', 2, 64),
 		UnrealizedPnL: strconv.FormatFloat(unrealized, 'f', 2, 64),
 		TotalPnL:      strconv.FormatFloat(realized+unrealized, 'f', 2, 64),
-		WinCount:      winCount,
-		LossCount:     lossCount,
+		WinCount:      position.WinCount,
+		LossCount:     position.LossCount,
 		WinRate:       winRate,
-		TradeCount:    tradeCount,
+		TradeCount:    position.SellCount,
 		Balance:       bal,
 	}, nil
+}
+
+type orderPnLPosition struct {
+	RealizedPnL  float64
+	OpenQty      float64
+	OpenCost     float64
+	AvgOpenPrice float64
+	WinCount     int
+	LossCount    int
+	SellCount    int
+}
+
+// calculateOrderPnL rebuilds the whole session position chronologically using
+// exchange fills. FIFO guarantees a buy lot already sold is never reused.
+func (s *PnLService) calculateOrderPnL(ctx context.Context, sessionID int64) (*orderPnLPosition, error) {
+	type fill struct {
+		Side  string  `db:"side"`
+		Qty   float64 `db:"qty"`
+		Price float64 `db:"price"`
+	}
+	type lot struct{ Qty, Price float64 }
+	var fills []fill
+	if err := s.db.SelectContext(ctx, &fills, s.db.Rebind(`
+		SELECT side, CAST(executed_qty AS REAL) qty, CAST(executed_price AS REAL) price
+		FROM orders
+		WHERE session_id=? AND status='filled'
+		  AND CAST(executed_qty AS REAL)>0 AND CAST(executed_price AS REAL)>0
+		ORDER BY created_at ASC, id ASC`), sessionID); err != nil {
+		return nil, err
+	}
+
+	result := &orderPnLPosition{}
+	lots := make([]lot, 0)
+	for _, f := range fills {
+		if f.Side == "buy" {
+			lots = append(lots, lot{Qty: f.Qty, Price: f.Price})
+			continue
+		}
+		if f.Side != "sell" {
+			continue
+		}
+		remaining, sellPnL := f.Qty, 0.0
+		for remaining > 1e-12 && len(lots) > 0 {
+			matched := remaining
+			if lots[0].Qty < matched {
+				matched = lots[0].Qty
+			}
+			sellPnL += (f.Price - lots[0].Price) * matched
+			remaining -= matched
+			lots[0].Qty -= matched
+			if lots[0].Qty <= 1e-12 {
+				lots = lots[1:]
+			}
+		}
+		result.RealizedPnL += sellPnL
+		result.SellCount++
+		if sellPnL > 0 {
+			result.WinCount++
+		} else {
+			result.LossCount++
+		}
+	}
+	for _, lot := range lots {
+		result.OpenQty += lot.Qty
+		result.OpenCost += lot.Qty * lot.Price
+	}
+	if result.OpenQty > 0 {
+		result.AvgOpenPrice = result.OpenCost / result.OpenQty
+	}
+	return result, nil
 }
 
 type HoldingPosition struct {
@@ -102,29 +161,11 @@ type LastSignal struct {
 }
 
 func (s *PnLService) GetHoldingPosition(ctx context.Context, sessionID int64) (*HoldingPosition, error) {
-	// Net holding = total bought - total sold (filled only).
-	// We compute avg_price only from buy side using weighted average.
-	var pos HoldingPosition
-	var totalSoldQty sql.NullFloat64
-	if err := s.db.QueryRowContext(ctx, s.db.Rebind(
-		`SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0)
-		 FROM orders WHERE session_id = ? AND side = 'sell' AND status = 'filled'`), sessionID,
-	).Scan(&totalSoldQty); err != nil {
-		return nil, err
-	}
-	err := s.db.GetContext(ctx, &pos, s.db.Rebind(
-		`SELECT
-		    COALESCE(SUM(CAST(executed_qty AS REAL)), 0) - ? as total_qty,
-		    COALESCE(SUM(CAST(executed_qty AS REAL) * CAST(executed_price AS REAL)) / NULLIF(SUM(CAST(executed_qty AS REAL)), 0), 0) as avg_price
-		 FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
-		totalSoldQty.Float64, sessionID)
+	position, err := s.calculateOrderPnL(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
-	if pos.TotalQty < 0 {
-		pos.TotalQty = 0
-	}
-	return &pos, nil
+	return &HoldingPosition{TotalQty: position.OpenQty, AvgPrice: position.AvgOpenPrice}, nil
 }
 
 func (s *PnLService) GetLastSignal(ctx context.Context, sessionID int64) (*LastSignal, error) {
@@ -187,7 +228,8 @@ func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStat
 					ELSE CAST(quantity AS REAL) * CAST(price AS REAL)
 				END
 			), 0) AS total_invested,
-			COALESCE((SELECT CAST(o.price AS REAL) FROM orders o
+			COALESCE((SELECT CASE WHEN o.status='filled' AND CAST(o.executed_price AS REAL)>0
+				THEN CAST(o.executed_price AS REAL) ELSE CAST(o.price AS REAL) END FROM orders o
 				JOIN sessions s ON s.id = o.session_id
 				WHERE o.session_id=?
 				  AND o.side='buy'

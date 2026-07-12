@@ -73,13 +73,40 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	delete(d.avgBuyPrice, sessionID)
 }
 
-// ConfirmBuy updates avgBuyPrice after a live buy order is confirmed on the exchange.
-// Must be called by Manager after live.Execute succeeds.
-func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.Time, price, qty float64) {
+// ConfirmBuy reloads the active cost basis from exchange-confirmed fills.
+// Requested signal price/quantity must never be used for live accounting.
+func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.updateAvgPrice(sessionID, symbol, startedAt, price, qty)
-	slog.Info("dca: buy confirmed, avg price updated", "session", sessionID, "price", price, "qty", qty)
+	type aggregate struct {
+		TotalQty  float64 `db:"total_qty"`
+		TotalCost float64 `db:"total_cost"`
+		LastPrice float64 `db:"last_price"`
+	}
+	args := []any{sessionID, symbol}
+	startedAtClause := ""
+	if startedAt != nil {
+		startedAtClause = " AND created_at >= ?"
+		args = append(args, *startedAt)
+	}
+	var agg aggregate
+	err := d.db.Get(&agg, d.db.Rebind(`
+		SELECT COALESCE(SUM(CAST(executed_qty AS REAL)), 0) total_qty,
+		       COALESCE(SUM(CAST(executed_qty AS REAL) * CAST(executed_price AS REAL)), 0) total_cost,
+		       COALESCE((SELECT CAST(executed_price AS REAL) FROM orders
+		         WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`+startedAtClause+`
+		         ORDER BY created_at DESC, id DESC LIMIT 1), 0) last_price
+		FROM orders WHERE session_id=? AND symbol=? AND side='buy' AND status='filled'`+startedAtClause),
+		append(args, args...)...)
+	if err != nil || agg.TotalQty <= 0 {
+		delete(d.avgBuyPrice, sessionID)
+		delete(d.lastBuyPrice, sessionID)
+		slog.Warn("dca: failed to reload confirmed buy", "session", sessionID, "error", err)
+		return
+	}
+	d.avgBuyPrice[sessionID] = agg.TotalCost / agg.TotalQty
+	d.lastBuyPrice[sessionID] = agg.LastPrice
+	slog.Info("dca: confirmed fill state loaded", "session", sessionID, "avg_price", d.avgBuyPrice[sessionID], "qty", agg.TotalQty, "last_price", agg.LastPrice)
 }
 
 // ConfirmSell clears avgBuyPrice after a live sell order is confirmed on the exchange.
@@ -127,8 +154,10 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		}
 		if err := d.db.Get(&row, d.db.Rebind(
 			`SELECT `+epochExpr+` AS epoch,
-			        COALESCE(CAST(price AS REAL), 0) AS price_val
-			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'`+startedAtClause+`
+			        COALESCE(CASE WHEN status='filled' AND CAST(executed_price AS REAL)>0
+			          THEN CAST(executed_price AS REAL) ELSE CAST(price AS REAL) END, 0) AS price_val
+			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
+			   AND status IN ('filled','signal')`+startedAtClause+`
 			 ORDER BY id DESC LIMIT 1`,
 		), args...); err == nil && row.Epoch > 0 {
 			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
@@ -247,7 +276,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 				args = append(args, *session.StartedAt)
 			}
 			if err := d.db.Get(&totalQty,
-				d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
+				d.db.Rebind(`SELECT COALESCE(SUM(CASE WHEN status='filled' THEN CAST(executed_qty AS REAL) ELSE CAST(quantity AS REAL) END), 0) FROM orders
 				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
 				args...); err != nil {
 				slog.Warn("dca: fetch totalQty for TP/SL", "session", session.ID, "error", err)
@@ -272,30 +301,4 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		}
 	}
 	return signals
-}
-
-func (d *DCAEngine) updateAvgPrice(sessionID int64, symbol string, startedAt *time.Time, price, qty float64) {
-	oldAvg, ok := d.avgBuyPrice[sessionID]
-	if !ok || oldAvg == 0 {
-		d.avgBuyPrice[sessionID] = price
-		return
-	}
-	var existingQty float64
-	args := []any{sessionID, symbol}
-	startedAtClause := ""
-	if startedAt != nil {
-		startedAtClause = " AND created_at >= ?"
-		args = append(args, *startedAt)
-	}
-	if err := d.db.Get(&existingQty,
-		d.db.Rebind(`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
-		args...); err != nil {
-		slog.Warn("dca: fetch existingQty for avgPrice", "session", sessionID, "error", err)
-		return
-	}
-	totalQty := existingQty + qty
-	if totalQty > 0 {
-		d.avgBuyPrice[sessionID] = ((oldAvg * existingQty) + (price * qty)) / totalQty
-	}
 }

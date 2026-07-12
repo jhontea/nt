@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
@@ -179,6 +180,38 @@ func TestSessionRepo_UpdateStartedAt(t *testing.T) {
 	updated, _ := repo.FindByID(context.Background(), s.ID)
 	if updated.StartedAt == nil {
 		t.Error("expected started_at to be set")
+	}
+}
+
+func TestSessionRepo_RestartPreservesDCACycleStart(t *testing.T) {
+	db := setupDB(t)
+	repo := NewSessionRepo(db)
+	s, err := repo.Create(context.Background(), &model.Session{
+		UserID: 1, Name: "dca", Strategy: "dca", Mode: "live",
+		Symbol: "BTC_IDR", Config: `{}`, Status: "stopped",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateStarted(context.Background(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := repo.FindByID(context.Background(), s.ID)
+	if first.StartedAt == nil {
+		t.Fatal("first start did not set started_at")
+	}
+	want := *first.StartedAt
+
+	if err := repo.UpdateStopped(context.Background(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(10 * time.Millisecond)
+	if err := repo.UpdateStarted(context.Background(), s.ID); err != nil {
+		t.Fatal(err)
+	}
+	restarted, _ := repo.FindByID(context.Background(), s.ID)
+	if restarted.StartedAt == nil || !restarted.StartedAt.Equal(want) {
+		t.Fatalf("restart changed cycle start: got %v, want %v", restarted.StartedAt, want)
 	}
 }
 

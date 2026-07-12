@@ -104,6 +104,46 @@ func TestDCAEngine_RestoresReconciledBuyAverage(t *testing.T) {
 	}
 }
 
+func TestDCAEngine_ConfirmBuyUsesExecutedFillNotRequestedOrder(t *testing.T) {
+	d, db := setupDCA(t)
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, 'fill-1', 'BTC_IDR', 'buy', 'market', '1200000000', '0.00003400', 'filled', '0.00003000', '1150000000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.ConfirmBuy(1, "BTC_IDR", nil)
+	if got := d.avgBuyPrice[1]; got != 1150000000 {
+		t.Fatalf("confirmed avg = %.2f, want executed price 1150000000", got)
+	}
+	if got := d.lastBuyPrice[1]; got != 1150000000 {
+		t.Fatalf("last buy = %.2f, want executed price 1150000000", got)
+	}
+}
+
+func TestDCAEngine_LiveSellSignalUsesExecutedQuantity(t *testing.T) {
+	d, db := setupDCA(t)
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, 'fill-1', 'BTC_IDR', 'buy', 'market', '1150000000', '0.00003400', 'filled', '0.00003000', '1150000000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.avgBuyPrice[1] = 1150000000
+	d.lastBuy[1] = time.Now()
+
+	signals := d.evaluate(model.Session{ID: 1, Symbol: "BTC_IDR"}, DCAConfig{
+		IntervalSec: 9999, TakeProfitPct: 1,
+	}, 1170000000, "1170000000")
+	if len(signals) != 1 || signals[0].Side != "sell" {
+		t.Fatalf("expected one sell signal, got %+v", signals)
+	}
+	if signals[0].Quantity != "0.00003000" {
+		t.Fatalf("sell qty = %s, want executed qty 0.00003000", signals[0].Quantity)
+	}
+}
+
 func TestDCAEngine_TakeProfitTriggered(t *testing.T) {
 	d, db := setupDCA(t)
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}

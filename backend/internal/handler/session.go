@@ -248,32 +248,56 @@ func (h *SessionHandler) GetDCAStats(c echo.Context) error {
 // computeLivePnLTx calculates realized PnL for a sell using open buy orders within tx.
 // ponytail: duplicated from engine/live.go — shared if a third caller appears
 func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) string {
-	type buyPos struct {
+	type fill struct {
+		Side     string `db:"side"`
 		Price    string `db:"price"`
 		Quantity string `db:"quantity"`
 	}
-	var buys []buyPos
-	if err := tx.Select(&buys, tx.Rebind(
-		`SELECT executed_price as price, executed_qty as quantity FROM orders
-		 WHERE session_id = ? AND side = 'buy' AND status = 'filled' ORDER BY created_at ASC`), sessionID); err != nil {
-		slog.Warn("computeLivePnLTx: fetch buys", "session", sessionID, "error", err)
+	type lot struct{ qty, price float64 }
+	var fills []fill
+	if err := tx.Select(&fills, tx.Rebind(
+		`SELECT side, executed_price as price, executed_qty as quantity FROM orders
+		 WHERE session_id = ? AND status = 'filled' ORDER BY created_at ASC, id ASC`), sessionID); err != nil {
+		slog.Warn("computeLivePnLTx: fetch fills", "session", sessionID, "error", err)
 		return "0"
 	}
-	totalQty := 0.0
-	totalCost := 0.0
-	for _, b := range buys {
-		q, _ := strconv.ParseFloat(b.Quantity, 64)
-		p, _ := strconv.ParseFloat(b.Price, 64)
-		totalQty += q
-		totalCost += q * p
+	lots := make([]lot, 0)
+	for _, f := range fills {
+		q, _ := strconv.ParseFloat(f.Quantity, 64)
+		p, _ := strconv.ParseFloat(f.Price, 64)
+		if f.Side == string(model.SideBuy) {
+			lots = append(lots, lot{qty: q, price: p})
+			continue
+		}
+		if f.Side == string(model.SideSell) {
+			for q > 1e-12 && len(lots) > 0 {
+				matched := q
+				if lots[0].qty < matched {
+					matched = lots[0].qty
+				}
+				q -= matched
+				lots[0].qty -= matched
+				if lots[0].qty <= 1e-12 {
+					lots = lots[1:]
+				}
+			}
+		}
 	}
-	if totalQty == 0 {
-		return "0"
-	}
-	avgBuy := totalCost / totalQty
 	sellQty, _ := strconv.ParseFloat(execQty, 64)
 	sellPrice, _ := strconv.ParseFloat(execPrice, 64)
-	pnl := (sellPrice - avgBuy) * sellQty
+	pnl := 0.0
+	for sellQty > 1e-12 && len(lots) > 0 {
+		matched := sellQty
+		if lots[0].qty < matched {
+			matched = lots[0].qty
+		}
+		pnl += (sellPrice - lots[0].price) * matched
+		sellQty -= matched
+		lots[0].qty -= matched
+		if lots[0].qty <= 1e-12 {
+			lots = lots[1:]
+		}
+	}
 	return strconv.FormatFloat(pnl, 'f', 8, 64)
 }
 

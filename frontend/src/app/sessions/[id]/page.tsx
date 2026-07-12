@@ -208,10 +208,16 @@ export default function SessionDetailPage() {
   const { data: dcaTicker } = useQuery({
     queryKey: ['ticker', session?.symbol],
     queryFn: () => api.sessions.getTicker(session!.symbol),
-    enabled: isAuthenticated && isDCAPaper && !!session?.symbol,
+    enabled: isAuthenticated && session?.strategy === 'dca' && !!session?.symbol,
     refetchInterval: 1_000,
     staleTime: 5_000,
   })
+
+  const displayedTotalPnl = pnl
+    ? session?.strategy === 'dca' && session.mode === 'live' && dcaStats && dcaTicker && dcaStats.total_qty > 0
+      ? parseFloat(pnl.realized_pnl) + (parseFloat(dcaTicker.lastPrice) - dcaStats.avg_buy_price) * dcaStats.total_qty
+      : parseFloat(pnl.total_pnl)
+    : 0
 
   const { data: trendStatus } = useQuery({
     queryKey: ['trend-status-detail', id],
@@ -361,7 +367,7 @@ export default function SessionDetailPage() {
     if (pnl) {
       lines.push('### Performa')
       lines.push(`- Realized P&L: ${cur}${pnl.realized_pnl}`)
-      lines.push(`- Total P&L: ${cur}${pnl.total_pnl}`)
+      lines.push(`- Total P&L: ${cur}${displayedTotalPnl.toFixed(2)}`)
       lines.push(`- Win Rate: ${pnl.win_rate?.toFixed(1) ?? 0}%`)
       lines.push(`- Total Trades: ${pnl.trade_count ?? 0}`)
       if (session.mode === 'paper' && pnl.balance) lines.push(`- Balance: ${cur}${pnl.balance.toFixed(2)}`)
@@ -842,18 +848,18 @@ export default function SessionDetailPage() {
             
             {/* Total P&L Hero Card */}
             <div className={`rounded-[24px] p-6 mb-3 border-2 ${
-              parseFloat(pnl.total_pnl) >= 0
+              displayedTotalPnl >= 0
                 ? 'bg-gradient-to-br from-[rgba(5,77,40,0.08)] to-transparent border-[rgba(5,77,40,0.3)] dark:from-[rgba(159,232,112,0.1)] dark:border-[rgba(159,232,112,0.2)]'
                 : 'bg-gradient-to-br from-[rgba(208,50,56,0.08)] to-transparent border-[rgba(208,50,56,0.3)] dark:from-[rgba(208,50,56,0.1)] dark:border-[rgba(208,50,56,0.2)]'
             }`}>
               <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Total P&L</p>
               <div className="flex items-baseline gap-3">
-                <p className={`text-4xl font-black ${parseFloat(pnl.total_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {cur}{parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{pnl.total_pnl}
+                <p className={`text-4xl font-black ${displayedTotalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {cur}{displayedTotalPnl >= 0 ? '+' : ''}{displayedTotalPnl.toFixed(2)}
                 </p>
                 {pnl.balance && (
                   <p className="text-sm text-[#686868] dark:text-[#898989]">
-                    {parseFloat(pnl.total_pnl) >= 0 ? '+' : ''}{((parseFloat(pnl.total_pnl) / (Number(pnl.balance) - parseFloat(pnl.total_pnl))) * 100).toFixed(1)}%
+                    {displayedTotalPnl >= 0 ? '+' : ''}{((displayedTotalPnl / (Number(pnl.balance) - displayedTotalPnl)) * 100).toFixed(1)}%
                   </p>
                 )}
               </div>

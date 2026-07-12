@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -248,7 +249,11 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		deduped := deduplicateSignals(signals)
 		for _, sig := range deduped {
 			if err := m.live.Execute(session, sig); err != nil {
-				slog.Error("live execute", "session", session.ID, "error", err)
+				if errors.Is(err, ErrLiveOrderSkipped) {
+					slog.Info("live execute skipped", "session", session.ID, "side", sig.Side, "reason", err)
+				} else {
+					slog.Error("live execute", "session", session.ID, "error", err)
+				}
 				// If live execute fails for DCA buy, revert in-memory state
 				if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
 					if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
@@ -261,9 +266,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			// with the confirmed order, not speculatively before exchange confirms.
 			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-					priceF, _ := strconv.ParseFloat(sig.Price, 64)
-					qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
-					dca.ConfirmBuy(session.ID, session.Symbol, session.StartedAt, priceF, qtyF)
+					dca.ConfirmBuy(session.ID, session.Symbol, session.StartedAt)
 				}
 			}
 			// DCA: confirm sell after successful execution so avgBuyPrice is cleared.

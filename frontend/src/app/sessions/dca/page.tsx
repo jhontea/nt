@@ -234,18 +234,18 @@ function DcaPageInner() {
           const allStats = liveSessions.map(s => dcaStatsBySession[s.id]).filter(Boolean)
           const totalInvestedAll = allStats.reduce((s, st) => s + (st?.total_invested ?? 0), 0)
           const totalQtyBySymbol: Record<string, number> = {}
-          const avgPriceBySymbol: Record<string, number> = {}
+          const totalCostBySymbol: Record<string, number> = {}
           liveSessions.forEach(session => {
             const st = dcaStatsBySession[session.id]
             if (!st) return
             const sym = session.symbol
             totalQtyBySymbol[sym] = (totalQtyBySymbol[sym] ?? 0) + st.total_qty
-            avgPriceBySymbol[sym] = st.avg_buy_price
+            totalCostBySymbol[sym] = (totalCostBySymbol[sym] ?? 0) + st.avg_buy_price * st.total_qty
           })
           let totalUnrealized = 0
           Object.entries(totalQtyBySymbol).forEach(([sym, qty]) => {
             const ticker = tickerBySymbol[sym]
-            const avgPrice = avgPriceBySymbol[sym]
+            const avgPrice = qty > 0 ? (totalCostBySymbol[sym] ?? 0) / qty : 0
             if (ticker && avgPrice > 0 && qty > 0) {
               totalUnrealized += (parseFloat(ticker.lastPrice) - avgPrice) * qty
             }
