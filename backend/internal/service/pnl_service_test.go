@@ -83,14 +83,18 @@ func TestPnLService_GetSessionPnL_WithTrades(t *testing.T) {
 		1, "ord1", "BTC_USDT", "buy", "market", "50000", "0.01", "filled", "0.01", "50000")
 	db.Exec("INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price) VALUES (?,?,?,?,?,?,?,?,?,?)",
 		1, "ord2", "BTC_USDT", "sell", "market", "55000", "0.01", "filled", "0.01", "55000")
+	// Detail/list must rebuild from orders and remain independent from cached
+	// transaction P&L used by notifications.
+	db.Exec("INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl) VALUES (?,?,?,?,?,?,?,?,?)",
+		1, "ord2", "BTC_USDT", "sell", "55000", "0.01", "0", "USDT", "999999.00")
 
 	summary, err := s.GetSessionPnL(context.Background(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if summary.TradeCount != 1 {
-		t.Errorf("expected 1 closed trade, got %d", summary.TradeCount)
+	if summary.TradeCount != 2 {
+		t.Errorf("expected 2 filled orders, got %d", summary.TradeCount)
 	}
 	if summary.WinCount != 1 {
 		t.Errorf("expected 1 win, got %d", summary.WinCount)
@@ -139,7 +143,7 @@ func TestPnLService_RealHistoryUsesFIFOAndExecutedValues(t *testing.T) {
 	if summary.RealizedPnL != "241.58" {
 		t.Fatalf("realized P&L = %s, want 241.58", summary.RealizedPnL)
 	}
-	if summary.TradeCount != 4 || summary.WinCount != 4 || summary.LossCount != 0 || summary.WinRate != 100 {
+	if summary.TradeCount != 14 || summary.WinCount != 4 || summary.LossCount != 0 || summary.WinRate != 100 {
 		t.Fatalf("unexpected trade stats: %+v", summary)
 	}
 

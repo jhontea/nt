@@ -351,7 +351,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	if signal.Side == string(model.SideSell) {
 		// computeLivePnL must read BEFORE buy orders are closed in this tx.
 		// We read within the tx so we see consistent state.
-		pnlStr = computeLivePnLTx(tx, session.ID, execPrice, execQty)
+		pnlStr = computeLivePnLTx(tx, session.ID, orderID, execPrice, execQty)
 	}
 	fee, feeAsset := order.Fee()
 
@@ -381,7 +381,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 
 // computeLivePnLTx calculates realized PnL for a sell using open buy orders,
 // read within the provided transaction for consistent state.
-func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) string {
+func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, currentOrderID, execPrice, execQty string) string {
 	type fill struct {
 		Side     string `db:"side"`
 		Price    string `db:"price"`
@@ -391,7 +391,9 @@ func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) s
 	var fills []fill
 	if err := tx.Select(&fills, tx.Rebind(
 		`SELECT side, executed_price as price, executed_qty as quantity FROM orders
-		 WHERE session_id = ? AND status = 'filled' ORDER BY created_at ASC, id ASC`), sessionID); err != nil {
+		 WHERE session_id = ? AND status = 'filled'
+		   AND (? = '' OR order_id <> ?)
+		 ORDER BY created_at ASC, id ASC`), sessionID, currentOrderID, currentOrderID); err != nil {
 		slog.Warn("computeLivePnLTx: fetch fills", "session", sessionID, "error", err)
 		return "0"
 	}

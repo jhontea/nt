@@ -247,7 +247,7 @@ func (h *SessionHandler) GetDCAStats(c echo.Context) error {
 
 // computeLivePnLTx calculates realized PnL for a sell using open buy orders within tx.
 // ponytail: duplicated from engine/live.go — shared if a third caller appears
-func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) string {
+func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, currentOrderID, execPrice, execQty string) string {
 	type fill struct {
 		Side     string `db:"side"`
 		Price    string `db:"price"`
@@ -257,7 +257,9 @@ func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) s
 	var fills []fill
 	if err := tx.Select(&fills, tx.Rebind(
 		`SELECT side, executed_price as price, executed_qty as quantity FROM orders
-		 WHERE session_id = ? AND status = 'filled' ORDER BY created_at ASC, id ASC`), sessionID); err != nil {
+		 WHERE session_id = ? AND status = 'filled'
+		   AND (? = '' OR order_id <> ?)
+		 ORDER BY created_at ASC, id ASC`), sessionID, currentOrderID, currentOrderID); err != nil {
 		slog.Warn("computeLivePnLTx: fetch fills", "session", sessionID, "error", err)
 		return "0"
 	}
@@ -488,7 +490,7 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	pnlStr := computeLivePnLTx(tx, id, execPrice, execQty)
+	pnlStr := computeLivePnLTx(tx, id, orderID, execPrice, execQty)
 	fee, feeAsset := order.Fee()
 
 	if _, err := tx.Exec(tx.Rebind(`UPDATE orders

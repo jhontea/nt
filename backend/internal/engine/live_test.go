@@ -154,7 +154,28 @@ func TestComputeLivePnLTx_FIFOExcludesPreviouslySoldLots(t *testing.T) {
 	defer tx.Rollback()
 
 	// Remaining FIFO lots are 1 @ 100 and 1 @ 200. Selling both @ 300 = 300 P&L.
-	if got := computeLivePnLTx(tx, 1, "300", "2"); got != "300.00000000" {
+	if got := computeLivePnLTx(tx, 1, "", "300", "2"); got != "300.00000000" {
 		t.Fatalf("sell P&L = %s, want 300.00000000", got)
+	}
+}
+
+func TestComputeLivePnLTx_ExcludesCurrentFilledSell(t *testing.T) {
+	_, db := setupDCA(t)
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at)
+		VALUES
+		(1, 'buy-1', 'SOL_IDR', 'buy', 'market', '100', '2', 'filled', '2', '100', '2026-07-12 10:00:00'),
+		(1, 'sell-current', 'SOL_IDR', 'sell', 'market', '150', '2', 'filled', '2', '150', '2026-07-12 10:01:00')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+
+	if got := computeLivePnLTx(tx, 1, "sell-current", "150", "2"); got != "100.00000000" {
+		t.Fatalf("current sell P&L = %s, want 100.00000000", got)
 	}
 }

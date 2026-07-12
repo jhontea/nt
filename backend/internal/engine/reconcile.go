@@ -128,7 +128,7 @@ func (r *Reconciler) reconcile(ctx context.Context) {
 			if tradeCount == 0 {
 				pnl := "0"
 				if o.Side == string(model.SideSell) {
-					pnl = computeLivePnLTx(tx, o.SessionID, execPrice, execQty)
+					pnl = computeLivePnLTx(tx, o.SessionID, exchangeOrderID, execPrice, execQty)
 				}
 				fee, feeAsset := exchangeOrder.Fee()
 				if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO trades

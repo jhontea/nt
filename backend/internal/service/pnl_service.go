@@ -74,7 +74,7 @@ func (s *PnLService) GetSessionPnL(ctx context.Context, sessionID int64) (*PnLSu
 		WinCount:      position.WinCount,
 		LossCount:     position.LossCount,
 		WinRate:       winRate,
-		TradeCount:    position.SellCount,
+		TradeCount:    position.FillCount,
 		Balance:       bal,
 	}, nil
 }
@@ -87,6 +87,7 @@ type orderPnLPosition struct {
 	WinCount     int
 	LossCount    int
 	SellCount    int
+	FillCount    int
 }
 
 // calculateOrderPnL rebuilds the whole session position chronologically using
@@ -111,6 +112,7 @@ func (s *PnLService) calculateOrderPnL(ctx context.Context, sessionID int64) (*o
 	result := &orderPnLPosition{}
 	lots := make([]lot, 0)
 	for _, f := range fills {
+		result.FillCount++
 		if f.Side == "buy" {
 			lots = append(lots, lot{Qty: f.Qty, Price: f.Price})
 			continue
