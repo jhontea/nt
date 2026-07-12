@@ -572,6 +572,7 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	var envelope struct {
 		Code    int             `json:"code"`
 		Message string          `json:"message"`
+		Msg     string          `json:"msg"`
 		Data    json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -579,8 +580,12 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 		return nil, err
 	}
 	if envelope.Code != 0 {
-		slog.Error("PlaceOrder API error", "code", envelope.Code, "message", envelope.Message, "body", string(body))
-		return nil, &APIError{Code: envelope.Code, Message: envelope.Message, Body: string(body)}
+		message := envelope.Message
+		if message == "" {
+			message = envelope.Msg
+		}
+		slog.Error("PlaceOrder API error", "code", envelope.Code, "message", message, "body", string(body))
+		return nil, &APIError{Code: envelope.Code, Message: message, Body: string(body)}
 	}
 	var data OrderResponseData
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {

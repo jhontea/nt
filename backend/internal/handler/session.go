@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/engine"
@@ -381,7 +380,7 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 		return finishDust(fmtQty, "position value is below market minimum notional")
 	}
 
-	clientID := "force-" + uuid.NewString()
+	clientID := tokocrypto.NewClientID("force")
 	if _, err := h.db.ExecContext(ctx, h.db.Rebind(`INSERT INTO orders
 		(session_id, order_id, client_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)
 		VALUES (?, '', ?, ?, 'sell', 'market', ?, ?, ?, '0', '0', '0')`),

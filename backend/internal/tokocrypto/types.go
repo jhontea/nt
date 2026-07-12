@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"math/big"
 	"strconv"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 // OrderResponseData captures fields callers use.
@@ -39,6 +42,10 @@ func (o *OrderResponseData) HasExecutedQuantity() bool {
 	}
 	qty, ok := new(big.Rat).SetString(o.ExecutedQty)
 	return ok && qty.Sign() > 0
+}
+
+func NewClientID(prefix string) string {
+	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
 func ExchangeOrderStatus(status int) string {

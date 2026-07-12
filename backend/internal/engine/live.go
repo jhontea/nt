@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/service"
@@ -252,7 +251,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	} else {
 		req.QuoteOrderQty = strconv.FormatFloat(notional, 'f', 8, 64)
 	}
-	clientID := "live-" + uuid.NewString()
+	clientID := tokocrypto.NewClientID("live")
 	req.ClientID = clientID
 	if _, err := l.db.Exec(l.db.Rebind(`INSERT INTO orders
 		(session_id, order_id, client_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -249,15 +250,16 @@ func TestHMACSignature(t *testing.T) {
 }
 
 func TestPlaceOrderSendsClientID(t *testing.T) {
+	clientID := "force" + "0123456789abcdef0123456789abcdef"
 	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("clientId"); got != "force-session-1" {
-			t.Fatalf("clientId = %q, want force-session-1", got)
+		if got := r.URL.Query().Get("clientId"); got != clientID {
+			t.Fatalf("clientId = %q, want %s", got, clientID)
 		}
 		json.NewEncoder(w).Encode(map[string]any{
 			"code": 0,
 			"data": map[string]any{
 				"orderId":     123,
-				"clientId":    "force-session-1",
+				"clientId":    clientID,
 				"status":      2,
 				"executedQty": "0.001",
 				"taxFee":      "10.5",
@@ -267,12 +269,12 @@ func TestPlaceOrderSendsClientID(t *testing.T) {
 	})
 
 	order, err := client.PlaceOrder(OrderRequest{
-		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: clientID,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if order.OrderID != 123 || order.ClientID != "force-session-1" {
+	if order.OrderID != 123 || order.ClientID != clientID {
 		t.Fatalf("unexpected order response: %+v", order)
 	}
 	if !order.HasExecutedQuantity() {
@@ -280,6 +282,19 @@ func TestPlaceOrderSendsClientID(t *testing.T) {
 	}
 	if fee, asset := order.Fee(); fee != "10.5" || asset != "IDR" {
 		t.Fatalf("fee = %s %s, want 10.5 IDR", fee, asset)
+	}
+}
+
+func TestNewClientIDUsesTokocryptoSafeFormat(t *testing.T) {
+	clientID := NewClientID("live")
+	if !strings.HasPrefix(clientID, "live") {
+		t.Fatalf("clientID = %q, want live prefix", clientID)
+	}
+	if strings.Contains(clientID, "-") {
+		t.Fatalf("clientID = %q, must not contain hyphen", clientID)
+	}
+	if len(clientID) != len("live")+32 {
+		t.Fatalf("clientID length = %d, want %d", len(clientID), len("live")+32)
 	}
 }
 
@@ -293,7 +308,7 @@ func TestPlaceOrderAPIErrorIsDefiniteRejection(t *testing.T) {
 	})
 
 	_, err := client.PlaceOrder(OrderRequest{
-		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: NewClientID("force"),
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -303,13 +318,32 @@ func TestPlaceOrderAPIErrorIsDefiniteRejection(t *testing.T) {
 	}
 }
 
+func TestPlaceOrderAPIErrorUsesMsgFallback(t *testing.T) {
+	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": 3703,
+			"msg":  "Invalid client ID.",
+		})
+	})
+
+	_, err := client.PlaceOrder(OrderRequest{
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: NewClientID("force"),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "Invalid client ID") {
+		t.Fatalf("error = %v, want msg fallback", err)
+	}
+}
+
 func TestPlaceOrderHTTP5xxIsNotDefiniteRejection(t *testing.T) {
 	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upstream timeout", http.StatusBadGateway)
 	})
 
 	_, err := client.PlaceOrder(OrderRequest{
-		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: NewClientID("force"),
 	})
 	if err == nil {
 		t.Fatal("expected error")
