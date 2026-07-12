@@ -483,6 +483,9 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 		time.Now(), id); err != nil {
 		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but failed to stop session: "+err.Error()))
 	}
+	if _, err := tx.Exec(tx.Rebind(`UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?`), id); err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but failed to refresh cycle start: "+err.Error()))
+	}
 
 	if err := tx.Commit(); err != nil {
 		slog.Error("force sell: order placed but DB commit failed — manual reconciliation required",

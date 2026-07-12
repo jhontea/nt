@@ -117,6 +117,13 @@ export default function SessionDetailPage() {
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersFetched, setOrdersFetched] = useState(false)
 
+  const cycleOrders = useMemo(() => {
+    if (session.strategy !== 'dca' || !session.started_at) return allOrders
+    const startedAt = new Date(session.started_at).getTime()
+    if (Number.isNaN(startedAt)) return allOrders
+    return allOrders.filter(o => new Date(o.created_at).getTime() >= startedAt)
+  }, [allOrders, session.started_at, session.strategy])
+
   const fetchOrders = useCallback(async (cursor?: number) => {
     if (!isAuthenticated) return
     setOrdersLoading(true)
@@ -317,8 +324,8 @@ export default function SessionDetailPage() {
     } else if (session.strategy === 'dca') {
       lines.push(`- Interval: ${configDisplay.interval_sec}s`)
       lines.push(`- Amount: ${cur}${configDisplay.amount}`)
-      if (allOrders && allOrders.length > 0) {
-        const lastBuy = allOrders.find(o => o.side === 'buy')
+      if (cycleOrders && cycleOrders.length > 0) {
+        const lastBuy = cycleOrders.find(o => o.side === 'buy')
         const executedQty = lastBuy?.executed_qty || ''
         const executedQuoteQty = lastBuy?.executed_quote_qty || ''
         if (executedQty || executedQuoteQty) {
@@ -362,9 +369,9 @@ export default function SessionDetailPage() {
     }
 
     // Orders (last 5)
-    if (allOrders && allOrders.length > 0) {
-      lines.push(`### Order Terakhir (${Math.min(allOrders.length, 5)} dari ${allOrders.length})`)
-      allOrders.slice(0, 5).forEach(o => {
+    if (cycleOrders && cycleOrders.length > 0) {
+      lines.push(`### Order Terakhir (${Math.min(cycleOrders.length, 5)} dari ${cycleOrders.length})`)
+      cycleOrders.slice(0, 5).forEach(o => {
         const t = new Date(o.created_at).toLocaleString('id-ID')
         const qty = o.executed_qty || o.quantity
         const executedQuote = o.executed_quote_qty && parseFloat(o.executed_quote_qty) > 0
@@ -882,8 +889,8 @@ export default function SessionDetailPage() {
         ) : null}
 
         {/* DCA buy price sparkline */}
-        {session.strategy === 'dca' && allOrders.filter(o => o.side === 'buy' && o.status === 'filled').length > 1 && (() => {
-          const buys = allOrders
+        {session.strategy === 'dca' && cycleOrders.filter(o => o.side === 'buy' && o.status === 'filled').length > 1 && (() => {
+          const buys = cycleOrders
             .filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
             .map(o => ({ price: parseFloat(o.executed_price || o.price), time: new Date(o.created_at).getTime() }))
             .filter(b => b.price > 0)
@@ -1016,7 +1023,7 @@ export default function SessionDetailPage() {
               })()}
               {/* Next buy — prominent card */}
               {(() => {
-                const lastBuyOrder = allOrders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+                const lastBuyOrder = cycleOrders.filter(o => o.side === 'buy').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
                 const cfg = configDisplay as any
                 if (!lastBuyOrder || !cfg?.interval_sec || session.status !== 'running') return null
                 const nextMs = new Date(lastBuyOrder.created_at).getTime() + cfg.interval_sec * 1000 - Date.now()
@@ -1891,7 +1898,7 @@ export default function SessionDetailPage() {
                 <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
                 <span className="text-sm">Memuat orders...</span>
               </div>
-            ) : !ordersFetched || !allOrders?.length ? (
+            ) : !ordersFetched || !cycleOrders?.length ? (
               <div className="flex flex-col items-center gap-3 py-8 text-sm">
                 <p className="text-[#686868] dark:text-[#898989]">Belum ada order.</p>
                 {session.status !== 'running' && (
@@ -1921,7 +1928,7 @@ export default function SessionDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
-                      {allOrders.map(o => (
+                      {cycleOrders.map(o => (
                         <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>

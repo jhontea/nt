@@ -21,8 +21,6 @@ type Manager struct {
 	mu            sync.Mutex
 	wg            sync.WaitGroup
 	sessions      map[int64]*RunningSession
-	stopping      map[int64]bool
-	execLocks     map[int64]*sync.Mutex
 	highWaterMark map[int64]float64
 	client        *tokocrypto.Client
 	db            *sqlx.DB
@@ -44,8 +42,6 @@ type RunningSession struct {
 func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier, hub *WSHub, signalRepo repository.StrategySignalRepository) *Manager {
 	m := &Manager{
 		sessions:      make(map[int64]*RunningSession),
-		stopping:      make(map[int64]bool),
-		execLocks:     make(map[int64]*sync.Mutex),
 		highWaterMark: make(map[int64]float64),
 		client:        client,
 		db:            db,
@@ -65,36 +61,6 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 	// start reconciler in background — syncs live orders stuck in non-terminal status
 	go m.reconciler.Run(context.Background(), 5*time.Minute)
 	return m
-}
-
-func (m *Manager) execLock(sessionID int64) *sync.Mutex {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if lock, ok := m.execLocks[sessionID]; ok {
-		return lock
-	}
-	lock := &sync.Mutex{}
-	m.execLocks[sessionID] = lock
-	return lock
-}
-
-func (m *Manager) startExecution(sessionID int64) (*sync.Mutex, bool) {
-	lock := m.execLock(sessionID)
-	lock.Lock()
-	m.mu.Lock()
-	stopping := m.stopping[sessionID]
-	m.mu.Unlock()
-	if stopping {
-		lock.Unlock()
-		return nil, false
-	}
-	return lock, true
-}
-
-func (m *Manager) finishExecution(lock *sync.Mutex) {
-	if lock != nil {
-		lock.Unlock()
-	}
 }
 
 func (m *Manager) Start(session model.Session) error {
@@ -131,7 +97,6 @@ func (m *Manager) Start(session model.Session) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	m.stopping[session.ID] = false
 	m.sessions[session.ID] = &RunningSession{
 		Session: session,
 		Cancel:  cancel,
@@ -143,33 +108,21 @@ func (m *Manager) Start(session model.Session) error {
 }
 
 func (m *Manager) Stop(sessionID int64) {
-	start := time.Now()
 	m.mu.Lock()
-	m.stopping[sessionID] = true
 	if rs, ok := m.sessions[sessionID]; ok {
-		slog.Info("engine stop cancel session", "session_id", sessionID)
 		rs.Cancel()
 	}
-	lock := m.execLock(sessionID)
 	m.mu.Unlock()
-
-	slog.Info("engine stop waiting execution lock", "session_id", sessionID)
-	lock.Lock()
-	slog.Info("engine stop acquired execution lock", "session_id", sessionID)
 	m.mu.Lock()
 	delete(m.sessions, sessionID)
-	delete(m.stopping, sessionID)
 	m.mu.Unlock()
-	lock.Unlock()
 	m.resetEngineState(sessionID)
-	slog.Info("engine stop completed", "session_id", sessionID, "elapsed", time.Since(start))
 }
 
 // stopSession cancels the session goroutine without sending a manual stop notification.
 // Used by SL/TP triggers which send their own SendStopAlert notification.
 func (m *Manager) stopSession(sessionID int64) {
 	m.mu.Lock()
-	m.stopping[sessionID] = true
 	defer m.mu.Unlock()
 	if rs, ok := m.sessions[sessionID]; ok {
 		rs.Cancel()
@@ -191,29 +144,21 @@ func (m *Manager) resetEngineState(sessionID int64) {
 }
 
 func (m *Manager) StopAll() {
-	start := time.Now()
 	m.mu.Lock()
 	ids := make([]int64, 0, len(m.sessions))
 	for id, rs := range m.sessions {
 		rs.Cancel()
-		m.stopping[id] = true
 		ids = append(ids, id)
 	}
 	m.mu.Unlock()
 
 	for _, id := range ids {
-		lock := m.execLock(id)
-		slog.Info("engine stopall waiting execution lock", "session_id", id)
-		lock.Lock()
-		lock.Unlock()
 		m.mu.Lock()
 		delete(m.sessions, id)
-		delete(m.stopping, id)
 		m.mu.Unlock()
 		m.resetEngineState(id)
 	}
 	m.wg.Wait()
-	slog.Info("engine stopall completed", "session_count", len(ids), "elapsed", time.Since(start))
 }
 
 func (m *Manager) IsRunning(sessionID int64) bool {
@@ -240,22 +185,12 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 			slog.Info("session stopped", "id", session.ID)
 			return
 		case <-ticker.C:
-			tickStart := time.Now()
-			slog.Info("session tick start", "id", session.ID, "strategy", session.Strategy, "mode", session.Mode)
 			var fresh model.Session
 			if err := m.db.Get(&fresh, m.db.Rebind("SELECT * FROM sessions WHERE id = ?"), session.ID); err != nil {
 				slog.Error("read session", "id", session.ID, "error", err)
 				continue
 			}
-			lock, ok := m.startExecution(session.ID)
-			if !ok {
-				slog.Info("session tick skipped because stopping", "id", session.ID, "elapsed", time.Since(tickStart))
-				return
-			}
-			slog.Info("session evaluate start", "id", session.ID, "strategy", fresh.Strategy, "mode", fresh.Mode)
 			m.evaluate(ctx, fresh)
-			slog.Info("session evaluate end", "id", session.ID, "elapsed", time.Since(tickStart))
-			m.finishExecution(lock)
 			// Run validator on every tick for grid+signal sessions
 			switch {
 			case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
@@ -314,7 +249,6 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		// when multiple grid levels trigger simultaneously.
 		deduped := deduplicateSignals(signals)
 		for _, sig := range deduped {
-			slog.Info("live execute start", "session_id", session.ID, "side", sig.Side, "symbol", sig.Symbol, "price", sig.Price, "quantity", sig.Quantity)
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
 				// If live execute fails for DCA buy, revert in-memory state
@@ -339,12 +273,14 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideSell) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
 					dca.ConfirmSell(session.ID)
+					if _, err := m.db.Exec(m.db.Rebind("UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
+						slog.Warn("dca sell: failed to refresh started_at", "session", session.ID, "error", err)
+					}
 				}
 			}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
-			slog.Info("live execute end", "session_id", session.ID, "side", sig.Side, "symbol", sig.Symbol)
 		}
 		if len(signals) > 0 {
 			// Fetch fresh ticker for stop condition check — signal price may be

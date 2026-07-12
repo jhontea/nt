@@ -88,9 +88,10 @@ func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.T
 func (d *DCAEngine) ConfirmSell(sessionID int64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	delete(d.lastBuy, sessionID)
 	delete(d.avgBuyPrice, sessionID)
 	delete(d.lastBuyPrice, sessionID)
-	slog.Info("dca: sell confirmed, avg price cleared", "session", sessionID)
+	slog.Info("dca: sell confirmed, cycle state reset", "session", sessionID)
 }
 
 // RevertLastBuy rolls back price/avg state when a live buy order fails at the exchange,
