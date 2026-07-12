@@ -714,10 +714,14 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 	slog.Info("live stop condition triggered", "session", session.ID, "reason", reason,
 		"total_value", totalValue, "init_balance", initBal)
 
-	m.stopSession(session.ID)
-	if _, err := m.db.Exec(m.db.Rebind(
-		"UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
-		slog.Error("checkLiveStopConditions: update session status", "session", session.ID, "error", err)
+	if session.Strategy != string(model.StratDCA) {
+		m.stopSession(session.ID)
+		if _, err := m.db.Exec(m.db.Rebind(
+			"UPDATE sessions SET status = 'stopped', stopped_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
+			slog.Error("checkLiveStopConditions: update session status", "session", session.ID, "error", err)
+		}
+	} else {
+		slog.Info("dca live stop condition treated as cycle reset, session keeps running", "session", session.ID, "reason", reason)
 	}
 	if m.notifier != nil {
 		m.notifier.SendStopAlert(session.Name, session.Strategy, session.Mode, session.Symbol, string(reason), totalValue, initBal)
