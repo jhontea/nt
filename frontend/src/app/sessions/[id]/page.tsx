@@ -317,6 +317,14 @@ export default function SessionDetailPage() {
     } else if (session.strategy === 'dca') {
       lines.push(`- Interval: ${configDisplay.interval_sec}s`)
       lines.push(`- Amount: ${cur}${configDisplay.amount}`)
+      if (allOrders && allOrders.length > 0) {
+        const lastBuy = allOrders.find(o => o.side === 'buy')
+        const executedQty = lastBuy?.executed_qty || ''
+        const executedQuoteQty = lastBuy?.executed_quote_qty || ''
+        if (executedQty || executedQuoteQty) {
+          lines.push(`- Fill terakhir: ${executedQty || lastBuy?.quantity || '?'} ${session.symbol.split('_')[0]}${executedQuoteQty ? ` (${cur}${executedQuoteQty})` : ''}`)
+        }
+      }
       if (configDisplay.take_profit_pct > 0) lines.push(`- Take Profit: ${configDisplay.take_profit_pct}%`)
       if (configDisplay.stop_loss_pct > 0) lines.push(`- Stop Loss: ${configDisplay.stop_loss_pct}%`)
       if (configDisplay.drop_pct > 0) lines.push(`- Beli saat turun: ${configDisplay.drop_pct}%`)
@@ -358,7 +366,11 @@ export default function SessionDetailPage() {
       lines.push(`### Order Terakhir (${Math.min(allOrders.length, 5)} dari ${allOrders.length})`)
       allOrders.slice(0, 5).forEach(o => {
         const t = new Date(o.created_at).toLocaleString('id-ID')
-        lines.push(`- ${o.side.toUpperCase()} ${o.executed_qty || o.quantity} @ ${o.executed_price || o.price} | ${o.status} | ${t}`)
+        const qty = o.executed_qty || o.quantity
+        const executedQuote = o.executed_quote_qty && parseFloat(o.executed_quote_qty) > 0
+          ? ` | Fill ${fmtCur(parseFloat(o.executed_quote_qty), quote)}`
+          : ''
+        lines.push(`- ${o.side.toUpperCase()} ${qty} @ ${o.executed_price || o.price} | ${o.status}${executedQuote} | ${t}`)
       })
       lines.push('')
     }
@@ -1902,6 +1914,7 @@ export default function SessionDetailPage() {
                          <th className="px-4 py-3 text-left">Sisi</th>
                          <th className="px-4 py-3 text-left">Harga</th>
                          <th className="px-4 py-3 text-left">Jumlah</th>
+                         {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Executed Qty</th>}
                          {session.strategy === 'dca' && <th className="px-4 py-3 text-left">Nilai</th>}
                          {session.strategy !== 'dca' && <th className="px-4 py-3 text-left">Status</th>}
                          {session.strategy !== 'dca' && <th className="px-4 py-3 text-left">Tipe</th>}
@@ -1921,6 +1934,11 @@ export default function SessionDetailPage() {
                           </td>
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{o.price}</td>
                           <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">{o.quantity}</td>
+                          {session.strategy === 'dca' && (
+                            <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">
+                              {o.executed_qty && parseFloat(o.executed_qty) > 0 ? o.executed_qty : '-'}
+                            </td>
+                          )}
                           {session.strategy === 'dca' && (
                             <td className="px-4 py-3 text-xs text-[#0e0f0c] dark:text-[#e8ebe6]">
                               {o.executed_quote_qty && parseFloat(o.executed_quote_qty) > 0
