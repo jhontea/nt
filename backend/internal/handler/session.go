@@ -106,8 +106,10 @@ func (h *SessionHandler) Create(c echo.Context) error {
 }
 
 func (h *SessionHandler) List(c echo.Context) error {
+	start := time.Now()
 	sessions, err := h.svc.List(h.reqContext(c), h.userID(c))
 	if err != nil {
+		slog.Error("list sessions failed", "path", c.Path(), "user_id", h.userID(c), "error", err, "elapsed", time.Since(start))
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
 	if strat, ok := c.Get("strategy").(string); ok && strat != "" {
@@ -124,6 +126,7 @@ func (h *SessionHandler) List(c echo.Context) error {
 			IsAlive: h.engine.IsRunning(s.ID),
 		}
 	}
+	slog.Info("list sessions ok", "path", c.Path(), "user_id", h.userID(c), "strategy", c.Get("strategy"), "count", len(result), "elapsed", time.Since(start))
 	return c.JSON(http.StatusOK, result)
 }
 
@@ -228,14 +231,17 @@ func (h *SessionHandler) GetOrders(c echo.Context) error {
 }
 
 func (h *SessionHandler) GetDCAStats(c echo.Context) error {
+	start := time.Now()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	if _, err := h.checkOwnership(c, id); err != nil {
 		return err
 	}
 	stats, err := h.svc.PnL.GetDCAStats(h.reqContext(c), id)
 	if err != nil {
+		slog.Error("get dca stats failed", "session_id", id, "path", c.Path(), "error", err, "elapsed", time.Since(start))
 		return c.JSON(http.StatusInternalServerError, ErrorJSON(err.Error()))
 	}
+	slog.Info("get dca stats ok", "session_id", id, "path", c.Path(), "buy_count", stats.BuyCount, "total_qty", stats.TotalQty, "elapsed", time.Since(start))
 	return c.JSON(http.StatusOK, stats)
 }
 

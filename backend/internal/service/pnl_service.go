@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
@@ -165,6 +167,7 @@ type DCAStats struct {
 }
 
 func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStats, error) {
+	start := time.Now()
 	var row struct {
 		BuyCount      int     `db:"buy_count"`
 		TotalQty      float64 `db:"total_qty"`
@@ -199,12 +202,14 @@ func (s *PnLService) GetDCAStats(ctx context.Context, sessionID int64) (*DCAStat
 		  AND (s.started_at IS NULL OR o.created_at >= s.started_at)
 	`), sessionID, sessionID)
 	if err != nil {
+		slog.Error("dca stats query failed", "session_id", sessionID, "error", err, "elapsed", time.Since(start))
 		return nil, err
 	}
 	avgBuyPrice := 0.0
 	if row.TotalQty > 0 {
 		avgBuyPrice = row.TotalInvested / row.TotalQty
 	}
+	slog.Info("dca stats query ok", "session_id", sessionID, "buy_count", row.BuyCount, "total_qty", row.TotalQty, "elapsed", time.Since(start))
 	return &DCAStats{
 		BuyCount:      row.BuyCount,
 		TotalQty:      row.TotalQty,
