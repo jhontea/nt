@@ -118,11 +118,11 @@ export default function SessionDetailPage() {
   const [ordersFetched, setOrdersFetched] = useState(false)
 
   const cycleOrders = useMemo(() => {
-    if (session.strategy !== 'dca' || !session.started_at) return allOrders
+    if (!session || session.strategy !== 'dca' || !session.started_at) return allOrders
     const startedAt = new Date(session.started_at).getTime()
     if (Number.isNaN(startedAt)) return allOrders
     return allOrders.filter(o => new Date(o.created_at).getTime() >= startedAt)
-  }, [allOrders, session.started_at, session.strategy])
+  }, [allOrders, session?.started_at, session?.strategy])
 
   const fetchOrders = useCallback(async (cursor?: number) => {
     if (!isAuthenticated) return
