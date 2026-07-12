@@ -202,7 +202,6 @@ const pgSchema = `
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_status ON strategy_signals(validation_status);
 	CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_id);
 	CREATE INDEX IF NOT EXISTS idx_orders_session_side_status ON orders(session_id, side, status);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> '';
 	CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
 	`
 
@@ -317,6 +316,5 @@ const sqliteSchema = `
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_status ON strategy_signals(validation_status);
 	CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_id);
 	CREATE INDEX IF NOT EXISTS idx_orders_session_side_status ON orders(session_id, side, status);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> '';
 	CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
 	`
