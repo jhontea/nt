@@ -525,7 +525,7 @@ function DcaPageInner() {
                         const triggerPrice = stats!.last_buy_price * (1 - cfg.drop_pct! / 100)
                         return (
                           <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-1">
-                            Trigger: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoneyCompact(triggerPrice, s.symbol)}</span>
+                            Trigger: <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{fmtMoney(triggerPrice, s.symbol)}</span>
                           </p>
                         )
                       })()}
