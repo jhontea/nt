@@ -116,6 +116,24 @@ func TestSessionHandler_Create_InvalidConfig(t *testing.T) {
 	}
 }
 
+func TestCanStartForceSell(t *testing.T) {
+	tests := []struct {
+		status string
+		want   bool
+	}{
+		{status: string(model.StatRunning), want: true},
+		{status: string(model.StatLiquidationFailed), want: true},
+		{status: string(model.StatLiquidating), want: false},
+		{status: string(model.StatStopped), want: false},
+		{status: string(model.StatPaused), want: false},
+	}
+	for _, tt := range tests {
+		if got := canStartForceSell(tt.status); got != tt.want {
+			t.Errorf("canStartForceSell(%q) = %v, want %v", tt.status, got, tt.want)
+		}
+	}
+}
+
 func TestSessionHandler_List(t *testing.T) {
 	h, mockRepo, c, rec := setupSessionTest(t)
 

@@ -14,12 +14,12 @@ import (
 )
 
 type DCAEngine struct {
-	mu            sync.Mutex
-	lastBuy       map[int64]time.Time
-	lastBuyPrice  map[int64]float64 // price at last executed buy, for DropPct check
-	avgBuyPrice   map[int64]float64
-	client        *tokocrypto.Client
-	db            *sqlx.DB
+	mu           sync.Mutex
+	lastBuy      map[int64]time.Time
+	lastBuyPrice map[int64]float64 // price at last executed buy, for DropPct check
+	avgBuyPrice  map[int64]float64
+	client       *tokocrypto.Client
+	db           *sqlx.DB
 }
 
 func NewDCAEngine(client *tokocrypto.Client, db *sqlx.DB) *DCAEngine {
@@ -108,11 +108,11 @@ func (d *DCAEngine) RevertLastBuy(sessionID int64) {
 func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) []Signal {
 	signals := []Signal{}
 
-	// recover lastBuy + lastBuyPrice + avgBuyPrice from DB on first tick after restart
+	// Recover scheduling state on the first tick after restart.
 	if _, exists := d.lastBuy[session.ID]; !exists {
 		var row struct {
-			Epoch    int64   `db:"epoch"`
-			Price    float64 `db:"price_val"`
+			Epoch int64   `db:"epoch"`
+			Price float64 `db:"price_val"`
 		}
 		epochExpr := "CAST(strftime('%s', created_at) AS INTEGER)"
 		if d.db.DriverName() != "sqlite" {
@@ -127,8 +127,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
 			d.lastBuyPrice[session.ID] = row.Price
 		}
+	}
 
-		// Gap 3 fix: restore avgBuyPrice from DB on restart
+	// Restore a fill confirmed asynchronously by the reconciler. This is kept
+	// separate from lastBuy recovery because a failed synchronous execution keeps
+	// the interval timestamp while clearing the speculative average price.
+	if _, exists := d.avgBuyPrice[session.ID]; !exists {
 		var avg struct {
 			TotalQty  float64 `db:"total_qty"`
 			TotalCost float64 `db:"total_cost"`
@@ -198,7 +202,7 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		signals = append(signals, Signal{
 			Side: string(model.SideBuy), Price: priceStr, Quantity: qtyStr,
 			QuoteQty: cfg.Amount, // live executor uses this directly → exact amount, no rounding loss
-			Reason: reason,
+			Reason:   reason,
 		})
 		// ponytail: do NOT update avgBuyPrice here — order has not been confirmed yet.
 		// Manager calls ConfirmBuy after live.Execute succeeds, or RevertLastBuy on failure.

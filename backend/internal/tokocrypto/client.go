@@ -36,6 +36,9 @@ type Client struct {
 	idrMu         sync.Mutex
 	idrTickers    map[string]*Ticker
 	streamStarted bool
+	symbolMu      sync.Mutex
+	symbols       map[string]SymbolInfo
+	symbolsExpiry time.Time
 }
 
 func NewClient(apiKey, secretKey string) *Client {
@@ -44,6 +47,7 @@ func NewClient(apiKey, secretKey string) *Client {
 		secretKey: secretKey,
 		http:      &http.Client{Timeout: 10 * time.Second},
 		tickCache: make(map[string]cacheEntry),
+		symbols:   make(map[string]SymbolInfo),
 	}
 	go c.runAllMiniTickerStream()
 	go c.runIDRRefresh()
@@ -136,7 +140,7 @@ func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("tokocrypto signed API error: %s %s", resp.Status, string(body))
+		return nil, &HTTPError{StatusCode: resp.StatusCode, Status: resp.Status, Body: string(body)}
 	}
 	return body, nil
 }
@@ -391,10 +395,10 @@ func (c *Client) fetchIDRTickers() (map[string]*Ticker, error) {
 			continue
 		}
 		out[sym] = &Ticker{
-			Symbol:              sym,
-			LastPrice:           r.LastPrice,
-			PriceChangePercent:  r.PriceChangePercent,
-			Volume:              r.QuoteVolume,
+			Symbol:             sym,
+			LastPrice:          r.LastPrice,
+			PriceChangePercent: r.PriceChangePercent,
+			Volume:             r.QuoteVolume,
 		}
 	}
 	return out, nil
@@ -520,6 +524,27 @@ func (c *Client) GetOrder(symbol string, orderID int64) (*OrderResponseData, err
 	})
 }
 
+func (c *Client) GetOrderByClientID(symbol, clientID string) (*OrderResponseData, error) {
+	return retryCall(func() (*OrderResponseData, error) {
+		params := url.Values{
+			"symbol":   {symbol},
+			"clientId": {clientID},
+		}
+		body, err := c.doSigned("GET", "/open/v1/orders/detail", params)
+		if err != nil {
+			return nil, err
+		}
+		var res OrderResponse
+		if err := json.Unmarshal(body, &res); err != nil {
+			return nil, err
+		}
+		if res.Code != 0 {
+			return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
+		}
+		return &res.Data, nil
+	})
+}
+
 func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	params := url.Values{
 		"symbol": {req.Symbol},
@@ -533,6 +558,9 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 		if req.Price != "" {
 			params["price"] = []string{req.Price}
 		}
+	}
+	if req.ClientID != "" {
+		params["clientId"] = []string{req.ClientID}
 	}
 	// ponytail: no retry on PlaceOrder — retrying a timed-out order risks placing duplicates.
 	// Caller must handle the error and decide whether to retry via reconciliation.
@@ -552,7 +580,7 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 	}
 	if envelope.Code != 0 {
 		slog.Error("PlaceOrder API error", "code", envelope.Code, "message", envelope.Message, "body", string(body))
-		return nil, fmt.Errorf("tokocrypto error code %d: %s", envelope.Code, envelope.Message)
+		return nil, &APIError{Code: envelope.Code, Message: envelope.Message, Body: string(body)}
 	}
 	var data OrderResponseData
 	if err := json.Unmarshal(envelope.Data, &data); err != nil {

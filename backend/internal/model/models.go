@@ -37,18 +37,20 @@ type Session struct {
 }
 
 type Order struct {
-	ID            int64     `db:"id" json:"id"`
-	SessionID     *int64    `db:"session_id" json:"session_id,omitempty"`
-	OrderID       string    `db:"order_id" json:"order_id"`
-	Symbol        string    `db:"symbol" json:"symbol"`
-	Side          string    `db:"side" json:"side"`
-	Type          string    `db:"type" json:"type"`
-	Price         string    `db:"price" json:"price"`
-	Quantity      string    `db:"quantity" json:"quantity"`
-	Status        string    `db:"status" json:"status"`
-	ExecutedQty   string    `db:"executed_qty" json:"executed_qty"`
-	ExecutedPrice string    `db:"executed_price" json:"executed_price"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
+	ID               int64     `db:"id" json:"id"`
+	SessionID        *int64    `db:"session_id" json:"session_id,omitempty"`
+	OrderID          string    `db:"order_id" json:"order_id"`
+	ClientID         string    `db:"client_id" json:"client_id"`
+	Symbol           string    `db:"symbol" json:"symbol"`
+	Side             string    `db:"side" json:"side"`
+	Type             string    `db:"type" json:"type"`
+	Price            string    `db:"price" json:"price"`
+	Quantity         string    `db:"quantity" json:"quantity"`
+	Status           string    `db:"status" json:"status"`
+	ExecutedQty      string    `db:"executed_qty" json:"executed_qty"`
+	ExecutedPrice    string    `db:"executed_price" json:"executed_price"`
+	ExecutedQuoteQty string    `db:"executed_quote_qty" json:"executed_quote_qty"`
+	CreatedAt        time.Time `db:"created_at" json:"created_at"`
 }
 
 type Trade struct {
@@ -78,31 +80,31 @@ type Candle struct {
 }
 
 type StrategySignal struct {
-	ID                    int64      `db:"id" json:"id"`
-	SessionID             int64      `db:"session_id" json:"session_id"`
-	Symbol                string     `db:"symbol" json:"symbol"`
-	Strategy              string     `db:"strategy" json:"strategy"`
-	SignalType            string     `db:"signal_type" json:"signal_type"`
-	GridLevelIndex        int        `db:"grid_level_index" json:"grid_level_index"`
-	GridLevelPrice        string     `db:"grid_level_price" json:"grid_level_price"`
-	MarketPriceAtSignal   string     `db:"market_price_at_signal" json:"market_price_at_signal"`
-	Quantity              string     `db:"quantity" json:"quantity"`
-	Reason                string     `db:"reason" json:"reason"`
-	ValidationMode        string     `db:"validation_mode" json:"validation_mode"`
-	ValidationTargetValue float64    `db:"validation_target_value" json:"validation_target_value"`
-	ValidationInvalidValue float64   `db:"validation_invalid_value" json:"validation_invalid_value"`
-	ValidationWindowMinutes int      `db:"validation_window_minutes" json:"validation_window_minutes"`
-	ValidationStatus      string     `db:"validation_status" json:"validation_status"`
-	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
-	ValidationStartedAt   *time.Time `db:"validation_started_at" json:"validation_started_at,omitempty"`
-	ValidationFinishedAt  *time.Time `db:"validation_finished_at" json:"validation_finished_at,omitempty"`
-	ResultPct             *float64   `db:"result_pct" json:"result_pct,omitempty"`
-	ResultGridSteps       *float64   `db:"result_grid_steps" json:"result_grid_steps,omitempty"`
-	MaxFavorableMovePct   *float64   `db:"max_favorable_move_pct" json:"max_favorable_move_pct,omitempty"`
-	MaxAdverseMovePct     *float64   `db:"max_adverse_move_pct" json:"max_adverse_move_pct,omitempty"`
-	MaxFavorableGridSteps *float64   `db:"max_favorable_grid_steps" json:"max_favorable_grid_steps,omitempty"`
-	MaxAdverseGridSteps   *float64   `db:"max_adverse_grid_steps" json:"max_adverse_grid_steps,omitempty"`
-	ValidationNote        string     `db:"validation_note" json:"validation_note,omitempty"`
+	ID                      int64      `db:"id" json:"id"`
+	SessionID               int64      `db:"session_id" json:"session_id"`
+	Symbol                  string     `db:"symbol" json:"symbol"`
+	Strategy                string     `db:"strategy" json:"strategy"`
+	SignalType              string     `db:"signal_type" json:"signal_type"`
+	GridLevelIndex          int        `db:"grid_level_index" json:"grid_level_index"`
+	GridLevelPrice          string     `db:"grid_level_price" json:"grid_level_price"`
+	MarketPriceAtSignal     string     `db:"market_price_at_signal" json:"market_price_at_signal"`
+	Quantity                string     `db:"quantity" json:"quantity"`
+	Reason                  string     `db:"reason" json:"reason"`
+	ValidationMode          string     `db:"validation_mode" json:"validation_mode"`
+	ValidationTargetValue   float64    `db:"validation_target_value" json:"validation_target_value"`
+	ValidationInvalidValue  float64    `db:"validation_invalid_value" json:"validation_invalid_value"`
+	ValidationWindowMinutes int        `db:"validation_window_minutes" json:"validation_window_minutes"`
+	ValidationStatus        string     `db:"validation_status" json:"validation_status"`
+	CreatedAt               time.Time  `db:"created_at" json:"created_at"`
+	ValidationStartedAt     *time.Time `db:"validation_started_at" json:"validation_started_at,omitempty"`
+	ValidationFinishedAt    *time.Time `db:"validation_finished_at" json:"validation_finished_at,omitempty"`
+	ResultPct               *float64   `db:"result_pct" json:"result_pct,omitempty"`
+	ResultGridSteps         *float64   `db:"result_grid_steps" json:"result_grid_steps,omitempty"`
+	MaxFavorableMovePct     *float64   `db:"max_favorable_move_pct" json:"max_favorable_move_pct,omitempty"`
+	MaxAdverseMovePct       *float64   `db:"max_adverse_move_pct" json:"max_adverse_move_pct,omitempty"`
+	MaxFavorableGridSteps   *float64   `db:"max_favorable_grid_steps" json:"max_favorable_grid_steps,omitempty"`
+	MaxAdverseGridSteps     *float64   `db:"max_adverse_grid_steps" json:"max_adverse_grid_steps,omitempty"`
+	ValidationNote          string     `db:"validation_note" json:"validation_note,omitempty"`
 }
 
 type SignalSummary struct {

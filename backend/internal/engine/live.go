@@ -1,13 +1,18 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/model"
 	"github.com/user/nt/internal/service"
@@ -25,70 +30,111 @@ type LiveEngine struct {
 	risk     *RiskManager
 	db       *sqlx.DB
 	notifier *service.Notifier
+	position *service.PositionService
+	buyMu    sync.Mutex
+	buyLocks map[string]*sync.Mutex
 }
 
 func NewLiveEngine(client *tokocrypto.Client, db *sqlx.DB) *LiveEngine {
-	return &LiveEngine{client: client, risk: NewRiskManager(), db: db}
+	return &LiveEngine{client: client, risk: NewRiskManager(), db: db, position: service.NewPositionService(db), buyLocks: make(map[string]*sync.Mutex)}
 }
 
 func NewLiveEngineWithNotifier(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifier) *LiveEngine {
-	return &LiveEngine{client: client, risk: NewRiskManager(), db: db, notifier: notifier}
+	return &LiveEngine{client: client, risk: NewRiskManager(), db: db, notifier: notifier, position: service.NewPositionService(db), buyLocks: make(map[string]*sync.Mutex)}
 }
 
-// PreflightCheck validates API key and sufficient balance before starting a live session.
-func (l *LiveEngine) PreflightCheck(symbol, side, quantity, price string) error {
+const buyBalanceBufferBPS int64 = 20 // reserve 0.20% for fees and small balance movements
+
+// PreflightBuy validates API access and the quote balance needed for one buy.
+// Execute performs the same check again immediately before placing every order.
+func (l *LiveEngine) PreflightBuy(symbol, quoteOrderQty string) error {
 	acc, err := l.client.GetAccount()
 	if err != nil {
 		return fmt.Errorf("tidak bisa terhubung ke TokoCrypto: %w", err)
 	}
-	if acc.CanTrade != 1 {
-		return fmt.Errorf("akun TokoCrypto tidak diizinkan trading (CanTrade=%d)", acc.CanTrade)
-	}
-
-	parts := strings.SplitN(symbol, "_", 2)
-	if len(parts) != 2 {
-		return nil
-	}
-	baseAsset := parts[0]
-	quoteAsset := parts[1]
-
-	qtyF, _ := strconv.ParseFloat(quantity, 64)
-	priceF, _ := strconv.ParseFloat(price, 64)
-	notional := qtyF * priceF
-
-	for _, a := range acc.AccountAssets {
-		if side == string(model.SideBuy) && a.Asset == quoteAsset {
-			free, _ := strconv.ParseFloat(a.Free, 64)
-			if free < notional {
-				return fmt.Errorf("saldo %s tidak cukup: tersedia %.4f, dibutuhkan %.4f", quoteAsset, free, notional)
-			}
-			return nil
-		}
-		if side == string(model.SideSell) && a.Asset == baseAsset {
-			free, _ := strconv.ParseFloat(a.Free, 64)
-			if free < qtyF {
-				return fmt.Errorf("saldo %s tidak cukup: tersedia %.4f, dibutuhkan %.4f", baseAsset, free, qtyF)
-			}
-			return nil
-		}
-	}
-	return nil
+	return validateBuyBalance(acc, symbol, quoteOrderQty)
 }
 
-// liveOrderStatus maps exchange integer status to internal string status.
-// ponytail: exchange returns int (2=filled, 3=partially_filled, etc). Map to 'filled' for
-// fully-filled market orders so DCA TP/SL queries (status IN ('filled','signal')) work correctly.
-func liveOrderStatus(exchangeStatus int) string {
-	switch exchangeStatus {
-	case 2:
-		return string(model.OrdFilled)
-	case 3:
-		return "partial"
-	case 4:
-		return string(model.OrdCanceled)
-	default:
-		return string(model.OrdNew)
+func (l *LiveEngine) buyLock(quoteAsset string) *sync.Mutex {
+	l.buyMu.Lock()
+	defer l.buyMu.Unlock()
+	if l.buyLocks == nil {
+		l.buyLocks = make(map[string]*sync.Mutex)
 	}
+	lock, ok := l.buyLocks[quoteAsset]
+	if !ok {
+		lock = &sync.Mutex{}
+		l.buyLocks[quoteAsset] = lock
+	}
+	return lock
+}
+
+func validateBuyBalance(account *tokocrypto.Account, symbol, quoteOrderQty string) error {
+	if account == nil {
+		return fmt.Errorf("akun TokoCrypto tidak tersedia")
+	}
+	if account.CanTrade != 1 {
+		return fmt.Errorf("akun TokoCrypto tidak diizinkan trading (CanTrade=%d)", account.CanTrade)
+	}
+	parts := strings.SplitN(symbol, "_", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return fmt.Errorf("symbol tidak valid: %s", symbol)
+	}
+	quoteAsset := parts[1]
+	required, ok := new(big.Rat).SetString(quoteOrderQty)
+	if !ok || required.Sign() <= 0 {
+		return fmt.Errorf("quoteOrderQty tidak valid: %q", quoteOrderQty)
+	}
+	bufferedRequired := new(big.Rat).Mul(required, big.NewRat(10_000+buyBalanceBufferBPS, 10_000))
+
+	for _, asset := range account.AccountAssets {
+		if asset.Asset != quoteAsset {
+			continue
+		}
+		free, valid := new(big.Rat).SetString(asset.Free)
+		if !valid || free.Sign() < 0 {
+			return fmt.Errorf("saldo free %s tidak valid: %q", quoteAsset, asset.Free)
+		}
+		if free.Cmp(bufferedRequired) < 0 {
+			return fmt.Errorf("saldo %s tidak cukup: tersedia %s, order %s ditambah buffer %.2f%%",
+				quoteAsset, asset.Free, quoteOrderQty, float64(buyBalanceBufferBPS)/100)
+		}
+		return nil
+	}
+	return fmt.Errorf("saldo %s tidak ditemukan di akun TokoCrypto", quoteAsset)
+}
+
+type orderNotSubmittedError struct{ err error }
+
+func (e *orderNotSubmittedError) Error() string { return e.err.Error() }
+func (e *orderNotSubmittedError) Unwrap() error { return e.err }
+
+func (l *LiveEngine) placeOrder(req tokocrypto.OrderRequest) (*tokocrypto.OrderResponseData, error) {
+	if req.Side != orderSideBuy {
+		return l.client.PlaceOrder(req)
+	}
+	parts := strings.SplitN(req.Symbol, "_", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return nil, fmt.Errorf("symbol tidak valid: %s", req.Symbol)
+	}
+
+	lock := l.buyLock(parts[1])
+	lock.Lock()
+	defer lock.Unlock()
+
+	account, err := l.client.GetAccount()
+	if err != nil {
+		return nil, &orderNotSubmittedError{err: fmt.Errorf("tidak dapat memverifikasi saldo sebelum buy: %w", err)}
+	}
+	if err := validateBuyBalance(account, req.Symbol, req.QuoteOrderQty); err != nil {
+		return nil, &orderNotSubmittedError{err: err}
+	}
+	return l.client.PlaceOrder(req)
+}
+
+// liveOrderStatus maps Tokocrypto's integer order status to the internal status.
+func liveOrderStatus(exchangeStatus int) string {
+	return tokocrypto.ExchangeOrderStatus(exchangeStatus)
 }
 
 func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
@@ -102,58 +148,50 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 			"session", session.ID, "side", signal.Side, "recent_count", recentCount)
 		return nil
 	}
-	// For sell signals: use minimum of DB holdings vs actual exchange balance
-	// to avoid selling more than we own (DB can exceed exchange due to prior sells/fees).
+	// Sell only the quantity owned by this session and currently free on exchange.
 	resolvedQty := signal.Quantity
 	if signal.Side == string(model.SideSell) {
-		var dbQty float64
-		if err := l.db.Get(&dbQty, l.db.Rebind(
-			`SELECT COALESCE(SUM(CAST(quantity AS REAL)), 0) FROM orders
-			 WHERE session_id = ? AND side = 'buy' AND status = 'filled'`),
-			session.ID); err == nil && dbQty > 0 {
-			resolvedQty = strconv.FormatFloat(dbQty, 'f', 8, 64)
+		position, err := l.position.GetSessionPosition(context.Background(), session.ID, session.Symbol)
+		if err != nil {
+			return fmt.Errorf("live sell: resolve session position: %w", err)
 		}
-		// clamp to actual exchange balance to avoid 2202 insufficient balance errors
+		if position.NetQty == "0" {
+			return fmt.Errorf("live sell: session has no position to sell")
+		}
+		resolvedQty = position.NetQty
+
 		baseAsset := strings.Split(session.Symbol, "_")[0]
-		if account, err := l.client.GetAccount(); err == nil {
-			for _, a := range account.AccountAssets {
-				if a.Asset == baseAsset {
-					if exchangeQty, err := strconv.ParseFloat(a.Free, 64); err == nil && exchangeQty > 0 {
-						dbQtyF, _ := strconv.ParseFloat(resolvedQty, 64)
-						useQty := exchangeQty
-						if useQty > dbQtyF {
-							useQty = dbQtyF
-						}
-					// ponytail: stepSize precision per IDR symbol from exchange API
-					// upgrade to symbol-info API call if more symbols need different steps
-					idrPrecision := map[string]int{
-						"BTC_IDR": 5, "ETH_IDR": 4, "BNB_IDR": 3,
-						"SOL_IDR": 4, "DOGE_IDR": 0, "XRP_IDR": 1,
-						"ADA_IDR": 1, "AVAX_IDR": 2, "HBAR_IDR": 1,
-						"POL_IDR": 1, "TKO_IDR": 2, "ARB_IDR": 1,
-						"SUI_IDR": 2, "WLD_IDR": 2, "WIF_IDR": 2,
-					}
-					precision := 8
-					if strings.HasSuffix(session.Symbol, "_IDR") {
-						if p, ok := idrPrecision[session.Symbol]; ok {
-							precision = p
-						} else {
-							precision = 2 // safe default for unknown IDR pairs
-						}
-					}
-					factor := 1.0
-					for i := 0; i < precision; i++ {
-						factor *= 10
-					}
-					if factor == 0 {
-						factor = 1
-					}
-					useQty = float64(int64(useQty*factor)) / factor
-						resolvedQty = strconv.FormatFloat(useQty, 'f', precision, 64)
-					}
-					break
+		account, err := l.client.GetAccount()
+		if err != nil {
+			return fmt.Errorf("live sell: cannot verify exchange balance: %w", err)
+		}
+		balanceResolved := false
+		for _, a := range account.AccountAssets {
+			if a.Asset == baseAsset {
+				exchangeQty, err := strconv.ParseFloat(a.Free, 64)
+				if err != nil {
+					return fmt.Errorf("live sell: invalid %s free balance %q: %w", baseAsset, a.Free, err)
 				}
+				if exchangeQty <= 0 {
+					return fmt.Errorf("live sell: no free %s balance available", baseAsset)
+				}
+				resolvedQty, err = service.MinDecimalString(position.NetQty, a.Free)
+				if err != nil {
+					return fmt.Errorf("live sell: clamp session position to exchange balance: %w", err)
+				}
+				resolvedQty, err = l.client.NormalizeMarketQuantity(
+					session.Symbol,
+					resolvedQty,
+				)
+				if err != nil {
+					return fmt.Errorf("live sell: normalize quantity: %w", err)
+				}
+				balanceResolved = true
+				break
 			}
+		}
+		if !balanceResolved {
+			return fmt.Errorf("live sell: %s balance not found in exchange account", baseAsset)
 		}
 		slog.Info("live sell: resolved qty", "session", session.ID,
 			"signal_qty", signal.Quantity, "resolved_qty", resolvedQty)
@@ -214,9 +252,25 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	} else {
 		req.QuoteOrderQty = strconv.FormatFloat(notional, 'f', 8, 64)
 	}
+	clientID := "live-" + uuid.NewString()
+	req.ClientID = clientID
+	if _, err := l.db.Exec(l.db.Rebind(`INSERT INTO orders
+		(session_id, order_id, client_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)
+		VALUES (?, '', ?, ?, ?, 'market', ?, ?, ?, '0', '0', '0')`),
+		session.ID, clientID, session.Symbol, signal.Side, price, resolvedQty, string(model.OrdSubmitting)); err != nil {
+		return fmt.Errorf("persist order intent: %w", err)
+	}
 
-	order, err := l.client.PlaceOrder(req)
+	order, err := l.placeOrder(req)
 	if err != nil {
+		status := string(model.OrdUnknown)
+		var notSubmitted *orderNotSubmittedError
+		if errors.As(err, &notSubmitted) || tokocrypto.IsDefiniteOrderRejection(err) {
+			status = string(model.OrdRejected)
+		}
+		if _, updateErr := l.db.Exec(l.db.Rebind(`UPDATE orders SET status = ? WHERE client_id = ?`), status, clientID); updateErr != nil {
+			slog.Error("live: failed to update unsuccessful order intent", "client_id", clientID, "status", status, "error", updateErr)
+		}
 		return fmt.Errorf("place order: %w", err)
 	}
 
@@ -230,7 +284,7 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	execQty := order.ExecutedQty
 	// ponytail: for quoteOrderQty market buys, executedQty may be "0" or wrong (LOT_SIZE stepSize)
 	// compute actual received qty from executedQuoteQty/executedPrice when executedQty looks wrong
-	if execQtyF, _ := strconv.ParseFloat(execQty, 64); execQtyF <= 0 {
+	if execQtyF, _ := strconv.ParseFloat(execQty, 64); orderStatus == string(model.OrdFilled) && execQtyF <= 0 {
 		execPriceF, _ := strconv.ParseFloat(execPrice, 64)
 		execQuoteQtyF, _ := strconv.ParseFloat(order.ExecutedQuoteQty, 64)
 		if execPriceF > 0 && execQuoteQtyF > 0 {
@@ -238,6 +292,17 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		} else {
 			execQty = resolvedQty
 		}
+	}
+	if execQty == "" {
+		execQty = "0"
+	}
+	if orderStatus != string(model.OrdFilled) {
+		if _, updateErr := l.db.Exec(l.db.Rebind(`UPDATE orders SET
+			order_id=?, status=?, executed_qty=?, executed_price=?, executed_quote_qty=? WHERE client_id=?`),
+			orderID, orderStatus, execQty, execPrice, order.ExecutedQuoteQty, clientID); updateErr != nil {
+			return fmt.Errorf("order accepted but failed to save pending state: %w", updateErr)
+		}
+		return fmt.Errorf("order accepted with status %s; awaiting reconciliation", orderStatus)
 	}
 
 	// All post-exchange DB writes in one transaction.
@@ -253,11 +318,9 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	defer tx.Rollback()
 
 	if _, err = tx.Exec(
-		tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)
-		 VALUES (?, ?, ?, ?, 'market', ?, ?, ?, ?, ?, ?)`),
-		session.ID, orderID,
-		session.Symbol, signal.Side, price, resolvedQty,
-		orderStatus, order.ExecutedQty, order.ExecutedPrice, order.ExecutedQuoteQty,
+		tx.Rebind(`UPDATE orders SET order_id=?, status=?, executed_qty=?, executed_price=?, executed_quote_qty=?
+			WHERE client_id=?`),
+		orderID, orderStatus, execQty, execPrice, order.ExecutedQuoteQty, clientID,
 	); err != nil {
 		slog.Error("live order placed on exchange but DB save failed — manual reconciliation required",
 			"session", session.ID, "order_id", orderID, "symbol", session.Symbol,
@@ -271,22 +334,13 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		// We read within the tx so we see consistent state.
 		pnlStr = computeLivePnLTx(tx, session.ID, execPrice, execQty)
 	}
-
-	// On sell: close all open buy orders AFTER computing PnL
-	if signal.Side == string(model.SideSell) {
-		if _, err := tx.Exec(
-			tx.Rebind(`UPDATE orders SET status = ? WHERE session_id = ? AND side = 'buy' AND status = ?`),
-			string(model.OrdClosed), session.ID, string(model.OrdFilled),
-		); err != nil {
-			return fmt.Errorf("live sell: close buy orders: %w", err)
-		}
-	}
+	fee, feeAsset := order.Fee()
 
 	if _, err = tx.Exec(
 		tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
-		 VALUES (?, ?, ?, ?, ?, ?, '0', '', ?, ?)`),
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		session.ID, orderID, session.Symbol, signal.Side,
-		execPrice, execQty, pnlStr, time.Now(),
+		execPrice, execQty, fee, feeAsset, pnlStr, time.Now(),
 	); err != nil {
 		return fmt.Errorf("save trade: %w", err)
 	}

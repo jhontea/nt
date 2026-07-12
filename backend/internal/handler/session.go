@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"math"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/user/nt/internal/engine"
@@ -25,11 +27,12 @@ type SessionHandler struct {
 	engine     *engine.Manager
 	db         *sqlx.DB
 	client     *tokocrypto.Client
+	position   *service.PositionService
 	signalRepo repository.StrategySignalRepository
 }
 
 func NewSessionHandler(svc *service.SessionService, engine *engine.Manager, db *sqlx.DB, client *tokocrypto.Client, signalRepo repository.StrategySignalRepository) *SessionHandler {
-	return &SessionHandler{svc: svc, engine: engine, db: db, client: client, signalRepo: signalRepo}
+	return &SessionHandler{svc: svc, engine: engine, db: db, client: client, position: service.NewPositionService(db), signalRepo: signalRepo}
 }
 
 type createSessionRequest struct {
@@ -168,6 +171,9 @@ func (h *SessionHandler) Start(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if session.Status == string(model.StatLiquidating) || session.Status == string(model.StatLiquidationFailed) {
+		return c.JSON(http.StatusConflict, ErrorJSON("session sedang dalam lifecycle liquidation; selesaikan force sell sebelum start"))
+	}
 
 	// Pre-flight check for live sessions: validate API key + account trading permission
 	if session.Mode == string(model.ModeLive) {
@@ -266,6 +272,10 @@ func computeLivePnLTx(tx *sqlx.Tx, sessionID int64, execPrice, execQty string) s
 	return strconv.FormatFloat(pnl, 'f', 8, 64)
 }
 
+func canStartForceSell(status string) bool {
+	return status == string(model.StatRunning) || status == string(model.StatLiquidationFailed)
+}
+
 func (h *SessionHandler) ForceSell(c echo.Context) error {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	session, err := h.checkOwnership(c, id)
@@ -276,73 +286,168 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 	if session.Mode != string(model.ModeLive) {
 		return c.JSON(http.StatusBadRequest, ErrorJSON("force sell hanya tersedia untuk live session"))
 	}
-	if session.Status != string(model.StatRunning) {
-		return c.JSON(http.StatusBadRequest, ErrorJSON("session tidak sedang berjalan"))
+	if !canStartForceSell(session.Status) {
+		return c.JSON(http.StatusConflict, ErrorJSON("force sell hanya dapat dimulai dari status running atau liquidation_failed"))
 	}
 
 	ctx := h.reqContext(c)
+	result, err := h.db.ExecContext(ctx, h.db.Rebind(
+		`UPDATE sessions SET status = ? WHERE id = ? AND status IN (?, ?)`),
+		string(model.StatLiquidating), id, string(model.StatRunning), string(model.StatLiquidationFailed))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorJSON("failed to start liquidation: "+err.Error()))
+	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 {
+		return c.JSON(http.StatusConflict, ErrorJSON("session liquidation sudah diproses oleh request lain"))
+	}
 
-	// Use exchange free balance as source of truth — DB qty can differ due to fees.
+	// Stop all strategy ticks before reading position or placing the sell order.
+	h.engine.Stop(id)
+	failBeforeOrder := func(statusCode int, message string) error {
+		if _, updateErr := h.db.ExecContext(ctx, h.db.Rebind(`UPDATE sessions SET status = ? WHERE id = ? AND status = ?`),
+			string(model.StatLiquidationFailed), id, string(model.StatLiquidating)); updateErr != nil {
+			slog.Error("force sell: failed to mark liquidation failure", "session", id, "error", updateErr)
+		}
+		return c.JSON(statusCode, ErrorJSON(message))
+	}
+	finishDust := func(qty, reason string) error {
+		if _, updateErr := h.db.ExecContext(ctx, h.db.Rebind(
+			`UPDATE sessions SET status = ?, stopped_at = ? WHERE id = ? AND status = ?`),
+			string(model.StatStopped), time.Now(), id, string(model.StatLiquidating)); updateErr != nil {
+			return c.JSON(http.StatusInternalServerError, ErrorJSON("failed to finalize dust position: "+updateErr.Error()))
+		}
+		return c.JSON(http.StatusOK, map[string]string{
+			"status":   "stopped",
+			"qty_sold": "0",
+			"dust_qty": qty,
+			"reason":   reason,
+		})
+	}
+
+	position, err := h.position.GetSessionPosition(ctx, id, session.Symbol)
+	if err != nil {
+		return failBeforeOrder(http.StatusBadGateway, "failed to resolve session position: "+err.Error())
+	}
+	if position.NetQty == "0" {
+		return finishDust("0", "session has no sellable position")
+	}
+
 	baseAsset := strings.Split(session.Symbol, "_")[0]
 	account, err := h.client.GetAccount()
 	if err != nil {
-		return c.JSON(http.StatusBadGateway, ErrorJSON("failed to fetch account balance: "+err.Error()))
+		return failBeforeOrder(http.StatusBadGateway, "failed to fetch account balance: "+err.Error())
 	}
-	var exchangeQty float64
+	exchangeQty := ""
 	for _, a := range account.AccountAssets {
 		if a.Asset == baseAsset {
-			exchangeQty, _ = strconv.ParseFloat(a.Free, 64)
+			exchangeQty = a.Free
 			break
 		}
 	}
-	if exchangeQty <= 0 {
-		return c.JSON(http.StatusBadRequest, ErrorJSON("tidak ada posisi untuk dijual"))
+	if exchangeQty == "" {
+		return failBeforeOrder(http.StatusBadRequest, "tidak ada balance aset untuk dijual")
+	}
+	sellQty, err := service.MinDecimalString(position.NetQty, exchangeQty)
+	if err != nil {
+		return failBeforeOrder(http.StatusBadGateway, "failed to resolve sell quantity: "+err.Error())
 	}
 
-	// Floor to symbol stepSize precision
-	idrPrecision := map[string]int{
-		"BTC_IDR": 5, "ETH_IDR": 4, "BNB_IDR": 3,
-		"SOL_IDR": 4, "DOGE_IDR": 0, "XRP_IDR": 1,
-		"ADA_IDR": 1, "AVAX_IDR": 2, "HBAR_IDR": 1,
-		"POL_IDR": 1, "TKO_IDR": 2, "ARB_IDR": 1,
-		"SUI_IDR": 2, "WLD_IDR": 2, "WIF_IDR": 2,
-	}
-	precision := 8
-	if strings.HasSuffix(session.Symbol, "_IDR") {
-		if p, ok := idrPrecision[session.Symbol]; ok {
-			precision = p
-		} else {
-			precision = 2
+	fmtQty, err := h.client.NormalizeMarketQuantity(
+		session.Symbol,
+		sellQty,
+	)
+	if err != nil {
+		if errors.Is(err, tokocrypto.ErrQuantityBelowMinimum) {
+			return finishDust(sellQty, err.Error())
 		}
-	}
-	factor := 1.0
-	for i := 0; i < precision; i++ {
-		factor *= 10
-	}
-	if factor > 0 {
-		exchangeQty = float64(int64(exchangeQty*factor)) / factor
+		return failBeforeOrder(http.StatusBadGateway, "failed to normalize sell quantity: "+err.Error())
 	}
 
-	fmtQty := strconv.FormatFloat(exchangeQty, 'f', precision, 64)
+	ticker, err := h.client.GetTicker(session.Symbol)
+	if err != nil {
+		return failBeforeOrder(http.StatusBadGateway, "failed to fetch price for dust validation: "+err.Error())
+	}
+	qtyValue, qtyErr := strconv.ParseFloat(fmtQty, 64)
+	priceValue, priceErr := strconv.ParseFloat(ticker.LastPrice, 64)
+	if qtyErr != nil || priceErr != nil || qtyValue <= 0 || priceValue <= 0 {
+		return failBeforeOrder(http.StatusBadGateway, "invalid quantity or price during dust validation")
+	}
+	minNotional := 5.0
+	if strings.HasSuffix(session.Symbol, "_IDR") {
+		minNotional = 20000
+	}
+	if qtyValue*priceValue < minNotional {
+		return finishDust(fmtQty, "position value is below market minimum notional")
+	}
+
+	clientID := "force-" + uuid.NewString()
+	if _, err := h.db.ExecContext(ctx, h.db.Rebind(`INSERT INTO orders
+		(session_id, order_id, client_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, executed_quote_qty)
+		VALUES (?, '', ?, ?, 'sell', 'market', ?, ?, ?, '0', '0', '0')`),
+		id, clientID, session.Symbol, ticker.LastPrice, fmtQty, string(model.OrdSubmitting)); err != nil {
+		return failBeforeOrder(http.StatusInternalServerError, "failed to persist force sell intent: "+err.Error())
+	}
 
 	order, err := h.client.PlaceOrder(tokocrypto.OrderRequest{
 		Symbol:   session.Symbol,
 		Side:     1,
 		Type:     2,
 		Quantity: fmtQty,
+		ClientID: clientID,
 	})
 	if err != nil {
-		return c.JSON(http.StatusBadGateway, ErrorJSON("failed to place sell order: "+err.Error()))
+		status := string(model.OrdUnknown)
+		definiteRejection := tokocrypto.IsDefiniteOrderRejection(err)
+		if definiteRejection {
+			status = string(model.OrdRejected)
+		}
+		if _, updateErr := h.db.ExecContext(ctx, h.db.Rebind(`UPDATE orders SET status = ? WHERE client_id = ?`),
+			status, clientID); updateErr != nil {
+			slog.Error("force sell: failed to mark unsuccessful intent", "session", id, "client_id", clientID, "status", status, "error", updateErr)
+		}
+		if definiteRejection {
+			if _, updateErr := h.db.ExecContext(ctx, h.db.Rebind(`UPDATE sessions SET status=? WHERE id=? AND status=?`),
+				string(model.StatLiquidationFailed), id, string(model.StatLiquidating)); updateErr != nil {
+				slog.Error("force sell: failed to mark definite rejection", "session", id, "client_id", clientID, "error", updateErr)
+			}
+			return c.JSON(http.StatusBadGateway, ErrorJSON("sell order rejected by exchange; boleh retry setelah koreksi balance/qty: "+err.Error()))
+		}
+		// A transport/5xx error can mean execution is unknown. Keep liquidating so
+		// a user retry cannot create a duplicate sell before reconciliation.
+		return c.JSON(http.StatusBadGateway, ErrorJSON("sell order status unknown; retry diblokir sampai rekonsiliasi: "+err.Error()))
 	}
 
 	orderID := strconv.FormatInt(order.OrderID, 10)
+	orderStatus := tokocrypto.ExchangeOrderStatus(order.StatusInt())
 	execPrice := order.ExecutedPrice
 	if execPrice == "" {
 		execPrice = "0"
 	}
 	execQty := order.ExecutedQty
 	if execQty == "" {
-		execQty = fmtQty
+		if orderStatus == string(model.OrdFilled) {
+			execQty = fmtQty
+		} else {
+			execQty = "0"
+		}
+	}
+	if orderStatus != string(model.OrdFilled) {
+		if _, updateErr := h.db.ExecContext(ctx, h.db.Rebind(`UPDATE orders SET
+			order_id=?, status=?, executed_qty=?, executed_price=?, executed_quote_qty=? WHERE client_id=?`),
+			orderID, orderStatus, execQty, execPrice, order.ExecutedQuoteQty, clientID); updateErr != nil {
+			return c.JSON(http.StatusInternalServerError, ErrorJSON("order accepted but failed to save pending state: "+updateErr.Error()))
+		}
+		if orderStatus == string(model.OrdCanceled) || orderStatus == string(model.OrdRejected) || orderStatus == string(model.OrdExpired) {
+			_, _ = h.db.ExecContext(ctx, h.db.Rebind(`UPDATE sessions SET status=? WHERE id=? AND status=?`),
+				string(model.StatLiquidationFailed), id, string(model.StatLiquidating))
+		}
+		return c.JSON(http.StatusAccepted, map[string]string{
+			"status":        orderStatus,
+			"order_id":      orderID,
+			"executed_qty":  execQty,
+			"requested_qty": fmtQty,
+		})
 	}
 
 	tx, err := h.db.BeginTxx(ctx, nil)
@@ -354,21 +459,24 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 	defer tx.Rollback()
 
 	pnlStr := computeLivePnLTx(tx, id, execPrice, execQty)
+	fee, feeAsset := order.Fee()
 
-	tx.Exec(tx.Rebind(`INSERT INTO orders (session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		id, orderID, session.Symbol, "sell", "market",
-		execPrice, execQty, "filled", execQty, execPrice, time.Now())
+	if _, err := tx.Exec(tx.Rebind(`UPDATE orders
+		SET order_id = ?, status = ?, executed_qty = ?, executed_price = ?, executed_quote_qty = ?
+		WHERE client_id = ?`), orderID, orderStatus, execQty, execPrice, order.ExecutedQuoteQty, clientID); err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but failed to save order: "+err.Error()))
+	}
 
-	tx.Exec(tx.Rebind(`UPDATE orders SET status = ? WHERE session_id = ? AND side = 'buy' AND status = ?`),
-		"closed", id, "filled")
+	if _, err := tx.Exec(tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		id, orderID, session.Symbol, "sell", execPrice, execQty, fee, feeAsset, pnlStr, time.Now()); err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but failed to save trade: "+err.Error()))
+	}
 
-	tx.Exec(tx.Rebind(`INSERT INTO trades (session_id, order_id, symbol, side, price, quantity, fee, fee_asset, pnl, traded_at)
-		VALUES (?, ?, ?, ?, ?, ?, '0', '', ?, ?)`),
-		id, orderID, session.Symbol, "sell", execPrice, execQty, pnlStr, time.Now())
-
-	tx.Exec(tx.Rebind(`UPDATE sessions SET status = 'stopped', stopped_at = ? WHERE id = ?`),
-		time.Now(), id)
+	if _, err := tx.Exec(tx.Rebind(`UPDATE sessions SET status = 'stopped', stopped_at = ? WHERE id = ?`),
+		time.Now(), id); err != nil {
+		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but failed to stop session: "+err.Error()))
+	}
 
 	if err := tx.Commit(); err != nil {
 		slog.Error("force sell: order placed but DB commit failed — manual reconciliation required",
@@ -376,9 +484,8 @@ func (h *SessionHandler) ForceSell(c echo.Context) error {
 		return c.JSON(http.StatusBadGateway, ErrorJSON("order placed but DB commit failed: "+err.Error()))
 	}
 
-	h.engine.Stop(id)
-
 	return c.JSON(http.StatusOK, map[string]string{
+		"status":       "stopped",
 		"qty_sold":     execQty,
 		"sell_price":   execPrice,
 		"realized_pnl": pnlStr,
@@ -486,20 +593,20 @@ func (h *SessionHandler) GetPortfolio(c echo.Context) error {
 }
 
 type ReevaluateResult struct {
-	CurrentPrice      float64 `json:"current_price"`
-	InRange           bool    `json:"in_range"`
-	PositionPct       float64 `json:"position_pct"`        // 0=at lower, 100=at upper
-	LevelsTriggered   int     `json:"levels_triggered"`
-	TotalLevels       int     `json:"total_levels"`
-	CoveragePct       float64 `json:"coverage_pct"`
-	Suggestion        string  `json:"suggestion"`
-	SuggestedLower    float64 `json:"suggested_lower"`
-	SuggestedUpper    float64 `json:"suggested_upper"`
-	SuggestedCount    int     `json:"suggested_count"`
-	CurrentLower      float64 `json:"current_lower"`
-	CurrentUpper      float64 `json:"current_upper"`
-	CurrentCount      int     `json:"current_count"`
-	StepSize          float64 `json:"step_size"`
+	CurrentPrice    float64 `json:"current_price"`
+	InRange         bool    `json:"in_range"`
+	PositionPct     float64 `json:"position_pct"` // 0=at lower, 100=at upper
+	LevelsTriggered int     `json:"levels_triggered"`
+	TotalLevels     int     `json:"total_levels"`
+	CoveragePct     float64 `json:"coverage_pct"`
+	Suggestion      string  `json:"suggestion"`
+	SuggestedLower  float64 `json:"suggested_lower"`
+	SuggestedUpper  float64 `json:"suggested_upper"`
+	SuggestedCount  int     `json:"suggested_count"`
+	CurrentLower    float64 `json:"current_lower"`
+	CurrentUpper    float64 `json:"current_upper"`
+	CurrentCount    int     `json:"current_count"`
+	StepSize        float64 `json:"step_size"`
 }
 
 func (h *SessionHandler) Reevaluate(c echo.Context) error {

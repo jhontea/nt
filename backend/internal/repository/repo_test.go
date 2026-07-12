@@ -237,6 +237,17 @@ func TestMigrate_SQLite(t *testing.T) {
 			t.Errorf("expected table %s to exist, got %v", e, tables)
 		}
 	}
+
+	if _, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, client_id, symbol, side, type, price, quantity, status)
+		VALUES (NULL, '', 'intent-1', 'BTC_IDR', 'buy', 'market', '0', '0', 'submitting')`); err != nil {
+		t.Fatalf("client_id column is not usable: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, client_id, symbol, side, type, price, quantity, status)
+		VALUES (NULL, '', 'intent-1', 'BTC_IDR', 'buy', 'market', '0', '0', 'submitting')`); err == nil {
+		t.Fatal("expected duplicate client_id to be rejected")
+	}
 }
 
 func TestMigrate_Idempotent(t *testing.T) {

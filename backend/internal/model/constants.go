@@ -28,9 +28,11 @@ const (
 )
 
 const (
-	StatRunning Status = "running"
-	StatStopped Status = "stopped"
-	StatPaused  Status = "paused"
+	StatRunning           Status = "running"
+	StatStopped           Status = "stopped"
+	StatPaused            Status = "paused"
+	StatLiquidating       Status = "liquidating"
+	StatLiquidationFailed Status = "liquidation_failed"
 )
 
 const (
@@ -39,9 +41,16 @@ const (
 )
 
 const (
-	OrdNew      OrderStatus = "new"
-	OrdFilled   OrderStatus = "filled"
-	OrdClosed   OrderStatus = "closed"
-	OrdSignal   OrderStatus = "signal"
-	OrdCanceled OrderStatus = "canceled"
+	OrdProcessing    OrderStatus = "processing"
+	OrdSubmitting    OrderStatus = "submitting"
+	OrdUnknown       OrderStatus = "unknown"
+	OrdNew           OrderStatus = "new"
+	OrdPartial       OrderStatus = "partial"
+	OrdFilled        OrderStatus = "filled"
+	OrdClosed        OrderStatus = "closed"
+	OrdSignal        OrderStatus = "signal"
+	OrdCanceled      OrderStatus = "canceled"
+	OrdPendingCancel OrderStatus = "pending_cancel"
+	OrdRejected      OrderStatus = "rejected"
+	OrdExpired       OrderStatus = "expired"
 )

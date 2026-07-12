@@ -580,7 +580,9 @@ export default function SessionDetailPage() {
                     Running
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]">Stopped</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]">
+                    {session.status === 'liquidating' ? 'Liquidating' : session.status === 'liquidation_failed' ? 'Liquidation Failed' : 'Stopped'}
+                  </span>
                 )}
                 {/* Symbol + price */}
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] text-[#0e0f0c] dark:text-[#e8ebe6]">
@@ -605,7 +607,7 @@ export default function SessionDetailPage() {
                   >
                     {loading === 'stop' ? 'Stopping...' : 'Stop'}
                   </button>
-                ) : (
+                ) : session.status === 'liquidating' || session.status === 'liquidation_failed' ? null : (
                   <button
                     onClick={handleStart}
                     disabled={loading === 'start'}
@@ -618,7 +620,7 @@ export default function SessionDetailPage() {
                     {loading === 'start' ? 'Starting...' : session.mode === 'live' ? '⚡ Start Live' : 'Start Bot'}
                   </button>
                 )}
-                {session.strategy === 'dca' && session.mode === 'live' && session.status === 'running' && (
+                {session.strategy === 'dca' && session.mode === 'live' && (session.status === 'running' || session.status === 'liquidation_failed') && (
                   forceSellConfirmId ? (
                     <span className="flex items-center gap-2">
                       <span className="text-xs text-[#686868] dark:text-[#898989]">Yakin jual semua?</span>
@@ -626,7 +628,7 @@ export default function SessionDetailPage() {
                       <button onClick={() => setForceSellConfirmId(false)} className="bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Batal</button>
                     </span>
                   ) : (
-                    <button onClick={() => setForceSellConfirmId(true)} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Force Sell</button>
+                    <button onClick={() => setForceSellConfirmId(true)} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">{session.status === 'liquidation_failed' ? 'Retry Force Sell' : 'Force Sell'}</button>
                   )
                 )}
                 <button

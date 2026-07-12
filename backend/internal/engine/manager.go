@@ -18,20 +18,20 @@ import (
 )
 
 type Manager struct {
-	mu             sync.Mutex
-	wg             sync.WaitGroup
-	sessions       map[int64]*RunningSession
-	highWaterMark  map[int64]float64
-	client         *tokocrypto.Client
-	db             *sqlx.DB
-	strategies     map[string]StrategyEvaluator
-	paper          *PaperEngine
-	live           *LiveEngine
-	notifier       *service.Notifier
-	Hub            *WSHub
-	signalRepo     repository.StrategySignalRepository
-	validator      *SignalValidator
-	reconciler     *Reconciler
+	mu            sync.Mutex
+	wg            sync.WaitGroup
+	sessions      map[int64]*RunningSession
+	highWaterMark map[int64]float64
+	client        *tokocrypto.Client
+	db            *sqlx.DB
+	strategies    map[string]StrategyEvaluator
+	paper         *PaperEngine
+	live          *LiveEngine
+	notifier      *service.Notifier
+	Hub           *WSHub
+	signalRepo    repository.StrategySignalRepository
+	validator     *SignalValidator
+	reconciler    *Reconciler
 }
 
 type RunningSession struct {
@@ -44,7 +44,7 @@ func NewManager(client *tokocrypto.Client, db *sqlx.DB, notifier *service.Notifi
 		sessions:      make(map[int64]*RunningSession),
 		highWaterMark: make(map[int64]float64),
 		client:        client,
-		db:       db,
+		db:            db,
 		strategies: map[string]StrategyEvaluator{
 			string(model.StratGrid):  NewGridEngine(client, db),
 			string(model.StratTrend): NewTrendEngineWithDB(client, db),
@@ -82,13 +82,16 @@ func (m *Manager) Start(session model.Session) error {
 		trend.Reset(session.ID)
 	}
 
-	// Gap 6 fix: PreflightCheck for DCA live before starting
+	// Validate API access and enough quote balance for the first DCA buy.
 	if session.Strategy == string(model.StratDCA) && session.Mode == string(model.ModeLive) {
-		ticker, err := m.client.GetTicker(session.Symbol)
-		if err != nil {
-			return fmt.Errorf("preflight: cannot fetch ticker for %s: %w", session.Symbol, err)
+		if !strings.HasSuffix(session.Symbol, "_IDR") {
+			return fmt.Errorf("preflight: DCA live hanya mendukung pair IDR, symbol diterima: %s", session.Symbol)
 		}
-		if err := m.live.PreflightCheck(session.Symbol, string(model.SideBuy), "0", ticker.LastPrice); err != nil {
+		var cfg DCAConfig
+		if err := json.Unmarshal([]byte(session.Config), &cfg); err != nil {
+			return fmt.Errorf("preflight: invalid DCA config: %w", err)
+		}
+		if err := m.live.PreflightBuy(session.Symbol, cfg.Amount); err != nil {
 			return fmt.Errorf("preflight check failed: %w", err)
 		}
 	}
@@ -242,30 +245,30 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 		for _, sig := range deduped {
 			if err := m.live.Execute(session, sig); err != nil {
 				slog.Error("live execute", "session", session.ID, "error", err)
-			// If live execute fails for DCA buy, revert in-memory state
+				// If live execute fails for DCA buy, revert in-memory state
+				if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
+					if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+						dca.RevertLastBuy(session.ID)
+					}
+				}
+				continue
+			}
+			// DCA: confirm buy after successful execution so avgBuyPrice is updated
+			// with the confirmed order, not speculatively before exchange confirms.
 			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-					dca.RevertLastBuy(session.ID)
+					priceF, _ := strconv.ParseFloat(sig.Price, 64)
+					qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
+					dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
 				}
 			}
-			continue
-		}
-		// DCA: confirm buy after successful execution so avgBuyPrice is updated
-		// with the confirmed order, not speculatively before exchange confirms.
-		if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideBuy) {
-			if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-				priceF, _ := strconv.ParseFloat(sig.Price, 64)
-				qtyF, _ := strconv.ParseFloat(sig.Quantity, 64)
-				dca.ConfirmBuy(session.ID, session.Symbol, priceF, qtyF)
+			// DCA: confirm sell after successful execution so avgBuyPrice is cleared.
+			// ponytail: no revert on sell failure — engine will retry on next tick if price still at TP.
+			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideSell) {
+				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+					dca.ConfirmSell(session.ID)
+				}
 			}
-		}
-		// DCA: confirm sell after successful execution so avgBuyPrice is cleared.
-		// ponytail: no revert on sell failure — engine will retry on next tick if price still at TP.
-		if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideSell) {
-			if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-				dca.ConfirmSell(session.ID)
-			}
-		}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
 			}
@@ -352,28 +355,28 @@ func (m *Manager) saveGridSignals(session model.Session, signals []Signal) {
 		}
 
 		signal := &model.StrategySignal{
-			SessionID:             session.ID,
-			Symbol:                session.Symbol,
-			Strategy:              "grid",
-			SignalType:            sig.Side,
-			GridLevelIndex:        levelIdx,
-			GridLevelPrice:        sig.Price,
-			MarketPriceAtSignal:   sig.Price,
-			Quantity:              sig.Quantity,
-			Reason:                sig.Reason,
-			ValidationMode:         "grid_steps",
-			ValidationTargetValue: 2,
-			ValidationInvalidValue: 1,
+			SessionID:               session.ID,
+			Symbol:                  session.Symbol,
+			Strategy:                "grid",
+			SignalType:              sig.Side,
+			GridLevelIndex:          levelIdx,
+			GridLevelPrice:          sig.Price,
+			MarketPriceAtSignal:     sig.Price,
+			Quantity:                sig.Quantity,
+			Reason:                  sig.Reason,
+			ValidationMode:          "grid_steps",
+			ValidationTargetValue:   2,
+			ValidationInvalidValue:  1,
 			ValidationWindowMinutes: 120,
 		}
 
 		// Override with config values if present in the JSON config
 		// (the engine config JSON may include validation fields)
 		var extCfg struct {
-			ValidationMode           string  `json:"validation_mode"`
-			ValidationTargetValue    float64 `json:"validation_target_value"`
-			ValidationInvalidValue   float64 `json:"validation_invalid_value"`
-			ValidationWindowMinutes  int     `json:"validation_window_minutes"`
+			ValidationMode          string  `json:"validation_mode"`
+			ValidationTargetValue   float64 `json:"validation_target_value"`
+			ValidationInvalidValue  float64 `json:"validation_invalid_value"`
+			ValidationWindowMinutes int     `json:"validation_window_minutes"`
 		}
 		if json.Unmarshal([]byte(session.Config), &extCfg) == nil {
 			if extCfg.ValidationMode != "" {
@@ -467,18 +470,18 @@ func (m *Manager) saveTrendSignals(session model.Session, signals []Signal) {
 		// ponytail: trend pakai kolom grid_* sebagai marker*, 0 untuk grid-only fields.
 		// Rename ke marker_* saat strategi ke-4 muncul.
 		signal := &model.StrategySignal{
-			SessionID:              session.ID,
-			Symbol:                 session.Symbol,
-			Strategy:               "trend",
-			SignalType:             sig.Side,
-			GridLevelIndex:         0,
-			GridLevelPrice:         sig.Price,
-			MarketPriceAtSignal:   sig.Price,
-			Quantity:               sig.Quantity,
-			Reason:                 sig.Reason,
-			ValidationMode:         "percent",
-			ValidationTargetValue:  targetVal,
-			ValidationInvalidValue: invalidVal,
+			SessionID:               session.ID,
+			Symbol:                  session.Symbol,
+			Strategy:                "trend",
+			SignalType:              sig.Side,
+			GridLevelIndex:          0,
+			GridLevelPrice:          sig.Price,
+			MarketPriceAtSignal:     sig.Price,
+			Quantity:                sig.Quantity,
+			Reason:                  sig.Reason,
+			ValidationMode:          "percent",
+			ValidationTargetValue:   targetVal,
+			ValidationInvalidValue:  invalidVal,
 			ValidationWindowMinutes: windowMin,
 		}
 		if _, err := m.signalRepo.Create(context.Background(), signal); err != nil {
@@ -636,7 +639,9 @@ func (m *Manager) checkLiveStopConditions(session model.Session, currentPrice st
 	}
 
 	// Sum open position value — only 'filled' buys (not 'closed' = already sold, not 'signal' = not executed)
-	type openPos struct{ Qty string `db:"quantity"` }
+	type openPos struct {
+		Qty string `db:"quantity"`
+	}
 	var openBuys []openPos
 	if err := m.db.Select(&openBuys, m.db.Rebind(
 		`SELECT executed_qty as quantity FROM orders WHERE session_id = ? AND side = 'buy' AND status = 'filled'`), session.ID); err != nil {

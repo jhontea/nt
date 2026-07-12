@@ -12,7 +12,7 @@ export interface Session {
   mode: 'signal' | 'paper' | 'live'
   symbol: string
   config: string
-  status: 'stopped' | 'running' | 'paused'
+  status: 'stopped' | 'running' | 'paused' | 'liquidating' | 'liquidation_failed'
   is_alive?: boolean
   virtual_balance?: number
   initial_balance?: number

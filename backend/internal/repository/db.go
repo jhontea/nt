@@ -60,6 +60,9 @@ func Migrate(db *sqlx.DB) error {
 		if err := logExec(db, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS executed_quote_qty VARCHAR(50) DEFAULT '0'"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
+		if err := logExec(db, "ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_id VARCHAR(255) DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
 	} else {
 		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL"); err != nil {
 			log.Printf("migrate: %v", err)
@@ -73,6 +76,12 @@ func Migrate(db *sqlx.DB) error {
 		if err := logExec(db, "ALTER TABLE orders ADD COLUMN executed_quote_qty TEXT DEFAULT '0'"); err != nil {
 			log.Printf("migrate: %v", err)
 		}
+		if err := logExec(db, "ALTER TABLE orders ADD COLUMN client_id TEXT DEFAULT ''"); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+	}
+	if err := logExec(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> ''"); err != nil {
+		log.Printf("migrate: %v", err)
 	}
 	return nil
 }
@@ -121,6 +130,7 @@ const pgSchema = `
 		id SERIAL PRIMARY KEY,
 		session_id INTEGER REFERENCES sessions(id),
 		order_id VARCHAR(255) NOT NULL,
+		client_id VARCHAR(255) DEFAULT '',
 		symbol VARCHAR(50) NOT NULL,
 		side VARCHAR(10) NOT NULL,
 		type VARCHAR(20) NOT NULL,
@@ -129,6 +139,7 @@ const pgSchema = `
 		status VARCHAR(20) NOT NULL DEFAULT 'new',
 		executed_qty VARCHAR(50) DEFAULT '0',
 		executed_price VARCHAR(50) DEFAULT '0',
+		executed_quote_qty VARCHAR(50) DEFAULT '0',
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -191,6 +202,7 @@ const pgSchema = `
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_status ON strategy_signals(validation_status);
 	CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_id);
 	CREATE INDEX IF NOT EXISTS idx_orders_session_side_status ON orders(session_id, side, status);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> '';
 	CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
 	`
 
@@ -233,6 +245,7 @@ const sqliteSchema = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		session_id INTEGER REFERENCES sessions(id),
 		order_id TEXT NOT NULL,
+		client_id TEXT DEFAULT '',
 		symbol TEXT NOT NULL,
 		side TEXT NOT NULL,
 		type TEXT NOT NULL,
@@ -241,6 +254,7 @@ const sqliteSchema = `
 		status TEXT NOT NULL DEFAULT 'new',
 		executed_qty TEXT DEFAULT '0',
 		executed_price TEXT DEFAULT '0',
+		executed_quote_qty TEXT DEFAULT '0',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -303,5 +317,6 @@ const sqliteSchema = `
 	CREATE INDEX IF NOT EXISTS idx_strategy_signals_status ON strategy_signals(validation_status);
 	CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_id);
 	CREATE INDEX IF NOT EXISTS idx_orders_session_side_status ON orders(session_id, side, status);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> '';
 	CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
 	`

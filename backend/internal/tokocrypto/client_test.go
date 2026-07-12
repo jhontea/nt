@@ -248,6 +248,94 @@ func TestHMACSignature(t *testing.T) {
 	}
 }
 
+func TestPlaceOrderSendsClientID(t *testing.T) {
+	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("clientId"); got != "force-session-1" {
+			t.Fatalf("clientId = %q, want force-session-1", got)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": 0,
+			"data": map[string]any{
+				"orderId":     123,
+				"clientId":    "force-session-1",
+				"status":      2,
+				"executedQty": "0.001",
+				"taxFee":      "10.5",
+				"taxFeeAsset": "IDR",
+			},
+		})
+	})
+
+	order, err := client.PlaceOrder(OrderRequest{
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.OrderID != 123 || order.ClientID != "force-session-1" {
+		t.Fatalf("unexpected order response: %+v", order)
+	}
+	if !order.HasExecutedQuantity() {
+		t.Fatal("expected executed quantity")
+	}
+	if fee, asset := order.Fee(); fee != "10.5" || asset != "IDR" {
+		t.Fatalf("fee = %s %s, want 10.5 IDR", fee, asset)
+	}
+}
+
+func TestPlaceOrderAPIErrorIsDefiniteRejection(t *testing.T) {
+	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"code":    -2010,
+			"message": "insufficient balance",
+			"data":    map[string]any{},
+		})
+	})
+
+	_, err := client.PlaceOrder(OrderRequest{
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsDefiniteOrderRejection(err) {
+		t.Fatalf("expected definite rejection, got %T %v", err, err)
+	}
+}
+
+func TestPlaceOrderHTTP5xxIsNotDefiniteRejection(t *testing.T) {
+	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream timeout", http.StatusBadGateway)
+	})
+
+	_, err := client.PlaceOrder(OrderRequest{
+		Symbol: "BTC_IDR", Side: 1, Type: 2, Quantity: "0.001", ClientID: "force-session-1",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsDefiniteOrderRejection(err) {
+		t.Fatalf("expected unknown submission state for 5xx, got %T %v", err, err)
+	}
+}
+
+func TestGetOrderByClientID(t *testing.T) {
+	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("clientId"); got != "live-order-1" {
+			t.Fatalf("clientId = %q, want live-order-1", got)
+		}
+		json.NewEncoder(w).Encode(OrderResponse{Code: 0, Data: OrderResponseData{OrderID: 456, Status: "2"}})
+	})
+
+	order, err := client.GetOrderByClientID("BTC_IDR", "live-order-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.OrderID != 456 {
+		t.Fatalf("order ID = %d, want 456", order.OrderID)
+	}
+}
+
 func TestConcurrentCache(t *testing.T) {
 	// Verify cache is safe for concurrent access
 	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {

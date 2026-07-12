@@ -87,6 +87,23 @@ func TestDCAEngine_Reset(t *testing.T) {
 	}
 }
 
+func TestDCAEngine_RestoresReconciledBuyAverage(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_IDR"}
+	d.lastBuy[session.ID] = time.Now() // execution attempt happened, result arrived asynchronously
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, '123', 'BTC_IDR', 'buy', 'market', '1000000000', '0.001', 'filled', '0.001', '1000000000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.evaluate(session, DCAConfig{IntervalSec: 3600, Amount: "100000"}, 1000000000, "1000000000")
+	if got := d.avgBuyPrice[session.ID]; got != 1000000000 {
+		t.Fatalf("restored average = %v, want 1000000000", got)
+	}
+}
+
 func TestDCAEngine_TakeProfitTriggered(t *testing.T) {
 	d, db := setupDCA(t)
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}

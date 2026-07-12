@@ -191,7 +191,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                 {session.status === 'running' && (
                   <span className={`inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
                 )}
-                {session.status === 'running' ? 'Running' : 'Stopped'}
+                {session.status === 'running' ? 'Running' : session.status === 'liquidating' ? 'Liquidating' : session.status === 'liquidation_failed' ? 'Liquidation Failed' : 'Stopped'}
               </span>
             </div>
             <p className="text-xs text-[#686868] dark:text-[#898989] truncate min-w-0">
@@ -225,7 +225,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
           <div className="flex items-center gap-1.5 flex-wrap justify-end sm:flex-nowrap sm:flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0" onClick={e => e.stopPropagation()}>
             {session.status === 'running' ? (
               <button className="px-4 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition" onClick={() => onStop(session.id)}>Stop</button>
-            ) : (
+            ) : session.status === 'liquidating' || session.status === 'liquidation_failed' ? null : (
               <button
                 className={`px-4 py-2 text-xs font-semibold rounded-full transition ${
                   session.mode === 'live'
@@ -237,8 +237,8 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                 {session.mode === 'live' ? '⚡ Start Live' : 'Start'}
               </button>
             )}
-            {/* Force Sell — DCA live running only */}
-            {session.strategy === 'dca' && session.mode === 'live' && session.status === 'running' && onForceSell && (
+            {/* Force Sell — DCA live running or retryable failure */}
+            {session.strategy === 'dca' && session.mode === 'live' && (session.status === 'running' || session.status === 'liquidation_failed') && onForceSell && (
               forceSellConfirm ? (
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-[#686868] dark:text-[#898989] mr-1">Jual semua?</span>
@@ -256,7 +256,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                   className="px-3 py-2 text-xs font-semibold bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f] hover:bg-[#d03238] hover:text-white border border-[rgba(208,50,56,0.2)] hover:border-[#d03238] rounded-full transition"
                   onClick={() => onForceSell(session.id)}
                   title="Jual semua posisi sekarang"
-                ><span className="sm:hidden">Jual</span><span className="hidden sm:inline">Force Sell</span></button>
+                ><span className="sm:hidden">Jual</span><span className="hidden sm:inline">{session.status === 'liquidation_failed' ? 'Retry Force Sell' : 'Force Sell'}</span></button>
               )
             )}
             {confirmDelete ? (

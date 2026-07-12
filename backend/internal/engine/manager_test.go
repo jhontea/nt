@@ -2,6 +2,7 @@ package engine
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -72,6 +73,22 @@ func TestManager_IsRunning_ReturnsFalseForUnknown(t *testing.T) {
 	m := setupManager(t)
 	if m.IsRunning(999) {
 		t.Error("expected false for unknown session")
+	}
+}
+
+func TestManager_Start_RejectsNonIDRLiveDCA(t *testing.T) {
+	m := setupManager(t)
+	session := model.Session{
+		ID:       1,
+		Strategy: string(model.StratDCA),
+		Mode:     string(model.ModeLive),
+		Symbol:   "BTC_USDT",
+		Config:   `{"interval_sec":3600,"amount":"10"}`,
+	}
+
+	err := m.Start(session)
+	if err == nil || !strings.Contains(err.Error(), "hanya mendukung pair IDR") {
+		t.Fatalf("expected non-IDR live DCA rejection, got %v", err)
 	}
 }
 
