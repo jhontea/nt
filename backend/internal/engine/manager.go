@@ -234,6 +234,14 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			}
 			if execErr != nil {
 				slog.Error("paper execute", "session", session.ID, "error", execErr)
+			} else if dcaSellReentryHoldEnabled && session.Strategy == string(model.StratDCA) {
+				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
+					if sig.Side == string(model.SideBuy) {
+						dca.ConfirmBuy(session.ID, session.Symbol, session.StartedAt)
+					} else if sig.Side == string(model.SideSell) {
+						dca.ConfirmSell(session.ID, session.Symbol)
+					}
+				}
 			}
 			if m.Hub != nil {
 				m.Hub.Broadcast(session.ID, WSSignal{Type: "signal", SessionID: session.ID, Signal: sig})
@@ -273,7 +281,7 @@ func (m *Manager) evaluate(ctx context.Context, session model.Session) {
 			// ponytail: no revert on sell failure — engine will retry on next tick if price still at TP.
 			if session.Strategy == string(model.StratDCA) && sig.Side == string(model.SideSell) {
 				if dca, ok := m.strategies[string(model.StratDCA)].(*DCAEngine); ok {
-					dca.ConfirmSell(session.ID)
+					dca.ConfirmSell(session.ID, session.Symbol)
 					if _, err := m.db.Exec(m.db.Rebind("UPDATE sessions SET started_at = CURRENT_TIMESTAMP WHERE id = ?"), session.ID); err != nil {
 						slog.Warn("dca sell: failed to refresh started_at", "session", session.ID, "error", err)
 					}

@@ -212,17 +212,27 @@ func fmtPnLStr(pnl string) string {
 	return fmtPnL(f)
 }
 
+// sideNotice returns a high-visibility prefix for transaction notifications.
+// BUY/SELL intentionally stays in English so the side is recognizable at a glance.
+func sideNotice(side string) (emoji, prefix, label string) {
+	if side == string(model.SideSell) {
+		return "🔴", "[SELL]", "JUAL"
+	}
+	return "🟢", "[BUY]", "BELI"
+}
+
 // reasonLabel maps internal reason codes to human-readable Indonesian.
 func reasonLabel(reason string) string {
 	labels := map[string]string{
-		"grid_buy_level":   "Harga menyentuh level beli grid",
-		"grid_sell_level":  "Harga menyentuh level jual grid",
-		"golden_cross":     "Golden Cross — SMA cepat memotong ke atas",
-		"death_cross":      "Death Cross — SMA cepat memotong ke bawah",
-		"dca_interval":     "Interval DCA tercapai",
-		"dca_drop":         "Harga turun sesuai target DCA",
-		"dca_take_profit":  "Take Profit DCA tercapai",
-		"dca_stop_loss":    "Stop Loss DCA tercapai",
+		"grid_buy_level":         "Harga menyentuh level beli grid",
+		"grid_sell_level":        "Harga menyentuh level jual grid",
+		"golden_cross":           "Golden Cross — SMA cepat memotong ke atas",
+		"death_cross":            "Death Cross — SMA cepat memotong ke bawah",
+		"dca_interval":           "Interval DCA tercapai",
+		"dca_drop":               "Harga turun sesuai target DCA",
+		"dca_reentry_below_sell": "Harga turun di bawah harga jual terakhir",
+		"dca_take_profit":        "Take Profit DCA tercapai",
+		"dca_stop_loss":          "Stop Loss DCA tercapai",
 	}
 	// prefix match for grid levels: "grid_buy_level_3" → "Harga menyentuh level beli 3"
 	for prefix, label := range map[string]string{
@@ -244,18 +254,13 @@ const divider = "─────────────────"
 
 // SendSignal — signal mode: new signal generated (not yet executed).
 func (n *Notifier) SendSignal(sessionName, strategy, mode, symbol, side, price, qty, reason string) {
-	sideEmoji := "🟢"
-	sideLabel := "BELI"
-	if side == string(model.SideSell) {
-		sideEmoji = "🔴"
-		sideLabel = "JUAL"
-	}
+	sideEmoji, sidePrefix, sideLabel := sideNotice(side)
 	qtyLine := ""
 	if qty != "" && qty != "0" {
 		qtyLine = fmt.Sprintf("\n📦 Qty: <code>%s</code>", fmtQty(qty))
 	}
 	msg := fmt.Sprintf(
-		"%s <b>SINYAL %s</b>\n"+
+		"%s <b>%s SINYAL %s</b>\n"+
 			"<i>%s · %s · %s</i>\n"+
 			divider+"\n"+
 			"🪙 Pair: <b>%s</b>\n"+
@@ -263,7 +268,7 @@ func (n *Notifier) SendSignal(sessionName, strategy, mode, symbol, side, price, 
 			"📝 %s\n"+
 			divider+"\n"+
 			"🕐 <i>%s</i>",
-		sideEmoji, sideLabel,
+		sideEmoji, sidePrefix, sideLabel,
 		sessionName, strategyLabel(strategy), modeLabel(mode),
 		fmtSymbol(symbol), fmtPrice(price), qtyLine,
 		reasonLabel(reason),
@@ -277,12 +282,7 @@ func (n *Notifier) SendSignal(sessionName, strategy, mode, symbol, side, price, 
 // SendTrade — paper/live trade executed (buy or sell).
 // pnl is only shown for sell trades; pass empty string for buy.
 func (n *Notifier) SendTrade(sessionName, strategy, mode, symbol, side, price, qty, pnl string) {
-	emoji := "🟢"
-	label := "BELI"
-	if side == string(model.SideSell) {
-		emoji = "🔴"
-		label = "JUAL"
-	}
+	emoji, prefix, label := sideNotice(side)
 
 	pnlLine := ""
 	if side == string(model.SideSell) && pnl != "" && pnl != "0" {
@@ -290,7 +290,7 @@ func (n *Notifier) SendTrade(sessionName, strategy, mode, symbol, side, price, q
 	}
 
 	msg := fmt.Sprintf(
-		"%s <b>TRADE %s</b>\n"+
+		"%s <b>%s TRADE %s</b>\n"+
 			"<i>%s · %s · %s</i>\n"+
 			divider+"\n"+
 			"🪙 Pair: <b>%s</b>\n"+
@@ -298,7 +298,7 @@ func (n *Notifier) SendTrade(sessionName, strategy, mode, symbol, side, price, q
 			"📦 Qty: <code>%s</code>%s\n"+
 			divider+"\n"+
 			"🕐 <i>%s</i>",
-		emoji, label,
+		emoji, prefix, label,
 		sessionName, strategyLabel(strategy), modeLabel(mode),
 		fmtSymbol(symbol), fmtPrice(price), fmtQty(qty), pnlLine,
 		now(),
@@ -311,12 +311,7 @@ func (n *Notifier) SendTrade(sessionName, strategy, mode, symbol, side, price, q
 // SendLiveTrade — live order confirmed on exchange.
 // Distinct from SendSignal: confirms actual execution with order ID and filled price/qty.
 func (n *Notifier) SendLiveTrade(sessionName, strategy, symbol, side, orderID, execPrice, execQty, pnl string) {
-	emoji := "🟢"
-	label := "BELI"
-	if side == string(model.SideSell) {
-		emoji = "🔴"
-		label = "JUAL"
-	}
+	emoji, prefix, label := sideNotice(side)
 
 	pnlLine := ""
 	if side == string(model.SideSell) && pnl != "" && pnl != "0" {
@@ -329,7 +324,7 @@ func (n *Notifier) SendLiveTrade(sessionName, strategy, symbol, side, orderID, e
 	}
 
 	msg := fmt.Sprintf(
-		"✅ <b>ORDER TEREKSEKUSI %s</b> %s\n"+
+		"%s <b>%s ORDER TEREKSEKUSI — %s</b>\n"+
 			"<i>%s · %s · ⚡ Live</i>\n"+
 			divider+"\n"+
 			"🪙 Pair: <b>%s</b>\n"+
@@ -337,7 +332,7 @@ func (n *Notifier) SendLiveTrade(sessionName, strategy, symbol, side, orderID, e
 			"📦 Qty Terisi: <code>%s</code>%s%s\n"+
 			divider+"\n"+
 			"🕐 <i>%s</i>",
-		label, emoji,
+		emoji, prefix, label,
 		sessionName, strategyLabel(strategy),
 		fmtSymbol(symbol), fmtPrice(execPrice), fmtQty(execQty), pnlLine, orderLine,
 		now(),
@@ -417,4 +412,3 @@ func (n *Notifier) SendPaperAlert(sessionName, symbol, reason string, needed, av
 		slog.Warn("telegram paper alert", "error", err)
 	}
 }
-

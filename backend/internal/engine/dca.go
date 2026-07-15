@@ -13,22 +13,29 @@ import (
 	"github.com/user/nt/internal/tokocrypto"
 )
 
+// dcaSellReentryHoldEnabled is a temporary hardcoded feature toggle.
+// Set to false to restore the previous behavior: after a confirmed sell the
+// DCA cycle state is cleared and the next evaluation may buy immediately.
+const dcaSellReentryHoldEnabled = true
+
 type DCAEngine struct {
-	mu           sync.Mutex
-	lastBuy      map[int64]time.Time
-	lastBuyPrice map[int64]float64 // price at last executed buy, for DropPct check
-	avgBuyPrice  map[int64]float64
-	client       *tokocrypto.Client
-	db           *sqlx.DB
+	mu            sync.Mutex
+	lastBuy       map[int64]time.Time
+	lastBuyPrice  map[int64]float64 // price at last executed buy, for DropPct check
+	lastSellPrice map[int64]float64 // confirmed sell price used to guard the next cycle entry
+	avgBuyPrice   map[int64]float64
+	client        *tokocrypto.Client
+	db            *sqlx.DB
 }
 
 func NewDCAEngine(client *tokocrypto.Client, db *sqlx.DB) *DCAEngine {
 	return &DCAEngine{
-		lastBuy:      make(map[int64]time.Time),
-		lastBuyPrice: make(map[int64]float64),
-		avgBuyPrice:  make(map[int64]float64),
-		client:       client,
-		db:           db,
+		lastBuy:       make(map[int64]time.Time),
+		lastBuyPrice:  make(map[int64]float64),
+		lastSellPrice: make(map[int64]float64),
+		avgBuyPrice:   make(map[int64]float64),
+		client:        client,
+		db:            db,
 	}
 }
 
@@ -70,6 +77,7 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	defer d.mu.Unlock()
 	delete(d.lastBuy, sessionID)
 	delete(d.lastBuyPrice, sessionID)
+	delete(d.lastSellPrice, sessionID)
 	delete(d.avgBuyPrice, sessionID)
 }
 
@@ -106,19 +114,50 @@ func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.T
 	}
 	d.avgBuyPrice[sessionID] = agg.TotalCost / agg.TotalQty
 	d.lastBuyPrice[sessionID] = agg.LastPrice
+	delete(d.lastSellPrice, sessionID)
 	slog.Info("dca: confirmed fill state loaded", "session", sessionID, "avg_price", d.avgBuyPrice[sessionID], "qty", agg.TotalQty, "last_price", agg.LastPrice)
 }
 
-// ConfirmSell clears avgBuyPrice after a live sell order is confirmed on the exchange.
-// Must be called by Manager after live.Execute succeeds for a sell signal.
+// ConfirmSell clears the active position after a sell is confirmed and remembers
+// the actual fill price. The sell timestamp becomes the start of the next interval,
+// preventing the next evaluation tick from immediately opening a new cycle.
 // ponytail: deletes here instead of in evaluate() to prevent infinite TP loop on failed sells.
-func (d *DCAEngine) ConfirmSell(sessionID int64) {
+func (d *DCAEngine) ConfirmSell(sessionID int64, symbol string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	delete(d.lastBuy, sessionID)
+	if !dcaSellReentryHoldEnabled {
+		delete(d.lastBuy, sessionID)
+		delete(d.avgBuyPrice, sessionID)
+		delete(d.lastBuyPrice, sessionID)
+		delete(d.lastSellPrice, sessionID)
+		slog.Info("dca: sell confirmed, cycle state reset", "session", sessionID)
+		return
+	}
+
+	var row struct {
+		Price     float64   `db:"price_val"`
+		CreatedAt time.Time `db:"created_at"`
+	}
+	err := d.db.Get(&row, d.db.Rebind(`
+		SELECT COALESCE(CASE WHEN CAST(executed_price AS REAL)>0
+		         THEN CAST(executed_price AS REAL) ELSE CAST(price AS REAL) END, 0) AS price_val,
+		       created_at
+		FROM orders
+		WHERE session_id=? AND symbol=? AND side='sell' AND status='filled'
+		ORDER BY id DESC LIMIT 1`), sessionID, symbol)
+	if err != nil || row.Price <= 0 {
+		slog.Warn("dca: confirmed sell fill not found", "session", sessionID, "error", err)
+		return
+	}
+	if row.CreatedAt.IsZero() {
+		row.CreatedAt = time.Now()
+	}
+
+	d.lastBuy[sessionID] = row.CreatedAt
+	d.lastSellPrice[sessionID] = row.Price
 	delete(d.avgBuyPrice, sessionID)
 	delete(d.lastBuyPrice, sessionID)
-	slog.Info("dca: sell confirmed, cycle state reset", "session", sessionID)
+	slog.Info("dca: sell confirmed, re-entry hold armed", "session", sessionID, "sell_price", row.Price)
 }
 
 // RevertLastBuy rolls back price/avg state when a live buy order fails at the exchange,
@@ -141,27 +180,34 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		var row struct {
 			Epoch int64   `db:"epoch"`
 			Price float64 `db:"price_val"`
-		}
-		var startedAtClause string
-		args := []any{session.ID, session.Symbol}
-		if session.StartedAt != nil {
-			startedAtClause = " AND created_at >= ?"
-			args = append(args, *session.StartedAt)
+			Side  string  `db:"side"`
 		}
 		epochExpr := "CAST(strftime('%s', created_at) AS INTEGER)"
 		if d.db.DriverName() != "sqlite" {
 			epochExpr = "COALESCE(EXTRACT(EPOCH FROM created_at)::BIGINT, 0)"
 		}
-		if err := d.db.Get(&row, d.db.Rebind(
-			`SELECT `+epochExpr+` AS epoch,
+		query := `SELECT ` + epochExpr + ` AS epoch, side,
 			        COALESCE(CASE WHEN status='filled' AND CAST(executed_price AS REAL)>0
 			          THEN CAST(executed_price AS REAL) ELSE CAST(price AS REAL) END, 0) AS price_val
-			 FROM orders WHERE session_id=? AND symbol=? AND side='buy'
-			   AND status IN ('filled','signal')`+startedAtClause+`
-			 ORDER BY id DESC LIMIT 1`,
-		), args...); err == nil && row.Epoch > 0 {
+			 FROM orders WHERE session_id=? AND symbol=?`
+		args := []any{session.ID, session.Symbol}
+		if dcaSellReentryHoldEnabled {
+			query += ` AND ((side='buy' AND status IN ('filled','signal')) OR (side='sell' AND status='filled'))`
+		} else {
+			query += ` AND side='buy' AND status IN ('filled','signal')`
+			if session.StartedAt != nil {
+				query += ` AND created_at >= ?`
+				args = append(args, *session.StartedAt)
+			}
+		}
+		query += ` ORDER BY id DESC LIMIT 1`
+		if err := d.db.Get(&row, d.db.Rebind(query), args...); err == nil && row.Epoch > 0 {
 			d.lastBuy[session.ID] = time.Unix(row.Epoch, 0)
-			d.lastBuyPrice[session.ID] = row.Price
+			if dcaSellReentryHoldEnabled && row.Side == string(model.SideSell) {
+				d.lastSellPrice[session.ID] = row.Price
+			} else {
+				d.lastBuyPrice[session.ID] = row.Price
+			}
 		}
 	}
 
@@ -196,7 +242,17 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	shouldBuy := false
 	reason := "dca_interval"
 
-	if cfg.DropPct > 0 {
+	if sellPrice := d.lastSellPrice[session.ID]; dcaSellReentryHoldEnabled && sellPrice > 0 {
+		// After closing a cycle, do not chase the price upward. Re-entry is
+		// allowed early below the sell fill, or normally when the next interval
+		// has elapsed. Equality remains on hold to avoid buying back at no edge.
+		if currentPrice < sellPrice {
+			shouldBuy = true
+			reason = "dca_reentry_below_sell"
+		} else {
+			shouldBuy = intervalReady
+		}
+	} else if cfg.DropPct > 0 {
 		// price-triggered DCA: buy only when price drops DropPct% from last buy price
 		lastPrice := d.lastBuyPrice[session.ID]
 		if lastPrice <= 0 {

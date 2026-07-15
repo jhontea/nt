@@ -72,6 +72,7 @@ func TestDCAEngine_Reset(t *testing.T) {
 	d, _ := setupDCA(t)
 	d.lastBuy[1] = time.Now()
 	d.lastBuyPrice[1] = 50000
+	d.lastSellPrice[1] = 55000
 	d.avgBuyPrice[1] = 50000
 
 	d.Reset(1)
@@ -82,8 +83,70 @@ func TestDCAEngine_Reset(t *testing.T) {
 	if _, ok := d.lastBuyPrice[1]; ok {
 		t.Error("expected lastBuyPrice cleared after Reset")
 	}
+	if _, ok := d.lastSellPrice[1]; ok {
+		t.Error("expected lastSellPrice cleared after Reset")
+	}
 	if _, ok := d.avgBuyPrice[1]; ok {
 		t.Error("expected avgBuyPrice cleared after Reset")
+	}
+}
+
+func TestDCAEngine_HoldsReentryAboveConfirmedSellUntilNextInterval(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_IDR"}
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, 'sell-1', 'BTC_IDR', 'sell', 'market', '55000', '1', 'filled', '1', '55000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.ConfirmSell(session.ID, session.Symbol)
+
+	signals := d.evaluate(session, DCAConfig{IntervalSec: 3600, Amount: "100"}, 56000, "56000")
+	if len(signals) != 0 {
+		t.Fatalf("expected re-entry hold above sell price, got %+v", signals)
+	}
+
+	d.lastBuy[session.ID] = time.Now().Add(-2 * time.Hour)
+	signals = d.evaluate(session, DCAConfig{IntervalSec: 3600, Amount: "100"}, 56000, "56000")
+	if len(signals) != 1 || signals[0].Side != "buy" || signals[0].Reason != "dca_interval" {
+		t.Fatalf("expected buy after next interval, got %+v", signals)
+	}
+}
+
+func TestDCAEngine_ReentersBelowConfirmedSellBeforeInterval(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_IDR"}
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, 'sell-1', 'BTC_IDR', 'sell', 'market', '55000', '1', 'filled', '1', '55000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.ConfirmSell(session.ID, session.Symbol)
+
+	signals := d.evaluate(session, DCAConfig{IntervalSec: 3600, Amount: "100"}, 54000, "54000")
+	if len(signals) != 1 || signals[0].Side != "buy" || signals[0].Reason != "dca_reentry_below_sell" {
+		t.Fatalf("expected early re-entry below sell price, got %+v", signals)
+	}
+}
+
+func TestDCAEngine_RestoresSellReentryHoldAfterRestart(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_IDR"}
+	_, err := db.Exec(`INSERT INTO orders
+		(session_id, order_id, symbol, side, type, price, quantity, status, executed_qty, executed_price)
+		VALUES (1, 'sell-1', 'BTC_IDR', 'sell', 'market', '55000', '1', 'filled', '1', '55000')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	signals := d.evaluate(session, DCAConfig{IntervalSec: 3600, Amount: "100"}, 56000, "56000")
+	if len(signals) != 0 {
+		t.Fatalf("expected restored re-entry hold above sell price, got %+v", signals)
+	}
+	if got := d.lastSellPrice[session.ID]; got != 55000 {
+		t.Fatalf("restored sell price = %v, want 55000", got)
 	}
 }
 
