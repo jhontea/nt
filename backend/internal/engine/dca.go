@@ -234,6 +234,13 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		}
 	}
 
+	// Exit always has priority over the DCA buy schedule. Take-profit and
+	// stop-loss are checked on every engine tick, so a 10-minute buy interval
+	// never delays a sell. Returning here also prevents buy+sell on the same tick.
+	if exitSignal, ok := d.evaluateExit(session, cfg, currentPrice, priceStr); ok {
+		return []Signal{exitSignal}
+	}
+
 	// determine whether to buy
 	lastTime := d.lastBuy[session.ID]
 	interval := time.Duration(cfg.IntervalSec) * time.Second
@@ -321,7 +328,12 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 		slog.Info("dca buy signal", "session", session.ID, "qty", qtyStr, "price", priceStr, "reason", reason)
 	}
 
-	// sell on take-profit or stop-loss — fetch totalQty once for both checks
+	return signals
+}
+
+// evaluateExit checks take-profit and stop-loss independently of the buy
+// interval. The caller must invoke this before evaluating a scheduled buy.
+func (d *DCAEngine) evaluateExit(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) (Signal, bool) {
 	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
 			var totalQty float64
@@ -340,21 +352,23 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 
 			if cfg.TakeProfitPct > 0 && currentPrice >= avgPrice*(1+cfg.TakeProfitPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
-				signals = append(signals, Signal{
+				signal := Signal{
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_take_profit",
-				})
+				}
 				// ponytail: do NOT delete avgBuyPrice here — sell not confirmed yet.
 				// Manager calls ConfirmSell after live.Execute succeeds.
 				slog.Info("dca take-profit", "session", session.ID, "qty", qtyStr, "price", priceStr, "target_pct", cfg.TakeProfitPct)
+				return signal, true
 			} else if cfg.StopLossPct > 0 && currentPrice <= avgPrice*(1-cfg.StopLossPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)
-				signals = append(signals, Signal{
+				signal := Signal{
 					Side: string(model.SideSell), Price: priceStr, Quantity: qtyStr, Reason: "dca_stop_loss",
-				})
+				}
 				// ponytail: do NOT delete avgBuyPrice here — sell not confirmed yet.
 				slog.Info("dca stop-loss", "session", session.ID, "qty", qtyStr, "price", priceStr, "sl_pct", cfg.StopLossPct)
+				return signal, true
 			}
 		}
 	}
-	return signals
+	return Signal{}, false
 }

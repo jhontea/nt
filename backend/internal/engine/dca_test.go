@@ -223,6 +223,23 @@ func TestDCAEngine_TakeProfitTriggered(t *testing.T) {
 	}
 }
 
+func TestDCAEngine_TakeProfitPreemptsDueBuy(t *testing.T) {
+	d, db := setupDCA(t)
+	session := model.Session{ID: 1, Symbol: "BTC_USDT"}
+
+	db.Exec("INSERT INTO orders (session_id, symbol, side, type, price, quantity, status) VALUES (1,'BTC_USDT','buy','market','50000','0.002','signal')")
+	d.avgBuyPrice[session.ID] = 50000
+	d.lastBuy[session.ID] = time.Now().Add(-20 * time.Minute) // 10-minute buy interval is due
+	d.lastBuyPrice[session.ID] = 50000
+
+	cfg := DCAConfig{IntervalSec: 600, Amount: "100", TakeProfitPct: 10}
+	signals := d.evaluate(session, cfg, 56000, "56000.00")
+
+	if len(signals) != 1 || signals[0].Side != "sell" || signals[0].Reason != "dca_take_profit" {
+		t.Fatalf("expected TP sell to preempt due buy, got %+v", signals)
+	}
+}
+
 func TestDCAEngine_StopLossTriggered(t *testing.T) {
 	d, db := setupDCA(t)
 	session := model.Session{ID: 1, Symbol: "BTC_USDT"}

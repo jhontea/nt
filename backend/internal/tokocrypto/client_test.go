@@ -275,6 +275,68 @@ func TestGetAccountCachesSuccessBriefly(t *testing.T) {
 	}
 }
 
+func TestGetAccountCoalescesConcurrentRequests(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		json.NewEncoder(w).Encode(AccountResponse{Code: 0, Data: Account{CanTrade: 1}})
+	})
+
+	const callers = 10
+	start := make(chan struct{})
+	errs := make(chan error, callers)
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := c.GetAccount()
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent GetAccount failed: %v", err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if calls != 1 {
+		t.Fatalf("account API calls = %d, want 1", calls)
+	}
+}
+
+func TestGetAccountCircuitFailsFastAfterRetries(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	_, c := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+
+	if _, err := c.GetAccount(); err == nil {
+		t.Fatal("expected initial account request to fail")
+	}
+	if _, err := c.GetAccount(); err == nil || !strings.Contains(err.Error(), "circuit open") {
+		t.Fatalf("expected circuit-open error, got %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if calls != accountMaxAttempts {
+		t.Fatalf("account API calls = %d, want %d; circuit should suppress the second request", calls, accountMaxAttempts)
+	}
+}
+
 func TestPlaceOrderSendsClientID(t *testing.T) {
 	clientID := "0123456789abcdef0123456789abcdef"
 	_, client := setupTickerServer(t, func(w http.ResponseWriter, r *http.Request) {

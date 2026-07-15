@@ -1,6 +1,7 @@
 package tokocrypto
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,26 +23,35 @@ import (
 const baseURL = "https://www.tokocrypto.com"
 const siteURL = "https://www.tokocrypto.site"
 
+const (
+	accountRequestTimeout  = 4 * time.Second
+	accountCircuitCooldown = 15 * time.Second
+	accountMaxAttempts     = 2
+)
+
 type cacheEntry struct {
 	data      *Ticker
 	expiresAt time.Time
 }
 
 type Client struct {
-	apiKey        string
-	secretKey     string
-	http          *http.Client
-	mu            sync.Mutex
-	tickCache     map[string]cacheEntry
-	accountMu     sync.Mutex
-	accountCache  *Account
-	accountExpiry time.Time
-	idrMu         sync.Mutex
-	idrTickers    map[string]*Ticker
-	streamStarted bool
-	symbolMu      sync.Mutex
-	symbols       map[string]SymbolInfo
-	symbolsExpiry time.Time
+	apiKey              string
+	secretKey           string
+	http                *http.Client
+	mu                  sync.Mutex
+	tickCache           map[string]cacheEntry
+	accountMu           sync.Mutex
+	accountFetchMu      sync.Mutex
+	accountCache        *Account
+	accountExpiry       time.Time
+	accountCircuitUntil time.Time
+	accountLastError    error
+	idrMu               sync.Mutex
+	idrTickers          map[string]*Ticker
+	streamStarted       bool
+	symbolMu            sync.Mutex
+	symbols             map[string]SymbolInfo
+	symbolsExpiry       time.Time
 }
 
 func NewClient(apiKey, secretKey string) *Client {
@@ -82,6 +92,30 @@ func (c *Client) setCachedAccount(account *Account, ttl time.Duration) {
 
 func (c *Client) InvalidateAccountCache() {
 	c.setCachedAccount(nil, 0)
+}
+
+func (c *Client) accountCircuitError() error {
+	c.accountMu.Lock()
+	defer c.accountMu.Unlock()
+	if time.Now().Before(c.accountCircuitUntil) {
+		return fmt.Errorf("tokocrypto account circuit open until %s: %w",
+			c.accountCircuitUntil.Format(time.RFC3339), c.accountLastError)
+	}
+	return nil
+}
+
+func (c *Client) openAccountCircuit(err error) {
+	c.accountMu.Lock()
+	defer c.accountMu.Unlock()
+	c.accountCircuitUntil = time.Now().Add(accountCircuitCooldown)
+	c.accountLastError = err
+}
+
+func (c *Client) closeAccountCircuit() {
+	c.accountMu.Lock()
+	defer c.accountMu.Unlock()
+	c.accountCircuitUntil = time.Time{}
+	c.accountLastError = nil
 }
 
 func (c *Client) doPublic(path string, params url.Values) ([]byte, error) {
@@ -141,6 +175,10 @@ func (c *Client) doPublicWithKey(path string, params url.Values) ([]byte, error)
 }
 
 func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error) {
+	return c.doSignedContext(context.Background(), method, path, params)
+}
+
+func (c *Client) doSignedContext(ctx context.Context, method, path string, params url.Values) ([]byte, error) {
 	if params == nil {
 		params = url.Values{}
 	}
@@ -154,7 +192,7 @@ func (c *Client) doSigned(method, path string, params url.Values) ([]byte, error
 	params.Set("signature", signature)
 
 	u := baseURL + path + "?" + params.Encode()
-	req, err := http.NewRequest(method, u, nil)
+	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -519,8 +557,26 @@ func (c *Client) GetAccount() (*Account, error) {
 	if cached := c.getCachedAccount(); cached != nil {
 		return cached, nil
 	}
-	return retryCall(func() (*Account, error) {
-		body, err := c.doSigned("GET", "/open/v1/account/spot", nil)
+	if err := c.accountCircuitError(); err != nil {
+		return nil, err
+	}
+
+	// Only one account request may reach Tokocrypto at a time. Concurrent DCA
+	// sessions wait for this result, then consume the short-lived cache instead
+	// of creating a thundering herd of identical signed requests.
+	c.accountFetchMu.Lock()
+	defer c.accountFetchMu.Unlock()
+	if cached := c.getCachedAccount(); cached != nil {
+		return cached, nil
+	}
+	if err := c.accountCircuitError(); err != nil {
+		return nil, err
+	}
+
+	account, err := retryCallAttempts(accountMaxAttempts, func() (*Account, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), accountRequestTimeout)
+		defer cancel()
+		body, err := c.doSignedContext(ctx, "GET", "/open/v1/account/spot", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -531,9 +587,16 @@ func (c *Client) GetAccount() (*Account, error) {
 		if res.Code != 0 {
 			return nil, fmt.Errorf("tokocrypto error code %d: %s", res.Code, res.Message)
 		}
-		c.setCachedAccount(&res.Data, 1500*time.Millisecond)
 		return &res.Data, nil
 	})
+	if err != nil {
+		c.openAccountCircuit(err)
+		slog.Warn("tokocrypto account circuit opened", "cooldown", accountCircuitCooldown, "error", err)
+		return nil, err
+	}
+	c.setCachedAccount(account, 1500*time.Millisecond)
+	c.closeAccountCircuit()
+	return account, nil
 }
 
 // GetOrder fetches a single order by ID from the exchange — used for reconciliation.
@@ -630,16 +693,22 @@ func (c *Client) PlaceOrder(req OrderRequest) (*OrderResponseData, error) {
 }
 
 func retryCall[T any](fn func() (T, error)) (T, error) {
+	return retryCallAttempts(3, fn)
+}
+
+func retryCallAttempts[T any](attempts int, fn func() (T, error)) (T, error) {
 	var lastErr error
-	for i := 0; i < 3; i++ {
+	for i := 0; i < attempts; i++ {
 		result, err := fn()
 		if err == nil {
 			return result, nil
 		}
 		lastErr = err
 		slog.Warn("api retry", "attempt", i+1, "error", err)
-		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+		if i+1 < attempts {
+			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+		}
 	}
 	var zero T
-	return zero, fmt.Errorf("api failed after 3 retries: %w", lastErr)
+	return zero, fmt.Errorf("api failed after %d retries: %w", attempts, lastErr)
 }
