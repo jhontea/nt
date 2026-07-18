@@ -664,11 +664,17 @@ export default function SessionDetailPage() {
                     {loading === 'start' ? 'Starting...' : session.mode === 'live' ? '⚡ Start Live' : 'Start Bot'}
                   </button>
                 )}
-                {session.strategy === 'dca' && session.mode === 'live' && (session.status === 'running' || session.status === 'liquidation_failed') && (
+                {session.strategy === 'dca' && session.mode === 'live' &&
+                  (session.status === 'liquidation_failed' || (session.status === 'running' && (dcaStats?.total_qty ?? 0) > 0)) && (
                   forceSellConfirmId ? (
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs text-[#686868] dark:text-[#898989]">Yakin jual semua?</span>
-                      <button onClick={handleForceSell} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Ya</button>
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-[#686868] dark:text-[#898989]">
+                        Jual {(dcaStats?.total_qty ?? 0).toFixed(8)} {session.symbol.split('_')[0]}
+                        {dcaTicker && dcaStats?.total_qty
+                          ? ` (≈ ${fmtCur(dcaStats.total_qty * Number(dcaTicker.lastPrice), quote)})`
+                          : ''} via market order? Nilai aktual dapat berubah karena fee dan slippage.
+                      </span>
+                      <button onClick={handleForceSell} className="bg-[#d03238] hover:bg-[#ff6b6f] text-white rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Ya, jual</button>
                       <button onClick={() => setForceSellConfirmId(false)} className="bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#898989] rounded-full px-3 py-1.5 text-xs font-medium transition-colors">Batal</button>
                     </span>
                   ) : (
