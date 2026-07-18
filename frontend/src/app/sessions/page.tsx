@@ -62,8 +62,13 @@ export default function SessionsOverviewPage() {
   const paperPnl = sessions?.filter(s => s.mode === 'paper' && s.virtual_balance != null)
     .reduce((sum, s) => sum + ((s.virtual_balance ?? 0) - (s.initial_balance ?? 0)), 0) ?? 0
 
-  // DCA total invested: sum max_invested from live DCA sessions that are running
-  const dcaTotalInvested = liveRunning
+  const usdtIdrRate = (() => {
+    const value = parseFloat(usdtIdrTicker?.lastPrice ?? '')
+    return Number.isFinite(value) && value > 0 ? value : null
+  })()
+
+  // This is the configured budget ceiling, not capital already invested.
+  const dcaBudgetCapIDR = liveRunning
     .filter(s => s.strategy === 'dca')
     .reduce((sum, s) => {
       try {
@@ -75,8 +80,22 @@ export default function SessionsOverviewPage() {
   // Live P&L from useLivePnl hook
   const liveRunningIds = liveRunning.map(s => s.id)
   const livePnlBySession = useLivePnl(liveRunningIds)
-  const liveRealizedPnl = liveRunningIds.reduce((sum, id) => sum + (livePnlBySession[id]?.realized ?? 0), 0)
+  const liveRealizedPnlIDR = liveRunning.reduce((sum, session) => {
+    const value = livePnlBySession[session.id]?.realized
+    if (value == null) return sum
+    return sum + (session.symbol.endsWith('_IDR') ? value : value * (usdtIdrRate ?? 0))
+  }, 0)
   const hasLivePnl = liveRunningIds.some(id => livePnlBySession[id] != null)
+  const pnlNeedsRate = liveRunning.some(s => !s.symbol.endsWith('_IDR') && livePnlBySession[s.id] != null)
+  const canShowNormalizedPnl = hasLivePnl && (!pnlNeedsRate || usdtIdrRate != null)
+  const idrFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'IDR')?.free ?? '0')
+  const blockedDca = liveBalance ? liveRunning.filter(session => {
+    if (session.strategy !== 'dca' || !session.symbol.endsWith('_IDR')) return false
+    try {
+      const cfg = JSON.parse(session.config) as DCAConfig
+      return Number(cfg.amount ?? 0) > idrFree
+    } catch { return false }
+  }) : []
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
@@ -91,7 +110,7 @@ export default function SessionsOverviewPage() {
 
         {/* Status mini cards */}
         {sessions && sessions.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
             {/* Card 1: Live Running */}
             <div className={`rounded-[14px] px-3 py-2.5 border ${liveRunning.length > 0 ? 'border-[rgba(208,50,56,0.2)] bg-[rgba(208,50,56,0.04)] dark:bg-[rgba(208,50,56,0.08)]' : 'border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]'}`}>
               <div className="flex items-center gap-1.5 mb-1">
@@ -103,21 +122,30 @@ export default function SessionsOverviewPage() {
             {/* Card 2: Total Invested DCA */}
             <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(255,209,26,0.2)] bg-[rgba(255,209,26,0.04)] dark:bg-[rgba(255,209,26,0.06)] dark:border-[rgba(255,209,26,0.15)]">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">DCA Invested</span>
+                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">Batas Modal DCA</span>
               </div>
               <p className="text-lg font-black text-[#7a5f00] dark:text-[#f5c842] tabular-nums">
-                {dcaTotalInvested > 0 ? `$${dcaTotalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                {dcaBudgetCapIDR > 0 ? `Rp${dcaBudgetCapIDR.toLocaleString('id-ID', { maximumFractionDigits: 0 })}` : '—'}
               </p>
             </div>
             {/* Card 3: Realized P&L Live */}
-            <div className="rounded-[14px] px-3 py-2.5 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]">
+            <div className="col-span-2 sm:col-span-1 rounded-[14px] px-3 py-2.5 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c]">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">P&L Live</span>
+                <span className="text-[9px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wide truncate">P&L Live (estimasi)</span>
               </div>
-              <p className={`text-lg font-black tabular-nums ${!hasLivePnl ? 'text-[#686868] dark:text-[#898989]' : liveRealizedPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                {!hasLivePnl ? '—' : `${liveRealizedPnl >= 0 ? '+' : ''}$${liveRealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+              <p className={`text-lg font-black tabular-nums ${!canShowNormalizedPnl ? 'text-[#686868] dark:text-[#898989]' : liveRealizedPnlIDR >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                {!canShowNormalizedPnl ? '—' : `${liveRealizedPnlIDR >= 0 ? '+' : ''}Rp${liveRealizedPnlIDR.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}
               </p>
             </div>
+          </div>
+        )}
+
+        {blockedDca.length > 0 && (
+          <div className="mb-6 rounded-[16px] border border-[rgba(208,50,56,0.25)] bg-[rgba(208,50,56,0.06)] px-4 py-3 text-sm text-[#d03238] dark:text-[#ff6b6f]">
+            <p className="font-bold">{blockedDca.length} DCA aktif tetapi tertahan saldo</p>
+            <p className="text-xs mt-1 text-[#686868] dark:text-[#a5a8a2]">
+              Saldo Rp{idrFree.toLocaleString('id-ID', { maximumFractionDigits: 0 })} belum cukup untuk nominal beli berikutnya. Worker tetap aktif, tetapi order beli tidak dapat dieksekusi.
+            </p>
           </div>
         )}
 
@@ -132,6 +160,7 @@ export default function SessionsOverviewPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {liveRunning.map(s => {
                 const pnl = livePnlBySession[s.id]
+                const isIDR = s.symbol.endsWith('_IDR')
                 return (
                   <button key={s.id} onClick={() => router.push(`/sessions/${s.id}`)}
                     className="text-left px-3 py-2.5 rounded-[14px] border border-[rgba(208,50,56,0.2)] bg-white dark:bg-[#1e201c] hover:border-[rgba(208,50,56,0.4)] transition-colors">
@@ -144,7 +173,7 @@ export default function SessionsOverviewPage() {
                     </p>
                     {pnl != null ? (
                       <p className={`text-[10px] font-bold tabular-nums ${pnl.realized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                        {pnl.realized >= 0 ? '+' : ''}${pnl.realized.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        {pnl.realized >= 0 ? '+' : ''}{isIDR ? 'Rp' : '$'}{pnl.realized.toLocaleString(isIDR ? 'id-ID' : 'en-US', isIDR ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     ) : (
                       <p className="text-[9px] text-[#686868] dark:text-[#898989]">P&L —</p>

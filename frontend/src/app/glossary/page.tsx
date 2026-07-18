@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Navbar } from '@/components/Navbar'
 
@@ -156,9 +156,17 @@ const categoryColors: Record<Category, string> = {
   umum: 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989]',
 }
 
+const termSlug = (term: string) => term.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+
 export default function GlossaryPage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  useEffect(() => {
+    const hash = decodeURIComponent(window.location.hash.replace(/^#/, ''))
+    if (hash) setExpanded(hash)
+  }, [])
 
   const filtered = terms.filter(t =>
     (activeCategory === 'all' || t.category === activeCategory) &&
@@ -213,17 +221,26 @@ export default function GlossaryPage() {
         )}
 
         <div className="space-y-3">
-          {filtered.map(t => (
-            <div key={t.term} className="bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-5 py-4">
-              <div className="flex items-center gap-2 mb-2">
+          {filtered.map(t => {
+            const slug = termSlug(t.term)
+            const isExpanded = expanded === slug
+            return (
+            <section id={slug} key={t.term} className="scroll-mt-20 bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-5 py-4">
+              <button type="button" aria-expanded={isExpanded} aria-controls={`${slug}-description`} onClick={() => setExpanded(isExpanded ? null : slug)} className="w-full flex items-center gap-2 text-left">
                 <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm">{t.term}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${categoryColors[t.category]}`}>
                   {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
                 </span>
-              </div>
-              <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{t.desc}</p>
-            </div>
-          ))}
+                <span className="ml-auto text-[#686868] dark:text-[#898989]" aria-hidden="true">{isExpanded ? '−' : '+'}</span>
+              </button>
+              {isExpanded && (
+                <div id={`${slug}-description`} className="pt-3 mt-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                  <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{t.desc}</p>
+                  <a href={`#${slug}`} className="inline-block mt-2 text-[10px] font-semibold text-[#054d28] dark:text-[#9fe870] hover:underline">Tautan istilah</a>
+                </div>
+              )}
+            </section>
+          )})}
         </div>
       </div>
     </div>

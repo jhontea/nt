@@ -5,7 +5,7 @@ import { Grid2x2, TrendingUp, Coins, Zap, FileText, BarChart2, X, AlertTriangle,
 import { PriceBadge } from '@/components/PriceBadge'
 import type { Session } from '@/types'
 
-export function SessionCard({ session, onStart, onStop, onDelete, onDetail, livePnl, confirmDelete, onCancelDelete, onForceSell, forceSellConfirm, onCancelForceSell }: {
+export function SessionCard({ session, onStart, onStop, onDelete, onDetail, livePnl, confirmDelete, onCancelDelete, onForceSell, forceSellConfirm, onCancelForceSell, forceSellPreview }: {
   session: Session
   onStart: (id: number) => void
   onStop: (id: number) => void
@@ -17,6 +17,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
   onForceSell?: (id: number) => void
   forceSellConfirm?: boolean
   onCancelForceSell?: () => void
+  forceSellPreview?: { quantity: number; price: number; value: number }
 }) {
   const qc = useQueryClient()
   const [showLiveConfirm, setShowLiveConfirm] = useState(false)
@@ -42,6 +43,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
     if (session.strategy === 'grid') return null // grid doesn't use single notional
     return null
   })()
+  const isBalanceBlocked = cachedBalance != null && session.mode === 'live' && session.status === 'running' && perOrderNotional != null && perOrderNotional > usdtFree
 
   const strategyIcon = session.strategy === 'grid' ? <Grid2x2 size={22} /> : session.strategy === 'trend' ? <TrendingUp size={22} /> : <Coins size={22} />
   const modeIcon = session.mode === 'live' ? <Zap size={10} /> : session.mode === 'paper' ? <FileText size={10} /> : <BarChart2 size={10} />
@@ -184,14 +186,16 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                 {session.mode === 'signal' ? 'Signal' : session.mode === 'paper' ? 'Paper' : '⚡ Live'}
               </span>
               <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                session.status === 'running'
+                isBalanceBlocked
+                  ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'
+                  : session.status === 'running'
                   ? 'bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]'
                   : 'bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#5a5b58] dark:text-[#8a8d88]'
               }`}>
                 {session.status === 'running' && (
                   <span className={`inline-block w-2 h-2 rounded-full ${session.is_alive ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={session.is_alive ? 'Goroutine aktif' : 'Status DB running, goroutine belum jalan'} />
                 )}
-                {session.status === 'running' ? 'Running' : session.status === 'liquidating' ? 'Liquidating' : session.status === 'liquidation_failed' ? 'Liquidation Failed' : 'Stopped'}
+                {isBalanceBlocked ? 'Running · Saldo tidak cukup' : session.status === 'running' ? (session.is_alive === false ? 'Running · Worker belum aktif' : 'Running') : session.status === 'liquidating' ? 'Liquidating' : session.status === 'liquidation_failed' ? 'Liquidation Failed' : 'Stopped'}
               </span>
             </div>
             <p className="text-xs text-[#686868] dark:text-[#898989] truncate min-w-0">
@@ -218,7 +222,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
               </p>
             )}
             {session.mode === 'live' && livePnl == null && (
-              <p className="text-xs mt-1 text-[#686868] dark:text-[#898989]">⚡ Live · belum ada trade</p>
+              <p className="text-xs mt-1 text-[#686868] dark:text-[#898989]">⚡ Live · P&amp;L sedang dimuat</p>
             )}
           </div>
           {/* Actions */}
@@ -238,10 +242,13 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
               </button>
             )}
             {/* Force Sell — DCA live running or retryable failure */}
-            {session.strategy === 'dca' && session.mode === 'live' && (session.status === 'running' || session.status === 'liquidation_failed') && onForceSell && (
+            {session.strategy === 'dca' && session.mode === 'live' && (session.status === 'running' || session.status === 'liquidation_failed') && onForceSell && (session.status === 'liquidation_failed' || (forceSellPreview?.quantity ?? 0) > 0) && (
               forceSellConfirm ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-[#686868] dark:text-[#898989] mr-1">Jual semua?</span>
+                <div className="w-full sm:w-auto rounded-[12px] border border-[rgba(208,50,56,0.25)] bg-[rgba(208,50,56,0.06)] p-2">
+                  <p className="text-[10px] text-[#686868] dark:text-[#a5a8a2] mb-2">
+                    Jual {forceSellPreview ? `${forceSellPreview.quantity.toFixed(6)} ${session.symbol.split('_')[0]} ≈ ${fmtCur(forceSellPreview.value)}` : 'seluruh posisi'} dengan market order. Harga akhir dapat berubah dan terkena fee.
+                  </p>
+                  <div className="flex items-center gap-1 justify-end">
                   <button
                     className="px-3 py-2 text-xs font-semibold bg-[#d03238] text-white hover:bg-[#b02028] rounded-full transition"
                     onClick={() => onForceSell(session.id)}
@@ -250,6 +257,7 @@ export function SessionCard({ session, onStart, onStop, onDelete, onDetail, live
                     className="px-3 py-2 text-xs font-semibold bg-[rgba(14,15,12,0.06)] dark:bg-[rgba(232,235,230,0.06)] text-[#686868] dark:text-[#898989] hover:bg-[rgba(14,15,12,0.12)] rounded-full transition"
                     onClick={onCancelForceSell}
                   >Batal</button>
+                  </div>
                 </div>
               ) : (
                 <button

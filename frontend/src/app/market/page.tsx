@@ -1,9 +1,10 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { useMarketTicker } from '@/lib/useMarketTicker'
 import { Navbar } from '@/components/Navbar'
+import { Search } from 'lucide-react'
 
 
 const MARKET_SYMBOLS = [
@@ -32,8 +33,13 @@ function formatIDR(value: number) {
   }).format(value)
 }
 
+function safeNumber(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol: string; usdtIdrRate: number | null }) {
-  const { data } = useMarketTicker(symbol)
+  const { data, connected, updatedAt } = useMarketTicker(symbol)
 
   if (!data) {
     return (
@@ -55,11 +61,15 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
     )
   }
 
-  const last = parseFloat(data.lastPrice)
-  const changePct = parseFloat(data.priceChangePct)
-  const isUp = changePct >= 0
+  const last = safeNumber(data.lastPrice)
+  const changePct = safeNumber(data.priceChangePct)
+  const high = safeNumber(data.high24h)
+  const low = safeNumber(data.low24h)
+  const volume = safeNumber(data.volume)
+  const isUp = (changePct ?? 0) >= 0
   const isIDRPair = symbol.endsWith('_IDR')
-  const approxIDR = !isIDRPair && usdtIdrRate ? last * usdtIdrRate : null
+  const approxIDR = !isIDRPair && usdtIdrRate && last != null ? last * usdtIdrRate : null
+  const formatMarketValue = (value: number | null) => value == null ? '—' : isIDRPair ? formatIDR(value) : `$${formatUSDTPrice(value)}`
 
   return (
     <div className="bg-white dark:bg-[#1e201c] rounded-[24px] p-5 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.2)] hover:shadow-[0_8px_32px_rgba(14,15,12,0.08)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all">
@@ -71,19 +81,19 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
           <div>
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-bold text-[#0e0f0c] dark:text-[#e8ebe6]">{label}</p>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#9fe870] animate-pulse flex-shrink-0" title="Data langsung" />
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${connected ? 'bg-[#9fe870] animate-pulse' : 'bg-[#ffd11a]'}`} title={connected ? 'Data langsung' : 'Menunggu data'} />
             </div>
             <p className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol.replace('_', '/')}</p>
           </div>
         </div>
         <div className={`px-2.5 py-1 rounded-full text-sm font-bold ${isUp ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
-          {isUp ? '+' : ''}{changePct.toFixed(2)}%
+          {changePct == null ? '—' : `${isUp ? '+' : ''}${changePct.toFixed(2)}%`}
         </div>
       </div>
 
       <div className="mt-4">
         <p className="text-2xl sm:text-3xl font-black font-mono text-[#0e0f0c] dark:text-[#e8ebe6] truncate">
-          {isIDRPair ? formatIDR(last) : `${formatUSDTPrice(last)} USDT`}
+          {last == null ? '—' : isIDRPair ? formatIDR(last) : `${formatUSDTPrice(last)} USDT`}
         </p>
         {approxIDR && (
           <p className="text-sm text-[#686868] dark:text-[#898989] mt-1 truncate">~ {formatIDR(approxIDR)}</p>
@@ -93,20 +103,23 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
       <div className="grid grid-cols-3 gap-2 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-3 pt-3 text-xs">
         <div>
           <p className="text-[#686868] dark:text-[#898989]">↑ 24h High</p>
-          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}>{isIDRPair ? formatIDR(parseFloat(data.high24h)) : `$${formatUSDTPrice(parseFloat(data.high24h))}`}</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={formatMarketValue(high)}>{formatMarketValue(high)}</p>
         </div>
         <div>
           <p className="text-[#686868] dark:text-[#898989]">↓ 24h Low</p>
-          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}>{isIDRPair ? formatIDR(parseFloat(data.low24h)) : `$${formatUSDTPrice(parseFloat(data.low24h))}`}</p>
+          <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5 truncate" title={formatMarketValue(low)}>{formatMarketValue(low)}</p>
         </div>
         <div>
           <p className="text-[#686868] dark:text-[#898989]">Vol (24h)</p>
           <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">
-            {parseFloat(data.volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {volume == null ? '—' : volume.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             <span className="text-[#686868] dark:text-[#898989] ml-1 font-normal text-[10px]">{symbol.split('_')[0]}</span>
           </p>
         </div>
       </div>
+      <p className="text-[10px] text-[#686868] dark:text-[#898989] mt-3 text-right">
+        {updatedAt ? `Diperbarui ${new Date(updatedAt).toLocaleTimeString('id-ID')}` : 'Menunggu pembaruan'}
+      </p>
     </div>
   )
 }
@@ -114,8 +127,12 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
 export default function MarketPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
+  const [search, setSearch] = useState('')
   const { data: usdtIdr } = useMarketTicker('USDT_IDR')
-  const usdtIdrRate = usdtIdr ? parseFloat(usdtIdr.lastPrice) : null
+  const usdtIdrRate = safeNumber(usdtIdr?.lastPrice)
+  const filteredSymbols = MARKET_SYMBOLS.filter(item =>
+    `${item.label} ${item.symbol}`.toLowerCase().includes(search.trim().toLowerCase())
+  )
 
   useEffect(() => {
     if (initialized && !isAuthenticated) router.push('/login')
@@ -151,11 +168,17 @@ export default function MarketPage() {
           </div>
         </div>
 
+        <div className="relative mb-5 max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989]" />
+          <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Cari pair market" placeholder="Cari BTC, ETH, pair..." className="w-full pl-10 pr-4 py-2.5 rounded-[12px] bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.1)] dark:border-[rgba(232,235,230,0.1)] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.35)]" />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {MARKET_SYMBOLS.map(item => (
+          {filteredSymbols.map(item => (
             <MarketPriceCard key={item.symbol} label={item.label} symbol={item.symbol} usdtIdrRate={usdtIdrRate} />
           ))}
         </div>
+        {filteredSymbols.length === 0 && <p className="text-sm text-[#686868] dark:text-[#898989] py-12 text-center">Pair tidak ditemukan.</p>}
       </div>
     </div>
   )

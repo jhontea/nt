@@ -17,10 +17,12 @@ export interface MarketTickerData {
 interface MarketTickerState {
   data: MarketTickerData | null
   connected: boolean
+  updatedAt: number | null
 }
 
 // ponytail: one interval drives all symbols, subscribers read from shared cache
 const cache = new Map<string, MarketTickerData>()
+const updatedAtCache = new Map<string, number>()
 const subscribers = new Map<string, Set<() => void>>()
 let bulkInterval: ReturnType<typeof setInterval> | null = null
 
@@ -50,6 +52,7 @@ function fetchAll() {
     for (const [sym, t] of Object.entries(result)) {
       if ((t as any).error) continue
       cache.set(sym, restToData(t as any))
+      updatedAtCache.set(sym, Date.now())
       notify(sym)
     }
   }).catch(() => {})
@@ -79,6 +82,7 @@ function subscribe(symbol: string, cb: () => void) {
     if (subscribers.get(symbol)?.size === 0) {
       subscribers.delete(symbol)
       cache.delete(symbol)
+      updatedAtCache.delete(symbol)
     }
     stopIntervalIfIdle()
   }
@@ -86,12 +90,17 @@ function subscribe(symbol: string, cb: () => void) {
 
 export function useMarketTicker(symbol: string | null): MarketTickerState {
   const [data, setData] = useState<MarketTickerData | null>(() => symbol ? cache.get(symbol) ?? null : null)
+  const [updatedAt, setUpdatedAt] = useState<number | null>(() => symbol ? updatedAtCache.get(symbol) ?? null : null)
 
   useEffect(() => {
     if (!symbol) return
     setData(cache.get(symbol) ?? null)
-    return subscribe(symbol, () => setData(cache.get(symbol) ?? null))
+    setUpdatedAt(updatedAtCache.get(symbol) ?? null)
+    return subscribe(symbol, () => {
+      setData(cache.get(symbol) ?? null)
+      setUpdatedAt(updatedAtCache.get(symbol) ?? null)
+    })
   }, [symbol])
 
-  return { data, connected: false }
+  return { data, connected: data != null, updatedAt }
 }

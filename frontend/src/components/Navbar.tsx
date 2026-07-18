@@ -26,6 +26,8 @@ export function Navbar({ active }: { active?: string }) {
             onClick={() => setMobileOpen(!mobileOpen)}
             className="sm:hidden p-2 min-h-[44px] min-w-[44px] text-[#686868] dark:text-[#898989] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] rounded-lg transition flex items-center justify-center"
             aria-label="Menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -70,7 +72,7 @@ export function Navbar({ active }: { active?: string }) {
         </div>
       </div>
       {mobileOpen && (
-        <div className="sm:hidden border-t border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] py-2 px-3 bg-[#fafafa] dark:bg-[#141411]">
+        <nav id="mobile-navigation" aria-label="Navigasi utama" className="sm:hidden border-t border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] py-2 px-3 bg-[#fafafa] dark:bg-[#141411]">
           <button onClick={() => { router.push('/sessions'); setMobileOpen(false) }} className={`w-full text-left px-3 py-2.5 text-sm rounded-lg mb-1 transition ${active === 'sessions' || (active ?? '').startsWith('sessions/') ? 'bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] font-semibold' : 'text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c]'}`}>Sessions</button>
           <button onClick={() => { router.push('/market'); setMobileOpen(false) }} className={`w-full text-left px-3 py-2.5 text-sm rounded-lg mb-1 transition ${active === 'market' ? 'bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] font-semibold' : 'text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c]'}`}>Market</button>
           <button onClick={() => { router.push('/glossary'); setMobileOpen(false) }} className={`w-full text-left px-3 py-2.5 text-sm rounded-lg mb-1 transition ${active === 'glossary' ? 'bg-[rgba(159,232,112,0.12)] text-[#163300] dark:text-[#9fe870] font-semibold' : 'text-[#686868] dark:text-[#898989] hover:bg-[#f0f1ee] dark:hover:bg-[#1e201c]'}`}>Glosarium</button>
@@ -79,7 +81,7 @@ export function Navbar({ active }: { active?: string }) {
               Logout
             </button>
           </div>
-        </div>
+        </nav>
       )}
     </header>
   )

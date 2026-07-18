@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { HelpIcon } from '@/components/HelpIcon'
 import { GraduationCap, Settings } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
 const USDT_PAIRS = [
@@ -108,11 +109,23 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
   const [isBeginner, setIsBeginner] = useState(true)
   const [horizon, setHorizon] = useState<'short' | 'medium' | 'long'>('medium')
   const [capital, setCapital] = useState('100')
+  const [maxOrderValue, setMaxOrderValue] = useState('')
+  const [maxPositionValue, setMaxPositionValue] = useState('')
   const [validationMode, setValidationMode] = useState<'grid_steps' | 'percent'>('grid_steps')
   const [recommendation, setRecommendation] = useState<any>(null)
   const [insights, setInsights] = useState<any[]>([])
   const [nameEdited, setNameEdited] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  const { data: liveBalance } = useQuery({
+    queryKey: ['account-balance'],
+    queryFn: () => api.account.balance(),
+    enabled: mode === 'live',
+    staleTime: 15_000,
+  })
+  const quoteAsset = symbol.split('_')[1] || 'USDT'
+  const availableQuote = parseFloat(liveBalance?.assets.find(a => a.asset === quoteAsset)?.free ?? '0')
 
   // Auto-generate session name when mode/symbol changes
   useEffect(() => {
@@ -179,14 +192,62 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
     if (strategy === 'grid' || strategy === 'trend') setTimeout(() => fetchRecommendation(strategy), 300)
   }, [symbol, strategy])
 
+  // Live defaults must respect the actual account balance. Keep a small fee/slippage reserve.
+  useEffect(() => {
+    if (mode !== 'live' || strategy !== 'grid' || availableQuote <= 0) return
+    const safeCapital = Math.floor(availableQuote * 0.93 * 100) / 100
+    if ((parseFloat(capital) || 0) > safeCapital) setCapital(String(safeCapital))
+    if (!maxPositionValue || parseFloat(maxPositionValue) > safeCapital) setMaxPositionValue(String(safeCapital))
+    if (!maxOrderValue || parseFloat(maxOrderValue) > safeCapital) setMaxOrderValue(String(safeCapital))
+    if (currentPrice && currentPrice > 0 && parseFloat(quantity) * currentPrice > safeCapital) {
+      setQuantity((safeCapital / currentPrice).toFixed(8))
+    }
+  }, [mode, strategy, availableQuote, currentPrice, capital, maxOrderValue, maxPositionValue, quantity])
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (creating) return
+    setFormError('')
     setCreating(true)
     try {
       let config: any
       if (strategy === 'grid') {
-        config = { upper_price: parseFloat(upperPrice), lower_price: parseFloat(lowerPrice), grid_count: parseInt(gridCount), quantity }
+        const upper = parseFloat(upperPrice)
+        const lower = parseFloat(lowerPrice)
+        const count = parseInt(gridCount)
+        const qty = parseFloat(quantity)
+        const orderCap = parseFloat(maxOrderValue)
+        const positionCap = parseFloat(maxPositionValue)
+        if (![upper, lower, count, qty].every(Number.isFinite) || upper <= lower || count < 2 || qty <= 0) {
+          setFormError('Konfigurasi Grid tidak valid. Pastikan range, jumlah grid, dan quantity terisi dengan benar.')
+          return
+        }
+        if (mode === 'live') {
+          const estimatedOrder = currentPrice ? qty * currentPrice : 0
+          if (!Number.isFinite(orderCap) || !Number.isFinite(positionCap) || orderCap <= 0 || positionCap <= 0) {
+            setFormError('Batas nilai order dan posisi wajib diisi untuk Grid Live.')
+            return
+          }
+          if (positionCap < orderCap) {
+            setFormError('Batas posisi harus lebih besar atau sama dengan batas per order.')
+            return
+          }
+          if (availableQuote <= 0 || positionCap > availableQuote) {
+            setFormError(`Batas posisi melebihi saldo ${quoteAsset} tersedia.`)
+            return
+          }
+          if (estimatedOrder > orderCap) {
+            setFormError(`Estimasi order ${estimatedOrder.toFixed(2)} ${quoteAsset} melebihi batas per order.`)
+            return
+          }
+        }
+        config = {
+          upper_price: upper,
+          lower_price: lower,
+          grid_count: count,
+          quantity,
+          ...(mode === 'live' ? { max_order_value: orderCap, max_position_value: positionCap } : {}),
+        }
         if (isBeginner) {
           config.validation_mode = validationMode
           config.validation_target_value = recommendation?.ValidationTargetValue || 2
@@ -221,6 +282,8 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
       }), ...(mode === 'paper' ? { initial_balance: parseFloat(initialBalance) || 1000 } : {}) })
       setNameEdited(false)
       onCreated()
+    } catch (e: any) {
+      setFormError(e?.message || 'Gagal membuat session.')
     } finally {
       setCreating(false)
     }
@@ -250,7 +313,7 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
         )}
         {currentPrice && !priceLoading && (
           <div className="flex items-center gap-3 px-4 py-2.5 bg-[rgba(159,232,112,0.06)] border border-[rgba(159,232,112,0.2)] rounded-[10px] text-sm flex-wrap">
-            <span className="text-xs font-bold text-[#9fe870] uppercase tracking-widest flex-shrink-0">Live</span>
+            <span className="text-xs font-bold text-[#9fe870] uppercase tracking-widest flex-shrink-0">Harga Live</span>
             <span className="text-[#0e0f0c] dark:text-[#e8ebe6] font-semibold">{currentPrice.toLocaleString()}</span>
             <span className="text-xs text-[#5a5b58] dark:text-[#8a8d88]">{symbol}</span>
             {strategy === 'grid' && lowerPrice && upperPrice && (
@@ -421,7 +484,27 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
             <div>
               <label className="text-sm font-medium text-[#0e0f0c] dark:text-[#e8ebe6] block mb-1.5">Quantity per Order {renderConfigHelp('quantity')}</label>
               <input className="w-full px-3 py-2.5 bg-[#f0f1ee] dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[rgba(22,51,0,0.6)] text-[#0e0f0c] dark:text-[#e8ebe6]" placeholder="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} />
+              {currentPrice && parseFloat(quantity) > 0 && (
+                <p className="text-xs text-[#686868] dark:text-[#898989] mt-1">Estimasi per order: {(currentPrice * parseFloat(quantity)).toLocaleString('en-US', { maximumFractionDigits: 4 })} {quoteAsset}</p>
+              )}
             </div>
+            {mode === 'live' && (
+              <div className="rounded-[16px] border border-[rgba(208,50,56,0.2)] bg-[rgba(208,50,56,0.04)] p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-bold text-[#d03238] dark:text-[#ff6b6f]">Risk Control Grid Live</span>
+                  <span className="text-[#686868] dark:text-[#898989]">Saldo {quoteAsset}: {availableQuote.toLocaleString('en-US', { maximumFractionDigits: 4 })}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-xs text-[#686868] dark:text-[#898989]">Batas per order ({quoteAsset})
+                    <input type="number" min="0" step="0.01" className="mt-1 w-full px-3 py-2.5 bg-white dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-[#0e0f0c] dark:text-[#e8ebe6]" value={maxOrderValue} onChange={e => setMaxOrderValue(e.target.value)} />
+                  </label>
+                  <label className="text-xs text-[#686868] dark:text-[#898989]">Batas total posisi ({quoteAsset})
+                    <input type="number" min="0" step="0.01" className="mt-1 w-full px-3 py-2.5 bg-white dark:bg-[#252822] border border-[rgba(14,15,12,0.12)] dark:border-[rgba(232,235,230,0.12)] rounded-[10px] text-[#0e0f0c] dark:text-[#e8ebe6]" value={maxPositionValue} onChange={e => setMaxPositionValue(e.target.value)} />
+                  </label>
+                </div>
+                <p className="text-[10px] text-[#686868] dark:text-[#898989]">Sistem menyisakan sekitar 7% saldo untuk fee dan slippage. Order baru ditolak saat salah satu batas tercapai.</p>
+              </div>
+            )}
           </>
         ) : strategy === 'trend' ? (
           <>
@@ -568,7 +651,8 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
             </div>
           </>
         )}
-        <div className="border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] pt-5 mt-4">
+        <div className="sticky bottom-0 -mx-6 px-6 pb-1 pt-4 bg-white/95 dark:bg-[#1e201c]/95 backdrop-blur border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-4">
+          {formError && <p role="alert" className="mb-3 text-xs text-[#d03238] dark:text-[#ff6b6f]">{formError}</p>}
           <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100" disabled={creating}>
             {creating ? 'Membuat...' : 'Buat Session'}
           </button>

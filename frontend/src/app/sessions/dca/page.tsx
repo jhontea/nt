@@ -152,6 +152,14 @@ function DcaPageInner() {
     staleTime: 15_000,
   })
   const idrFree = parseFloat(liveBalance?.assets.find(a => a.asset === 'IDR')?.free ?? '0')
+  const runningLiveDca = sessions?.filter(s => s.mode === 'live' && s.status === 'running') ?? []
+  const blockedLiveDca = liveBalance ? runningLiveDca.filter(s => {
+    const cfg = parseDCAConfig(s.config)
+    return s.symbol.endsWith('_IDR') && Number(cfg?.amount ?? 0) > idrFree
+  }) : []
+  const liveDataLoading = runningLiveDca.some(s =>
+    dcaStatsBySession[s.id] == null || livePnlBySession[s.id] == null
+  )
 
   async function handleStart(id: number) {
     try { await api.sessions.start(id); refetch(); toast('Session dimulai', 'success') }
@@ -204,6 +212,15 @@ function DcaPageInner() {
 
         <StrategyTabs active="dca" />
 
+        {modeTab === 'live' && blockedLiveDca.length > 0 && (
+          <div className="mb-4 rounded-[16px] border border-[rgba(208,50,56,0.25)] bg-[rgba(208,50,56,0.06)] px-4 py-3">
+            <p className="text-sm font-bold text-[#d03238] dark:text-[#ff6b6f]">Running · Saldo tidak cukup</p>
+            <p className="text-xs text-[#686868] dark:text-[#a5a8a2] mt-1">
+              {blockedLiveDca.length} sesi DCA tidak dapat melakukan pembelian berikutnya. Saldo tersedia Rp{idrFree.toLocaleString('id-ID', { maximumFractionDigits: 0 })}.
+            </p>
+          </div>
+        )}
+
         {/* Mode sub-tabs: Live | Paper | Signal */}
         <div className="flex gap-1 p-1 bg-[#f0f1ee] dark:bg-[#252822] rounded-full border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-6 w-fit">
           {(['live', 'paper', 'signal'] as const).map(m => {
@@ -229,7 +246,15 @@ function DcaPageInner() {
           })}
         </div>
         {sessions && <StrategyOverview sessions={sessions.filter(s => s.mode === modeTab)} strategy="dca" />}
-        {modeTab === 'live' && sessions && sessions.length > 0 && (() => {
+        {modeTab === 'live' && runningLiveDca.length > 0 && liveDataLoading && (
+          <div className="mb-4 rounded-[20px] border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] bg-white dark:bg-[#1e201c] p-4 animate-pulse">
+            <div className="h-3 w-44 rounded bg-[#f0f1ee] dark:bg-[#252822] mb-4" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[0, 1, 2, 3].map(i => <div key={i} className="h-12 rounded-[12px] bg-[#f0f1ee] dark:bg-[#252822]" />)}
+            </div>
+          </div>
+        )}
+        {modeTab === 'live' && sessions && sessions.length > 0 && !liveDataLoading && (() => {
           const liveSessions = sessions.filter(s =>
             s.mode === 'live' &&
             s.status === 'running'
@@ -277,7 +302,7 @@ function DcaPageInner() {
           return (
             <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mb-4">
               <div className="flex items-center justify-between gap-3 mb-3">
-                <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">Total DCA Live Berjalan</p>
+                <p className="text-[10px] font-bold text-[#686868] dark:text-[#898989] uppercase tracking-widest">Total DCA Live Berjalan · estimasi sebelum fee</p>
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[rgba(208,50,56,0.08)] text-[#d03238] dark:text-[#ff6b6f]">{liveSessions.length} session</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -385,7 +410,24 @@ function DcaPageInner() {
 
               return (
                 <div key={s.id}>
-                  <SessionCard session={s} onStart={handleStart} onStop={handleStop} onDelete={handleDelete} onDetail={id => router.push(`/sessions/${id}`)} livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined} confirmDelete={confirmId === s.id} onCancelDelete={() => setConfirmId(null)} onForceSell={(id) => forceSellConfirmId === id ? handleForceSell(id) : setForceSellConfirmId(id)} forceSellConfirm={forceSellConfirmId === s.id} onCancelForceSell={() => setForceSellConfirmId(null)} />
+                  <SessionCard
+                    session={s}
+                    onStart={handleStart}
+                    onStop={handleStop}
+                    onDelete={handleDelete}
+                    onDetail={id => router.push(`/sessions/${id}`)}
+                    livePnl={s.mode === 'live' ? (livePnlBySession[s.id] ?? null) : undefined}
+                    confirmDelete={confirmId === s.id}
+                    onCancelDelete={() => setConfirmId(null)}
+                    onForceSell={(id) => forceSellConfirmId === id ? handleForceSell(id) : setForceSellConfirmId(id)}
+                    forceSellConfirm={forceSellConfirmId === s.id}
+                    onCancelForceSell={() => setForceSellConfirmId(null)}
+                    forceSellPreview={stats && tickerBySymbol[s.symbol] ? {
+                      quantity: stats.total_qty,
+                      price: parseFloat(tickerBySymbol[s.symbol]!.lastPrice),
+                      value: stats.total_qty * parseFloat(tickerBySymbol[s.symbol]!.lastPrice),
+                    } : undefined}
+                  />
 
                   {/* DCA config strip */}
                   {cfg && (

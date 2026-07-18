@@ -208,11 +208,11 @@ export default function GridPage() {
 
         {/* === AGGREGATE STATS ROW === */}
         {sessions && sessions.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
             <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign size={14} className="text-[#686868] dark:text-[#898989]" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989]">Total Realized P&L</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989]">Realized P&L (estimasi)</span>
               </div>
               <p className={`text-lg font-black ${aggregatePnL.totalRealized >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
                 {aggregatePnL.totalRealized >= 0 ? '+' : ''}${aggregatePnL.totalRealized.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -229,8 +229,8 @@ export default function GridPage() {
                 <Target size={14} className="text-[#686868] dark:text-[#898989]" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#686868] dark:text-[#898989]">Win Rate</span>
               </div>
-              <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{aggregatePnL.avgWinRate.toFixed(1)}%</p>
-              <p className="text-[10px] text-[#686868] dark:text-[#898989]">rata-rata aktif</p>
+              <p className="text-lg font-black text-[#0e0f0c] dark:text-[#e8ebe6]">{aggregatePnL.totalTrades > 0 ? `${aggregatePnL.avgWinRate.toFixed(1)}%` : '—'}</p>
+              <p className="text-[10px] text-[#686868] dark:text-[#898989]">{aggregatePnL.totalTrades > 0 ? 'rata-rata aktif' : 'belum ada trade selesai'}</p>
             </div>
             <div className="bg-white dark:bg-[#1e201c] rounded-[16px] px-4 py-3 border border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
               <div className="flex items-center gap-2 mb-1">

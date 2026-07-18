@@ -116,6 +116,7 @@ export default function SessionDetailPage() {
   const [hasMoreOrders, setHasMoreOrders] = useState(true)
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersFetched, setOrdersFetched] = useState(false)
+  const [orderView, setOrderView] = useState<'all' | 'cycle'>('all')
 
   const cycleOrders = useMemo(() => {
     if (!session || session.strategy !== 'dca' || !session.started_at) return allOrders
@@ -123,6 +124,15 @@ export default function SessionDetailPage() {
     if (Number.isNaN(startedAt)) return allOrders
     return allOrders.filter(o => new Date(o.created_at).getTime() >= startedAt)
   }, [allOrders, session?.started_at, session?.strategy])
+  const visibleOrders = session?.strategy === 'dca' && orderView === 'cycle' ? cycleOrders : allOrders
+
+  useEffect(() => {
+    setAllOrders([])
+    setOrderCursor(undefined)
+    setHasMoreOrders(true)
+    setOrdersFetched(false)
+    setOrderView('all')
+  }, [id])
 
   const fetchOrders = useCallback(async (cursor?: number) => {
     if (!isAuthenticated) return
@@ -133,7 +143,11 @@ export default function SessionDetailPage() {
       if (cursor) {
         setAllOrders(prev => [...prev, ...data])
       } else {
-        setAllOrders(data)
+        setAllOrders(prev => {
+          if (prev.length <= data.length) return data
+          const latestIds = new Set(data.map(o => o.id))
+          return [...data, ...prev.filter(o => !latestIds.has(o.id))]
+        })
       }
       setHasMoreOrders(data.length === 10)
       if (data.length > 0) setOrderCursor(data[data.length - 1].id)
@@ -158,7 +172,11 @@ export default function SessionDetailPage() {
       try {
         const raw = await api.sessions.getOrders(Number(id))
         const data = raw ?? []
-        setAllOrders(data)
+        setAllOrders(prev => {
+          if (prev.length <= data.length) return data
+          const latestIds = new Set(data.map(o => o.id))
+          return [...data, ...prev.filter(o => !latestIds.has(o.id))]
+        })
         setHasMoreOrders(data.length === 10)
         if (data.length > 0) setOrderCursor(data[data.length - 1].id)
       } finally {
@@ -895,8 +913,8 @@ export default function SessionDetailPage() {
         ) : null}
 
         {/* DCA buy price sparkline */}
-        {session.strategy === 'dca' && cycleOrders.filter(o => o.side === 'buy' && o.status === 'filled').length > 1 && (() => {
-          const buys = cycleOrders
+        {session.strategy === 'dca' && allOrders.filter(o => o.side === 'buy' && o.status === 'filled').length > 1 && (() => {
+          const buys = allOrders
             .filter(o => o.side === 'buy' && (o.status === 'filled' || o.status === 'signal'))
             .map(o => ({ price: parseFloat(o.executed_price || o.price), time: new Date(o.created_at).getTime() }))
             .filter(b => b.price > 0)
@@ -909,7 +927,7 @@ export default function SessionDetailPage() {
           const currentPrice = dcaTicker ? parseFloat(dcaTicker.lastPrice) : null
           return (
             <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] mb-4">
-              <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Riwayat Beli</p>
+              <p className="text-xs font-bold text-[#686868] dark:text-[#898989] uppercase tracking-wider mb-3">Riwayat Harga Beli</p>
               <div className="relative w-full h-16">
                 <div className="absolute inset-x-0 bottom-3 top-3 flex items-end">
                   {buys.map((b, i) => {
@@ -1901,17 +1919,30 @@ export default function SessionDetailPage() {
         {/* Orders Table — hidden when strategy signal history is shown */}
         {!isStrategySignal && (
           <>
-            <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest mb-3">
-              {isPaperMode ? 'Riwayat Order Virtual' : 'Riwayat Order'}
-            </h2>
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <h2 className="text-xs font-bold text-[#9fe870] uppercase tracking-widest">
+                {isPaperMode ? 'Riwayat Order Virtual' : 'Riwayat Order'}
+              </h2>
+              {session.strategy === 'dca' && (
+                <div className="inline-flex rounded-full bg-[#f0f1ee] dark:bg-[#252822] p-1" aria-label="Filter riwayat order">
+                  <button type="button" onClick={() => setOrderView('all')} className={`px-3 py-1 rounded-full text-[10px] font-semibold ${orderView === 'all' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Semua Riwayat</button>
+                  <button type="button" onClick={() => setOrderView('cycle')} className={`px-3 py-1 rounded-full text-[10px] font-semibold ${orderView === 'cycle' ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#898989]'}`}>Siklus Sekarang</button>
+                </div>
+              )}
+            </div>
+            {session.strategy === 'dca' && orderView === 'cycle' && cycleOrders.length === 0 && allOrders.length > 0 && (
+              <div className="mb-3 rounded-[12px] border border-[rgba(255,209,26,0.25)] bg-[rgba(255,209,26,0.07)] px-3 py-2 text-xs text-[#686868] dark:text-[#a5a8a2]">
+                Belum ada order pada siklus ini. {allOrders.length} order historis tetap tersedia di tab Semua Riwayat.
+              </div>
+            )}
             {ordersLoading ? (
               <div className="flex items-center gap-2 text-[#686868] dark:text-[#898989] animate-pulse py-4">
                 <span className="w-2 h-2 rounded-full bg-[#9fe870]" />
                 <span className="text-sm">Memuat orders...</span>
               </div>
-            ) : !ordersFetched || !cycleOrders?.length ? (
+            ) : !ordersFetched || !visibleOrders.length ? (
               <div className="flex flex-col items-center gap-3 py-8 text-sm">
-                <p className="text-[#686868] dark:text-[#898989]">Belum ada order.</p>
+                <p className="text-[#686868] dark:text-[#898989]">{orderView === 'cycle' ? 'Belum ada order pada siklus ini.' : 'Belum ada order.'}</p>
                 {session.status !== 'running' && (
                   <button onClick={handleStart} className="px-5 py-2 text-sm font-bold bg-[#9fe870] text-[#163300] rounded-full hover:bg-[#cdffad] transition-all">
                     Mulai Bot Sekarang
@@ -1940,7 +1971,7 @@ export default function SessionDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[rgba(14,15,12,0.06)] dark:divide-[rgba(232,235,230,0.06)]">
-                      {allOrders.map(o => (
+                      {visibleOrders.map(o => (
                         <tr key={o.id} className="hover:bg-[#f0f1ee] dark:hover:bg-[#252822] transition-colors">
                           <td className="px-4 py-3 text-[#686868] dark:text-[#898989] text-xs whitespace-nowrap">
                             <span className="block">{new Date(o.created_at).toLocaleDateString('id-ID')}</span>
