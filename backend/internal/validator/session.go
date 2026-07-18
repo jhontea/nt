@@ -9,10 +9,12 @@ import (
 
 func GridConfig(s string) error {
 	var cfg struct {
-		UpperPrice float64 `json:"upper_price"`
-		LowerPrice float64 `json:"lower_price"`
-		GridCount  int     `json:"grid_count"`
-		Quantity   string  `json:"quantity"`
+		UpperPrice       float64 `json:"upper_price"`
+		LowerPrice       float64 `json:"lower_price"`
+		GridCount        int     `json:"grid_count"`
+		Quantity         string  `json:"quantity"`
+		MaxOrderValue    float64 `json:"max_order_value"`
+		MaxPositionValue float64 `json:"max_position_value"`
 	}
 	if err := json.Unmarshal([]byte(s), &cfg); err != nil {
 		return err
@@ -35,6 +37,15 @@ func GridConfig(s string) error {
 	}
 	if f, _ := strconv.ParseFloat(cfg.Quantity, 64); f <= 0 {
 		e.Add(ErrField("quantity", "must be > 0"))
+	}
+	if cfg.MaxOrderValue < 0 {
+		e.Add(ErrField("max_order_value", "cannot be negative"))
+	}
+	if cfg.MaxPositionValue < 0 {
+		e.Add(ErrField("max_position_value", "cannot be negative"))
+	}
+	if cfg.MaxOrderValue > 0 && cfg.MaxPositionValue > 0 && cfg.MaxPositionValue < cfg.MaxOrderValue {
+		e.Add(ErrField("max_position_value", "must be greater than or equal to max_order_value"))
 	}
 	return e.Err()
 }

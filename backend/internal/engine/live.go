@@ -166,7 +166,10 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 		if position.NetQty == "0" {
 			return fmt.Errorf("live sell: session has no position to sell")
 		}
-		resolvedQty = position.NetQty
+		resolvedQty, err = resolveSellQuantity(session.Strategy, signal.Quantity, position.NetQty)
+		if err != nil {
+			return fmt.Errorf("live sell: resolve strategy quantity: %w", err)
+		}
 
 		baseAsset := strings.Split(session.Symbol, "_")[0]
 		account, err := l.client.GetAccount()
@@ -240,6 +243,20 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 	}
 	if err := l.risk.Check(riskCfg, notional); err != nil {
 		return fmt.Errorf("risk check failed: %w", err)
+	}
+	if signal.Side == string(model.SideBuy) && riskCfg.MaxPositionValue > 0 {
+		position, err := l.position.GetSessionPosition(context.Background(), session.ID, session.Symbol)
+		if err != nil {
+			return fmt.Errorf("live buy: resolve session position: %w", err)
+		}
+		existingQty, err := strconv.ParseFloat(position.NetQty, 64)
+		if err != nil {
+			return fmt.Errorf("live buy: invalid session position %q: %w", position.NetQty, err)
+		}
+		projectedNotional := (existingQty + qtyF) * priceF
+		if err := l.risk.CheckPosition(riskCfg, projectedNotional); err != nil {
+			return fmt.Errorf("%w: position risk check failed: %v", ErrLiveOrderSkipped, err)
+		}
 	}
 
 	side := orderSideBuy
@@ -377,6 +394,16 @@ func (l *LiveEngine) Execute(session model.Session, signal Signal) error {
 			signal.Side, orderID, execPrice, execQty, pnlStr)
 	}
 	return nil
+}
+
+// resolveSellQuantity preserves full-position exits for DCA/trend while grid
+// sells only the configured lot. The lot is clamped to the session-owned
+// position so rounding or partial fills can never oversell.
+func resolveSellQuantity(strategy, requestedQty, sessionNetQty string) (string, error) {
+	if strategy == string(model.StratGrid) {
+		return service.MinDecimalString(requestedQty, sessionNetQty)
+	}
+	return sessionNetQty, nil
 }
 
 // computeLivePnLTx calculates realized PnL for a sell using open buy orders,

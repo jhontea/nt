@@ -96,6 +96,39 @@ func TestValidateBuyBalance(t *testing.T) {
 	}
 }
 
+func TestResolveSellQuantity(t *testing.T) {
+	tests := []struct {
+		name, strategy, requested, net, want string
+	}{
+		{name: "grid sells one configured lot", strategy: "grid", requested: "0.00009", net: "0.00018", want: "0.00009"},
+		{name: "grid clamps partial position", strategy: "grid", requested: "0.00009", net: "0.00007", want: "0.00007"},
+		{name: "dca exits full position", strategy: "dca", requested: "0.00009", net: "0.00018", want: "0.00018"},
+		{name: "trend exits full position", strategy: "trend", requested: "0.00009", net: "0.00018", want: "0.00018"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveSellQuantity(tt.strategy, tt.requested, tt.net)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("quantity = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRiskManagerCheckPosition(t *testing.T) {
+	r := NewRiskManager()
+	cfg := RiskConfig{MaxPositionValue: 6.2}
+	if err := r.CheckPosition(cfg, 6.1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := r.CheckPosition(cfg, 6.3); err == nil {
+		t.Fatal("expected max position error")
+	}
+}
+
 func TestBuyLockSerializesSameQuoteAsset(t *testing.T) {
 	engine := NewLiveEngine(nil, nil)
 	first := engine.buyLock("USDT")

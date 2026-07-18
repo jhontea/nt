@@ -113,6 +113,17 @@ func TestValidateSession(t *testing.T) {
 	}
 }
 
+func TestGridConfigPositionLimit(t *testing.T) {
+	valid := `{"upper_price":70000,"lower_price":60000,"grid_count":4,"quantity":"0.00009","max_order_value":6.2,"max_position_value":6.2}`
+	if err := ValidateSession("live", "grid", valid); err != nil {
+		t.Fatalf("valid risk limits rejected: %v", err)
+	}
+	invalid := `{"upper_price":70000,"lower_price":60000,"grid_count":4,"quantity":"0.00009","max_order_value":10,"max_position_value":6}`
+	if err := ValidateSession("live", "grid", invalid); err == nil {
+		t.Fatal("expected max_position_value below max_order_value to be rejected")
+	}
+}
+
 func TestTrendConfig_RejectsInvalidInterval(t *testing.T) {
 	if err := ValidateSession("signal", "trend", `{"fast_period":3,"slow_period":10,"quantity":"0.001","interval":"1d"}`); err == nil {
 		t.Fatal("expected error for invalid interval")

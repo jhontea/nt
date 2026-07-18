@@ -27,6 +27,8 @@ export interface GridConfig {
   lower_price: number
   grid_count: number
   quantity: string
+  max_order_value?: number
+  max_position_value?: number
 }
 
 export interface TrendConfig {

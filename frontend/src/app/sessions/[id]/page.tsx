@@ -1346,6 +1346,11 @@ export default function SessionDetailPage() {
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
                 {configDisplay.quantity || '?'} {session.symbol.split('_')[0]} / order
               </span>
+              {configDisplay.max_position_value > 0 && (
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f0f1ee] dark:bg-[#252822] text-[#0e0f0c] dark:text-[#e8ebe6]">
+                  Posisi maks {fmtCur(configDisplay.max_position_value, quote)}
+                </span>
+              )}
             </>)}
             {session.strategy === 'trend' && (<>
               <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]">
