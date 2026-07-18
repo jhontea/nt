@@ -28,6 +28,14 @@ const fmtCur = (v: number, quote?: string) =>
     ? 'Rp' + v.toLocaleString('id-ID', { maximumFractionDigits: 0 })
     : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+const fmtPnl = (v: number, quote?: string) => {
+  const sign = v > 0 ? '+' : v < 0 ? '-' : ''
+  const absolute = Math.abs(v)
+  return quote === 'IDR'
+    ? `${sign}Rp${absolute.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+    : `${sign}$${absolute.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 const modeInfo: Record<string, string> = {
   signal: 'Bot hanya mencatat sinyal. Tidak ada eksekusi order.',
   paper: 'Trading simulasi dengan uang virtual $1000.',
@@ -588,31 +596,31 @@ export default function SessionDetailPage() {
         </div>
 
         {/* Hero Header */}
-        <div className={`mb-8 rounded-[28px] p-6 border ${
+        <div className={`mb-4 rounded-[22px] p-4 sm:p-5 border ${
           session.strategy === 'grid'
             ? 'bg-gradient-to-br from-[rgba(159,232,112,0.08)] to-transparent border-[rgba(159,232,112,0.2)] dark:from-[rgba(159,232,112,0.1)] dark:border-[rgba(159,232,112,0.15)]'
             : session.strategy === 'trend'
             ? 'bg-gradient-to-br from-[rgba(56,200,255,0.08)] to-transparent border-[rgba(56,200,255,0.2)] dark:from-[rgba(56,200,255,0.1)] dark:border-[rgba(56,200,255,0.15)]'
             : 'bg-gradient-to-br from-[rgba(255,209,26,0.08)] to-transparent border-[rgba(255,209,26,0.2)] dark:from-[rgba(255,209,26,0.1)] dark:border-[rgba(255,209,26,0.15)]'
         }`}>
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             {/* Strategy icon */}
-            <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center text-3xl flex-shrink-0 ${
+            <div className={`w-11 h-11 rounded-[15px] flex items-center justify-center flex-shrink-0 ${
               session.strategy === 'grid'
                 ? 'bg-[rgba(159,232,112,0.15)] text-[#163300] dark:text-[#9fe870]'
                 : session.strategy === 'trend'
                 ? 'bg-[rgba(56,200,255,0.12)] text-[#0994b3] dark:text-[#5dd8f5]'
                 : 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]'
             }`}>
-              {session.strategy === 'grid' ? <Grid2x2 size={28} /> : session.strategy === 'trend' ? <TrendingUp size={28} /> : <Coins size={28} />}
+              {session.strategy === 'grid' ? <Grid2x2 size={22} /> : session.strategy === 'trend' ? <TrendingUp size={22} /> : <Coins size={22} />}
             </div>
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6] truncate mb-2 w-full">{session.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#0e0f0c] dark:text-[#e8ebe6] truncate mb-1.5 w-full">{session.name}</h1>
 
               {/* Chips row */}
-              <div className="flex items-center gap-2 flex-wrap mb-3">
+              <div className="flex items-center gap-2 flex-wrap mb-2.5">
                 {/* Mode */}
                 {session.mode === 'signal' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(56,200,255,0.1)] dark:bg-[rgba(56,200,255,0.15)] text-[#0994b3] dark:text-[#5dd8f5]">Signal</span>}
                 {session.mode === 'paper' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[rgba(159,232,112,0.15)] dark:bg-[rgba(159,232,112,0.2)] text-[#163300] dark:text-[#9fe870]">Paper</span>}
@@ -715,7 +723,7 @@ export default function SessionDetailPage() {
               </>
             )}
             {pnl && (
-              <span className="text-[#686868] dark:text-[#898989]">Realized: <span className={parseFloat(pnl.realized_pnl) >= 0 ? 'font-semibold text-[#054d28] dark:text-[#9fe870]' : 'font-semibold text-[#d03238] dark:text-[#ff6b6f]'}>{cur}{parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}{pnl.realized_pnl}</span></span>
+              <span className="text-[#686868] dark:text-[#898989]">Realized: <span className={parseFloat(pnl.realized_pnl) >= 0 ? 'font-semibold text-[#054d28] dark:text-[#9fe870]' : 'font-semibold text-[#d03238] dark:text-[#ff6b6f]'}>{fmtPnl(parseFloat(pnl.realized_pnl), quote)}</span></span>
             )}
             <PriceBadge symbol={session.symbol} compact />
           </div>
@@ -723,19 +731,21 @@ export default function SessionDetailPage() {
 
         {/* Live mode warning banner */}
         {session.mode === 'live' && (
-          <div className="mb-6 rounded-[16px] border border-[rgba(208,50,56,0.3)] bg-[rgba(208,50,56,0.06)] dark:bg-[rgba(208,50,56,0.1)] px-4 py-3 flex items-start gap-3">
-            <span className="text-[#d03238] dark:text-[#ff6b6f] flex-shrink-0 mt-0.5">⚡</span>
-            <div className="text-xs text-[#686868] dark:text-[#898989] space-y-1">
-              <p className="font-semibold text-[#d03238] dark:text-[#ff6b6f]">Session ini menggunakan Live Trading</p>
-              <p>Setiap sinyal akan langsung dieksekusi sebagai <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order sungguhan</strong> di TokoCrypto. Pastikan saldo mencukupi dan kamu memahami risikonya.</p>
-              <p>Bot menggunakan <strong className="text-[#0e0f0c] dark:text-[#e8ebe6]">market order</strong> — harga eksekusi bisa berbeda dari harga sinyal (slippage).</p>
+          <details className="group mb-4 rounded-[14px] border border-[rgba(208,50,56,0.25)] bg-[rgba(208,50,56,0.05)] dark:bg-[rgba(208,50,56,0.08)]">
+            <summary className="list-none cursor-pointer px-4 py-2.5 flex items-center gap-2 text-xs font-semibold text-[#d03238] dark:text-[#ff6b6f]">
+              <span>⚡ Live Trading · market order sungguhan</span>
+              <span className="ml-auto transition-transform group-open:rotate-45 text-base" aria-hidden="true">+</span>
+            </summary>
+            <div className="px-4 pb-3 text-xs text-[#686868] dark:text-[#a5a8a2] space-y-1">
+              <p>Setiap sinyal langsung dieksekusi di TokoCrypto. Pastikan saldo mencukupi dan kamu memahami risikonya.</p>
+              <p>Harga eksekusi dapat berbeda dari harga sinyal karena fee dan slippage.</p>
             </div>
-          </div>
+          </details>
         )}
 
         {/* Live balance panel */}
         {session.mode === 'live' && liveBalance && (
-          <div className="mb-6 bg-white dark:bg-[#1e201c] rounded-[20px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-4">
+          <div className="mb-4 bg-white dark:bg-[#1e201c] rounded-[18px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-[#0e0f0c] dark:text-[#e8ebe6] uppercase tracking-wider">Saldo TokoCrypto</h3>
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${liveBalance.can_trade === 1 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
@@ -751,7 +761,7 @@ export default function SessionDetailPage() {
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="text-[10px] font-bold text-[#7a5f00] dark:text-[#f5c842] uppercase">IDR · Sisa Saldo</p>
-                    <p className="text-3xl font-black text-[#3d2f00] dark:text-[#ffd11a] mt-0.5">
+                    <p className="text-2xl font-black text-[#3d2f00] dark:text-[#ffd11a] mt-0.5">
                       Rp {idrFree.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                     </p>
                     {idrLocked > 0 && <p className="text-[9px] text-[#686868] dark:text-[#898989] mt-0.5">Locked: Rp {idrLocked.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</p>}
@@ -871,17 +881,17 @@ export default function SessionDetailPage() {
             </div>
             
             {/* Total P&L Hero Card */}
-            <div className={`rounded-[24px] p-6 mb-3 border-2 ${
+            <div className={`rounded-[20px] p-4 mb-3 border ${
               displayedTotalPnl >= 0
                 ? 'bg-gradient-to-br from-[rgba(5,77,40,0.08)] to-transparent border-[rgba(5,77,40,0.3)] dark:from-[rgba(159,232,112,0.1)] dark:border-[rgba(159,232,112,0.2)]'
                 : 'bg-gradient-to-br from-[rgba(208,50,56,0.08)] to-transparent border-[rgba(208,50,56,0.3)] dark:from-[rgba(208,50,56,0.1)] dark:border-[rgba(208,50,56,0.2)]'
             }`}>
               <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider mb-2">Total P&L</p>
               <div className="flex items-baseline gap-3">
-                <p className={`text-4xl font-black ${displayedTotalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {cur}{displayedTotalPnl >= 0 ? '+' : ''}{displayedTotalPnl.toFixed(2)}
+                <p className={`text-3xl font-black ${displayedTotalPnl >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                  {fmtPnl(displayedTotalPnl, quote)}
                 </p>
-                {pnl.balance && (
+                {Number(pnl.balance) > 0 && Number(pnl.balance) !== displayedTotalPnl && (
                   <p className="text-sm text-[#686868] dark:text-[#898989]">
                     {displayedTotalPnl >= 0 ? '+' : ''}{((displayedTotalPnl / (Number(pnl.balance) - displayedTotalPnl)) * 100).toFixed(1)}%
                   </p>
@@ -898,7 +908,7 @@ export default function SessionDetailPage() {
               <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">
                 <p className="text-xs text-[#686868] dark:text-[#898989] font-semibold uppercase tracking-wider flex items-center gap-1">Realized <HelpIcon text={pnlHelp.realized} /></p>
                 <p className={`text-lg font-bold mt-1 ${parseFloat(pnl.realized_pnl) >= 0 ? 'text-[#054d28] dark:text-[#9fe870]' : 'text-[#d03238] dark:text-[#ff6b6f]'}`}>
-                  {cur}{parseFloat(pnl.realized_pnl) >= 0 ? '+' : ''}{pnl.realized_pnl}
+                  {fmtPnl(parseFloat(pnl.realized_pnl), quote)}
                 </p>
               </div>
               <div className="bg-white dark:bg-[#1e201c] rounded-[20px] p-4 border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)]">

@@ -38,6 +38,10 @@ function safeNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function compactNumber(value: number) {
+  return new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
+}
+
 function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol: string; usdtIdrRate: number | null }) {
   const { data, connected, updatedAt } = useMarketTicker(symbol)
 
@@ -112,7 +116,7 @@ function MarketPriceCard({ label, symbol, usdtIdrRate }: { label: string; symbol
         <div>
           <p className="text-[#686868] dark:text-[#898989]">Vol (24h)</p>
           <p className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] mt-0.5">
-            {volume == null ? '—' : volume.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {volume == null ? '—' : compactNumber(volume)}
             <span className="text-[#686868] dark:text-[#898989] ml-1 font-normal text-[10px]">{symbol.split('_')[0]}</span>
           </p>
         </div>
@@ -128,9 +132,11 @@ export default function MarketPage() {
   const { isAuthenticated, initialized } = useAuth()
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [quoteFilter, setQuoteFilter] = useState<'all' | 'USDT' | 'IDR'>('all')
   const { data: usdtIdr } = useMarketTicker('USDT_IDR')
   const usdtIdrRate = safeNumber(usdtIdr?.lastPrice)
   const filteredSymbols = MARKET_SYMBOLS.filter(item =>
+    (quoteFilter === 'all' || item.symbol.endsWith(`_${quoteFilter}`)) &&
     `${item.label} ${item.symbol}`.toLowerCase().includes(search.trim().toLowerCase())
   )
 
@@ -168,10 +174,23 @@ export default function MarketPage() {
           </div>
         </div>
 
-        <div className="relative mb-5 max-w-md">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Cari pair market" placeholder="Cari BTC, ETH, pair..." className="w-full pl-10 pr-4 py-2.5 rounded-[12px] bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.1)] dark:border-[rgba(232,235,230,0.1)] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.35)]" />
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#686868] dark:text-[#898989]" />
+            <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Cari pair market" placeholder="Cari BTC, ETH, pair..." className="w-full pl-10 pr-4 py-2.5 rounded-[12px] bg-white dark:bg-[#1e201c] border border-[rgba(14,15,12,0.1)] dark:border-[rgba(232,235,230,0.1)] text-sm text-[#0e0f0c] dark:text-[#e8ebe6] focus:outline-none focus:ring-2 focus:ring-[rgba(159,232,112,0.35)]" />
+          </div>
+          <div className="flex gap-1 p-1 rounded-full bg-[#f0f1ee] dark:bg-[#252822]" aria-label="Filter quote market">
+            {(['all', 'USDT', 'IDR'] as const).map(filter => (
+              <button key={filter} onClick={() => setQuoteFilter(filter)} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${quoteFilter === filter ? 'bg-white dark:bg-[#1e201c] text-[#0e0f0c] dark:text-[#e8ebe6] shadow-sm' : 'text-[#686868] dark:text-[#a5a8a2]'}`}>
+                {filter === 'all' ? 'Semua' : filter}
+              </button>
+            ))}
+          </div>
         </div>
+
+        <p className="text-[11px] text-[#686868] dark:text-[#a5a8a2] mb-4">
+          Menampilkan {filteredSymbols.length} pair · data dimuat bertahap dan diperbarui otomatis.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredSymbols.map(item => (

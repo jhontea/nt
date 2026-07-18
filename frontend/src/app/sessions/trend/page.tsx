@@ -140,6 +140,7 @@ export default function TrendPage() {
               description="Klik “+ New Session” untuk membuat session pertama dan mulai mendeteksi tren."
               actionLabel="New Session"
               onAction={() => setShowCreate(true)}
+              tone="trend"
             />
           )
         ) : (

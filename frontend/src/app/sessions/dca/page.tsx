@@ -330,7 +330,12 @@ function DcaPageInner() {
                 </div>
               </div>
               {bestPerformer && worstPerformer && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                <details className="group mt-3 pt-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
+                  <summary className="list-none cursor-pointer flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#686868] dark:text-[#a5a8a2]">
+                    <span>Perbandingan performa session</span>
+                    <span aria-hidden="true" className="text-base transition-transform group-open:rotate-45">+</span>
+                  </summary>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
                   <div className="rounded-[14px] px-3 py-2.5 bg-[rgba(5,77,40,0.05)] dark:bg-[rgba(159,232,112,0.06)]">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[#054d28] dark:text-[#9fe870]">Best Performer</p>
                     <div className="flex items-center justify-between gap-3 mt-1">
@@ -355,7 +360,8 @@ function DcaPageInner() {
                       </p>
                     </div>
                   </div>
-                </div>
+                  </div>
+                </details>
               )}
             </div>
           )
@@ -388,7 +394,7 @@ function DcaPageInner() {
           sessions?.length ? (
             <p className="text-sm text-[#686868] dark:text-[#898989] py-8 text-center">Tidak ada session untuk pair {symbolFilter.replace('_', '/')}.</p>
           ) : (
-            <EmptyState icon={<Coins size={28} />} title="Belum ada session DCA" description="Buat session pertama kamu untuk mulai membeli aset secara rutin dan meratakan harga beli rata-rata." actionLabel="New Session" onAction={() => setShowCreate(true)} />
+            <EmptyState icon={<Coins size={28} />} title="Belum ada session DCA" description="Buat session pertama kamu untuk mulai membeli aset secara rutin dan meratakan harga beli rata-rata." actionLabel="New Session" onAction={() => setShowCreate(true)} tone="dca" />
           )
         ) : (
           <div className="space-y-3">

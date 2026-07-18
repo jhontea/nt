@@ -276,6 +276,17 @@ export default function GridPage() {
               const buyCount = orders.filter(o => o.side === 'buy').length
               const sellCount = orders.filter(o => o.side === 'sell').length
               const currentPrice = ticker ? parseFloat(ticker.lastPrice) : 0
+              const midPrice = cfg ? (cfg.lower_price + cfg.upper_price) / 2 : 0
+              const priceZone = !cfg || currentPrice <= 0
+                ? null
+                : currentPrice < cfg.lower_price
+                  ? 'Di bawah range'
+                  : currentPrice > cfg.upper_price
+                    ? 'Di atas range'
+                    : currentPrice < midPrice ? 'Buy zone' : 'Sell zone'
+              const estimatedPerGrid = cfg
+                ? ((cfg.upper_price - cfg.lower_price) / Math.max(cfg.grid_count, 1)) * Number(cfg.quantity)
+                : 0
 
               return (
                 <div key={s.id}>
@@ -299,6 +310,14 @@ export default function GridPage() {
                           <span><span className="font-semibold text-[#163300] dark:text-[#9fe870]">{cfg.grid_count}</span> grid</span>
                           <span className="w-px h-3 bg-[rgba(14,15,12,0.1)] dark:bg-[rgba(232,235,230,0.1)]" />
                           <span>Qty <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6]">{cfg.quantity}</span></span>
+                          {priceZone && (
+                            <span className={`font-bold px-2 py-0.5 rounded-full ${priceZone === 'Buy zone' ? 'bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : priceZone === 'Sell zone' ? 'bg-[rgba(255,209,26,0.12)] text-[#7a5f00] dark:text-[#f5c842]' : 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]'}`}>
+                              {priceZone}
+                            </span>
+                          )}
+                          {estimatedPerGrid > 0 && (
+                            <span className="text-[10px] text-[#686868] dark:text-[#a5a8a2]">Est. spread/grid ${estimatedPerGrid.toFixed(4)}</span>
+                          )}
                           {/* Order counts */}
                           {orders.length > 0 && (
                             <>
@@ -325,7 +344,7 @@ export default function GridPage() {
                         <button
                           onClick={() => reeval ? dismissReeval(s.id) : handleReevaluate(s.id)}
                           disabled={reeval?.loading}
-                          className="flex items-center gap-1 text-xs font-semibold text-[#686868] dark:text-[#898989] hover:text-[#163300] dark:hover:text-[#9fe870] transition disabled:opacity-50"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[rgba(159,232,112,0.25)] bg-[rgba(159,232,112,0.06)] text-xs font-semibold text-[#163300] dark:text-[#9fe870] hover:bg-[rgba(159,232,112,0.12)] transition disabled:opacity-50"
                         >
                           <RefreshCw size={12} className={reeval?.loading ? 'animate-spin' : ''} />
                           {reeval ? (reeval.loading ? 'Memeriksa...' : 'Tutup') : 'Reevaluasi'}

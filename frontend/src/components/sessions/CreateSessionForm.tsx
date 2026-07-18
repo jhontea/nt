@@ -297,12 +297,13 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
 
   return (
     <form onSubmit={handleCreate} className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-            <h2 className="font-black text-xl text-[#0e0f0c] dark:text-[#e8ebe6] tracking-tight">New Session</h2>
-            <p className="text-xs text-[#686868] dark:text-[#898989] mt-0.5">Konfigurasi bot trading baru</p>
+      <div className="grid grid-cols-3 gap-2" aria-label="Tahapan konfigurasi session">
+        {['1 · Dasar', '2 · Risiko', '3 · Review'].map((step, index) => (
+          <div key={step} className={`rounded-full px-3 py-2 text-center text-[10px] sm:text-xs font-bold ${index === 0 ? 'bg-[rgba(159,232,112,0.15)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[#f0f1ee] dark:bg-[#252822] text-[#686868] dark:text-[#a5a8a2]'}`}>
+            {step}
           </div>
-        </div>
+        ))}
+      </div>
 
         {/* Info harga saat ini */}
         {priceLoading && (
@@ -651,6 +652,17 @@ export function CreateSessionForm({ strategy, onCreated }: { strategy: 'grid' | 
             </div>
           </>
         )}
+        <div className="rounded-[14px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] bg-[#fafafa] dark:bg-[#252822] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#686868] dark:text-[#a5a8a2] mb-2">Review session</p>
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="font-bold text-[#0e0f0c] dark:text-[#e8ebe6] capitalize">{strategy}</span>
+            <span className="text-[#686868] dark:text-[#a5a8a2]">{symbol.replace('_', '/')}</span>
+            <span className={`px-2 py-0.5 rounded-full font-semibold ${mode === 'live' ? 'bg-[rgba(208,50,56,0.1)] text-[#d03238] dark:text-[#ff6b6f]' : mode === 'paper' ? 'bg-[rgba(159,232,112,0.12)] text-[#054d28] dark:text-[#9fe870]' : 'bg-[rgba(56,200,255,0.1)] text-[#0994b3] dark:text-[#5dd8f5]'}`}>{mode}</span>
+            {mode === 'live' && <span className="text-[#d03238] dark:text-[#ff6b6f]">Order sungguhan</span>}
+            {strategy === 'grid' && <span className="text-[#686868] dark:text-[#a5a8a2]">{gridCount} grid · qty {quantity}</span>}
+            {strategy === 'dca' && <span className="text-[#686868] dark:text-[#a5a8a2]">Rp{Number(dcaAmount || 0).toLocaleString('id-ID')} / order</span>}
+          </div>
+        </div>
         <div className="sticky bottom-0 -mx-6 px-6 pb-1 pt-4 bg-white/95 dark:bg-[#1e201c]/95 backdrop-blur border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)] mt-4">
           {formError && <p role="alert" className="mb-3 text-xs text-[#d03238] dark:text-[#ff6b6f]">{formError}</p>}
           <button type="submit" className="w-full py-3 bg-[#9fe870] text-[#163300] font-bold text-sm rounded-full hover:bg-[#cdffad] hover:scale-[1.01] active:scale-[0.99] transition-all shadow-[0_2px_12px_rgba(159,232,112,0.35)] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100" disabled={creating}>

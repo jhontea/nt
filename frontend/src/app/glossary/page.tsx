@@ -162,6 +162,7 @@ export default function GlossaryPage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [expandAll, setExpandAll] = useState(false)
 
   useEffect(() => {
     const hash = decodeURIComponent(window.location.hash.replace(/^#/, ''))
@@ -172,6 +173,15 @@ export default function GlossaryPage() {
     (activeCategory === 'all' || t.category === activeCategory) &&
     (search === '' || t.term.toLowerCase().includes(search.toLowerCase()) || t.desc.toLowerCase().includes(search.toLowerCase()))
   )
+  const letters = [...new Set(filtered.map(t => t.term.charAt(0).toUpperCase()))].sort()
+  const highlight = (text: string) => {
+    const query = search.trim()
+    if (!query) return text
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return text.split(new RegExp(`(${escaped})`, 'ig')).map((part, index) => part.toLowerCase() === query.toLowerCase()
+      ? <mark key={index} className="bg-[rgba(255,209,26,0.35)] text-inherit rounded px-0.5">{part}</mark>
+      : part)
+  }
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#141411]">
@@ -206,6 +216,21 @@ export default function GlossaryPage() {
           ))}
         </div>
 
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <nav aria-label="Indeks alfabet glosarium" className="flex items-center gap-1 flex-wrap">
+              {letters.map(letter => (
+                <button key={letter} onClick={() => document.querySelector<HTMLElement>(`[data-letter="${letter}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="w-7 h-7 rounded-full text-[11px] font-bold text-[#686868] dark:text-[#a5a8a2] hover:bg-white dark:hover:bg-[#252822] hover:text-[#0e0f0c] dark:hover:text-[#e8ebe6] transition">
+                  {letter}
+                </button>
+              ))}
+            </nav>
+            <button onClick={() => { setExpandAll(!expandAll); setExpanded(null) }} className="text-xs font-semibold text-[#054d28] dark:text-[#9fe870] hover:underline">
+              {expandAll ? 'Tutup semua' : 'Buka semua'}
+            </button>
+          </div>
+        )}
+
         {filtered.length === 0 && (
           <div className="text-center py-12">
             <p className="text-[#686868] dark:text-[#898989] text-sm">
@@ -223,19 +248,19 @@ export default function GlossaryPage() {
         <div className="space-y-3">
           {filtered.map(t => {
             const slug = termSlug(t.term)
-            const isExpanded = expanded === slug
+            const isExpanded = expandAll || expanded === slug
             return (
-            <section id={slug} key={t.term} className="scroll-mt-20 bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-5 py-4">
-              <button type="button" aria-expanded={isExpanded} aria-controls={`${slug}-description`} onClick={() => setExpanded(isExpanded ? null : slug)} className="w-full flex items-center gap-2 text-left">
-                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm">{t.term}</span>
+            <section id={slug} data-letter={t.term.charAt(0).toUpperCase()} key={t.term} className="scroll-mt-20 bg-white dark:bg-[#1e201c] rounded-[16px] border border-[rgba(14,15,12,0.08)] dark:border-[rgba(232,235,230,0.08)] px-5 py-3.5 hover:border-[rgba(14,15,12,0.16)] dark:hover:border-[rgba(232,235,230,0.16)] transition-colors">
+              <button type="button" aria-expanded={isExpanded} aria-controls={`${slug}-description`} onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(slug) } else setExpanded(isExpanded ? null : slug) }} className="w-full flex items-center gap-2 text-left">
+                <span className="font-semibold text-[#0e0f0c] dark:text-[#e8ebe6] text-sm">{highlight(t.term)}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${categoryColors[t.category]}`}>
                   {t.category.charAt(0).toUpperCase() + t.category.slice(1)}
                 </span>
-                <span className="ml-auto text-[#686868] dark:text-[#898989]" aria-hidden="true">{isExpanded ? '−' : '+'}</span>
+                <span className="ml-auto w-7 h-7 rounded-full bg-[#f0f1ee] dark:bg-[#252822] flex items-center justify-center text-[#5a5b58] dark:text-[#b5b8b2] font-bold" aria-hidden="true">{isExpanded ? '−' : '+'}</span>
               </button>
               {isExpanded && (
                 <div id={`${slug}-description`} className="pt-3 mt-3 border-t border-[rgba(14,15,12,0.06)] dark:border-[rgba(232,235,230,0.06)]">
-                  <p className="text-sm text-[#686868] dark:text-[#898989] leading-relaxed">{t.desc}</p>
+                  <p className="text-sm text-[#686868] dark:text-[#a5a8a2] leading-relaxed">{highlight(t.desc)}</p>
                   <a href={`#${slug}`} className="inline-block mt-2 text-[10px] font-semibold text-[#054d28] dark:text-[#9fe870] hover:underline">Tautan istilah</a>
                 </div>
               )}
