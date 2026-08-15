@@ -178,24 +178,36 @@ func (m *Manager) run(ctx context.Context, session model.Session) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
+	// Reload the session row from DB only every N ticks to cut DB load, while
+	// still evaluating the strategy on EVERY tick (trading responsiveness is
+	// unchanged). Trade-off: config/status edits are picked up within up to
+	// N*30s instead of 30s. Stop() cancels the context directly, so stopping a
+	// session is not delayed by this.
+	const sessionRefreshEvery = 3
+	tickCount := 0
+
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("session stopped", "id", session.ID)
 			return
 		case <-ticker.C:
-			var fresh model.Session
-			if err := m.db.Get(&fresh, m.db.Rebind("SELECT * FROM sessions WHERE id = ?"), session.ID); err != nil {
-				slog.Error("read session", "id", session.ID, "error", err)
-				continue
+			tickCount++
+			if tickCount%sessionRefreshEvery == 1 {
+				var fresh model.Session
+				if err := m.db.Get(&fresh, m.db.Rebind("SELECT * FROM sessions WHERE id = ?"), session.ID); err != nil {
+					slog.Error("read session", "id", session.ID, "error", err)
+					continue
+				}
+				session = fresh
 			}
-			m.evaluate(ctx, fresh)
+			m.evaluate(ctx, session)
 			// Run validator on every tick for grid+signal sessions
 			switch {
-			case fresh.Strategy == string(model.StratGrid) && fresh.Mode == string(model.ModeSignal):
-				m.validatePendingSignals(fresh)
-			case fresh.Strategy == string(model.StratTrend) && fresh.Mode == string(model.ModeSignal):
-				m.validatePendingTrendSignals(fresh)
+			case session.Strategy == string(model.StratGrid) && session.Mode == string(model.ModeSignal):
+				m.validatePendingSignals(session)
+			case session.Strategy == string(model.StratTrend) && session.Mode == string(model.ModeSignal):
+				m.validatePendingTrendSignals(session)
 			}
 		}
 	}

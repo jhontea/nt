@@ -83,6 +83,23 @@ func Migrate(db *sqlx.DB) error {
 	if err := logExec(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> ''"); err != nil {
 		log.Printf("migrate: %v", err)
 	}
+
+	// Indexes for hot query paths (also applied on Neon). Kept idempotent so
+	// they are safe to re-run on every startup.
+	for _, q := range []string{
+		"CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_id)",
+		"CREATE INDEX IF NOT EXISTS idx_orders_session_side_status ON orders(session_id, side, status)",
+		"CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_orders_dca_tpsl ON orders(session_id, symbol, side, status, created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_strategy_signals_session ON strategy_signals(session_id)",
+		"CREATE INDEX IF NOT EXISTS idx_strategy_signals_status ON strategy_signals(validation_status)",
+		"CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id)",
+		"CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)",
+	} {
+		if err := logExec(db, q); err != nil {
+			log.Printf("migrate: %v", err)
+		}
+	}
 	return nil
 }
 
