@@ -169,7 +169,7 @@ export default function SessionDetailPage() {
     fetchOrders()
   }, [fetchOrders])
 
-  // Auto-refresh: reset to first page every 10s
+  // Auto-refresh: reset to first page every 30s
   useEffect(() => {
     if (!isAuthenticated) return
     const t = setInterval(async () => {
@@ -190,7 +190,7 @@ export default function SessionDetailPage() {
       } finally {
         setOrdersLoading(false)
       }
-    }, 10000)
+    }, 30000)
     return () => clearInterval(t)
   }, [id, isAuthenticated])
 
@@ -198,7 +198,7 @@ export default function SessionDetailPage() {
     queryKey: ['dcaStats', id],
     queryFn: () => api.sessions.getDCAStats(Number(id)),
     enabled: isAuthenticated && session?.strategy === 'dca',
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   })
 
   // Grid Signal specific queries
@@ -214,21 +214,21 @@ export default function SessionDetailPage() {
     queryKey: ['signals', id],
     queryFn: () => api.sessions.getSignals(Number(id)),
     enabled: isAuthenticated && (isStrategySignal || isGridPaper),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   })
 
   const { data: signalSummary } = useQuery({
     queryKey: ['signalSummary', id],
     queryFn: () => api.sessions.getSignalSummary(Number(id)),
     enabled: isAuthenticated && isStrategySignal,
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   })
 
   const { data: portfolio } = useQuery({
     queryKey: ['portfolio', id],
     queryFn: () => api.sessions.getPortfolio(Number(id)),
     enabled: isAuthenticated && (isGridPaper || isDCAPaper),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   })
 
   const { data: dcaTicker } = useQuery({

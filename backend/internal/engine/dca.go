@@ -18,24 +18,33 @@ import (
 // DCA cycle state is cleared and the next evaluation may buy immediately.
 const dcaSellReentryHoldEnabled = true
 
+// totalQtyRefreshInterval bounds how often the TP/SL totalQty SUM is re-run per
+// session. Evaluations happen every 30s; refreshing every 90s cuts DB SUMs by
+// ~66% while still self-healing async fills (e.g. from the reconciler).
+const totalQtyRefreshInterval = 90 * time.Second
+
 type DCAEngine struct {
-	mu            sync.Mutex
-	lastBuy       map[int64]time.Time
-	lastBuyPrice  map[int64]float64 // price at last executed buy, for DropPct check
-	lastSellPrice map[int64]float64 // confirmed sell price used to guard the next cycle entry
-	avgBuyPrice   map[int64]float64
-	client        *tokocrypto.Client
-	db            *sqlx.DB
+	mu              sync.Mutex
+	lastBuy         map[int64]time.Time
+	lastBuyPrice    map[int64]float64 // price at last executed buy, for DropPct check
+	lastSellPrice   map[int64]float64 // confirmed sell price used to guard the next cycle entry
+	avgBuyPrice     map[int64]float64
+	totalQty        map[int64]float64   // cached total bought qty for TP/SL (throttled refresh)
+	totalQtyChecked map[int64]time.Time // last DB refresh time for totalQty
+	client          *tokocrypto.Client
+	db              *sqlx.DB
 }
 
 func NewDCAEngine(client *tokocrypto.Client, db *sqlx.DB) *DCAEngine {
 	return &DCAEngine{
-		lastBuy:       make(map[int64]time.Time),
-		lastBuyPrice:  make(map[int64]float64),
-		lastSellPrice: make(map[int64]float64),
-		avgBuyPrice:   make(map[int64]float64),
-		client:        client,
-		db:            db,
+		lastBuy:         make(map[int64]time.Time),
+		lastBuyPrice:    make(map[int64]float64),
+		lastSellPrice:   make(map[int64]float64),
+		avgBuyPrice:     make(map[int64]float64),
+		totalQty:        make(map[int64]float64),
+		totalQtyChecked: make(map[int64]time.Time),
+		client:          client,
+		db:              db,
 	}
 }
 
@@ -79,6 +88,8 @@ func (d *DCAEngine) Reset(sessionID int64) {
 	delete(d.lastBuyPrice, sessionID)
 	delete(d.lastSellPrice, sessionID)
 	delete(d.avgBuyPrice, sessionID)
+	delete(d.totalQty, sessionID)
+	delete(d.totalQtyChecked, sessionID)
 }
 
 // ConfirmBuy reloads the active cost basis from exchange-confirmed fills.
@@ -114,6 +125,8 @@ func (d *DCAEngine) ConfirmBuy(sessionID int64, symbol string, startedAt *time.T
 	}
 	d.avgBuyPrice[sessionID] = agg.TotalCost / agg.TotalQty
 	d.lastBuyPrice[sessionID] = agg.LastPrice
+	d.totalQty[sessionID] = agg.TotalQty
+	d.totalQtyChecked[sessionID] = time.Now()
 	delete(d.lastSellPrice, sessionID)
 	slog.Info("dca: confirmed fill state loaded", "session", sessionID, "avg_price", d.avgBuyPrice[sessionID], "qty", agg.TotalQty, "last_price", agg.LastPrice)
 }
@@ -130,6 +143,8 @@ func (d *DCAEngine) ConfirmSell(sessionID int64, symbol string) {
 		delete(d.avgBuyPrice, sessionID)
 		delete(d.lastBuyPrice, sessionID)
 		delete(d.lastSellPrice, sessionID)
+		delete(d.totalQty, sessionID)
+		delete(d.totalQtyChecked, sessionID)
 		slog.Info("dca: sell confirmed, cycle state reset", "session", sessionID)
 		return
 	}
@@ -157,6 +172,8 @@ func (d *DCAEngine) ConfirmSell(sessionID int64, symbol string) {
 	d.lastSellPrice[sessionID] = row.Price
 	delete(d.avgBuyPrice, sessionID)
 	delete(d.lastBuyPrice, sessionID)
+	d.totalQty[sessionID] = 0
+	d.totalQtyChecked[sessionID] = time.Now()
 	slog.Info("dca: sell confirmed, re-entry hold armed", "session", sessionID, "sell_price", row.Price)
 }
 
@@ -331,24 +348,40 @@ func (d *DCAEngine) evaluate(session model.Session, cfg DCAConfig, currentPrice 
 	return signals
 }
 
+// totalQtyFor returns the total bought quantity for a session, used by TP/SL.
+// The DB SUM is refreshed at most once per totalQtyRefreshInterval per session
+// (self-healing async fills, e.g. from the reconciler, within that window).
+// ConfirmBuy/ConfirmSell keep the cache fresh immediately after executions.
+// Must be called with d.mu held.
+func (d *DCAEngine) totalQtyFor(session model.Session) float64 {
+	if last, ok := d.totalQtyChecked[session.ID]; ok && time.Since(last) < totalQtyRefreshInterval {
+		return d.totalQty[session.ID]
+	}
+	d.totalQtyChecked[session.ID] = time.Now()
+
+	var totalQty float64
+	var startedAtClause string
+	args := []any{session.ID, session.Symbol}
+	if session.StartedAt != nil {
+		startedAtClause = " AND created_at >= ?"
+		args = append(args, *session.StartedAt)
+	}
+	if err := d.db.Get(&totalQty,
+		d.db.Rebind(`SELECT COALESCE(SUM(CASE WHEN status='filled' THEN CAST(executed_qty AS REAL) ELSE CAST(quantity AS REAL) END), 0) FROM orders
+		 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
+		args...); err != nil {
+		slog.Warn("dca: fetch totalQty for TP/SL", "session", session.ID, "error", err)
+	}
+	d.totalQty[session.ID] = totalQty
+	return totalQty
+}
+
 // evaluateExit checks take-profit and stop-loss independently of the buy
 // interval. The caller must invoke this before evaluating a scheduled buy.
 func (d *DCAEngine) evaluateExit(session model.Session, cfg DCAConfig, currentPrice float64, priceStr string) (Signal, bool) {
 	if cfg.TakeProfitPct > 0 || cfg.StopLossPct > 0 {
 		if avgPrice, ok := d.avgBuyPrice[session.ID]; ok && avgPrice > 0 {
-			var totalQty float64
-			var startedAtClause string
-			args := []any{session.ID, session.Symbol}
-			if session.StartedAt != nil {
-				startedAtClause = " AND created_at >= ?"
-				args = append(args, *session.StartedAt)
-			}
-			if err := d.db.Get(&totalQty,
-				d.db.Rebind(`SELECT COALESCE(SUM(CASE WHEN status='filled' THEN CAST(executed_qty AS REAL) ELSE CAST(quantity AS REAL) END), 0) FROM orders
-				 WHERE session_id=? AND symbol=? AND side='buy' AND status IN ('filled','signal')`+startedAtClause),
-				args...); err != nil {
-				slog.Warn("dca: fetch totalQty for TP/SL", "session", session.ID, "error", err)
-			}
+			totalQty := d.totalQtyFor(session)
 
 			if cfg.TakeProfitPct > 0 && currentPrice >= avgPrice*(1+cfg.TakeProfitPct/100) && totalQty > 0 {
 				qtyStr := strconv.FormatFloat(math.Round(totalQty*1e8)/1e8, 'f', 8, 64)

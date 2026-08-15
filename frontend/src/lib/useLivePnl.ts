@@ -10,7 +10,7 @@ export function useLivePnl(liveIds: number[]): Record<number, { realized: number
       queryFn: () => api.sessions.getPnL(id),
       enabled: liveIds.length > 0,
       staleTime: 30_000,
-      refetchInterval: 60_000,
+      refetchInterval: 120_000,
     })),
   })
 

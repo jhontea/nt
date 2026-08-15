@@ -92,7 +92,7 @@ export default function GridPage() {
       queryFn: () => api.sessions.getPortfolio(id),
       enabled: isAuthenticated && paperIds.length > 0,
       staleTime: 10_000,
-      refetchInterval: 15_000,
+      refetchInterval: 30_000,
     })),
   })
 
