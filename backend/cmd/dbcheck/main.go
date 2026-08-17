@@ -17,6 +17,37 @@ import (
 )
 
 func main() {
+	// SQLite-only subcommands do not need Neon.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "sqlite":
+			path := os.Getenv("SQLITE_PATH")
+			if path == "" {
+				fmt.Println("SQLITE_PATH env var is required")
+				os.Exit(1)
+			}
+			inspectSQLite(path)
+			return
+		case "smoke":
+			path := os.Getenv("SQLITE_PATH")
+			if path == "" {
+				fmt.Println("SQLITE_PATH env var is required")
+				os.Exit(1)
+			}
+			smokeSQLite(path)
+			return
+		case "backup":
+			path := os.Getenv("SQLITE_PATH")
+			out := os.Getenv("BACKUP_PATH")
+			if path == "" || out == "" {
+				fmt.Println("SQLITE_PATH and BACKUP_PATH env vars are required")
+				os.Exit(1)
+			}
+			backupSQLite(path, out)
+			return
+		}
+	}
+
 	dsn := os.Getenv("NEON_DSN")
 	if dsn == "" {
 		fmt.Println("NEON_DSN env var is required")
@@ -53,30 +84,6 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("MIGRATE OK ->", path)
-		return
-	}
-
-	// smoke: open a SQLite file through the app's real NewDB/Migrate path and
-	// exercise a few repository calls against it.
-	if len(os.Args) > 1 && os.Args[1] == "smoke" {
-		path := os.Getenv("SQLITE_PATH")
-		if path == "" {
-			fmt.Println("SQLITE_PATH env var is required")
-			os.Exit(1)
-		}
-		smokeSQLite(path)
-		return
-	}
-
-	// backup: create a consistent snapshot of a live SQLite DB via VACUUM INTO.
-	if len(os.Args) > 1 && os.Args[1] == "backup" {
-		path := os.Getenv("SQLITE_PATH")
-		out := os.Getenv("BACKUP_PATH")
-		if path == "" || out == "" {
-			fmt.Println("SQLITE_PATH and BACKUP_PATH env vars are required")
-			os.Exit(1)
-		}
-		backupSQLite(path, out)
 		return
 	}
 
@@ -164,6 +171,93 @@ func main() {
 	run(ctx, conn, "== 15. ORDERS BY DAY (all, for peak) ==",
 		`SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, count(*) AS cnt
 		 FROM orders GROUP BY 1 ORDER BY 2 DESC LIMIT 20`)
+}
+
+// inspectSQLite prints a human-readable "dashboard" of a SQLite DB — table
+// sizes, row counts, running sessions, recent orders/trades, activity by day —
+// so you can see what is happening on the VPS without a web console.
+func inspectSQLite(path string) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		fmt.Println("stat ERROR:", err)
+		return
+	}
+	db, err := sqlx.Open("sqlite", "file:"+path+"?_pragma=busy_timeout(5000)")
+	if err != nil {
+		fmt.Println("open ERROR:", err)
+		return
+	}
+	defer db.Close()
+
+	fmt.Printf("== SQLITE FILE ==\n  %s  (%.1f KB, modified %s)\n", path, float64(fi.Size())/1024, fi.ModTime().Format("2006-01-02 15:04:05"))
+	if _, err := os.Stat(path + "-wal"); err == nil {
+		if wfi, err := os.Stat(path + "-wal"); err == nil {
+			fmt.Printf("  WAL file present (%.1f KB) — DB is open by a running process\n", float64(wfi.Size())/1024)
+		}
+	}
+
+	var tables []string
+	if err := db.Select(&tables, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"); err != nil {
+		fmt.Println("list tables ERROR:", err)
+		return
+	}
+	fmt.Println("\n== TABLE ROW COUNTS ==")
+	for _, t := range tables {
+		var n int
+		if err := db.Get(&n, fmt.Sprintf("SELECT COUNT(*) FROM %q", t)); err != nil {
+			fmt.Printf("  %-20s ERROR %v\n", t, err)
+			continue
+		}
+		fmt.Printf("  %-20s %d\n", t, n)
+	}
+
+	runSQLite(db, "== RUNNING SESSIONS ==", `SELECT id, name, strategy, mode, symbol, status, started_at FROM sessions WHERE status='running' ORDER BY id`)
+	runSQLite(db, "== ALL SESSIONS (last 15) ==", `SELECT id, name, strategy, mode, symbol, status, started_at, stopped_at FROM sessions ORDER BY id DESC LIMIT 15`)
+	runSQLite(db, "== RECENT ORDERS (last 15) ==", `SELECT id, session_id, symbol, side, status, price, quantity, executed_qty, created_at FROM orders ORDER BY id DESC LIMIT 15`)
+	runSQLite(db, "== RECENT TRADES (last 10) ==", `SELECT id, session_id, symbol, side, price, quantity, pnl, traded_at FROM trades ORDER BY id DESC LIMIT 10`)
+	runSQLite(db, "== ORDERS BY DAY (last 14) ==", `SELECT substr(created_at,1,10) AS day, count(*) AS cnt FROM orders GROUP BY day ORDER BY day DESC LIMIT 14`)
+	runSQLite(db, "== ORDERS BY STATUS ==", `SELECT status, count(*) AS cnt FROM orders GROUP BY status ORDER BY cnt DESC`)
+	runSQLite(db, "== ORDERS BY SESSION (top 10) ==", `SELECT session_id, count(*) AS cnt FROM orders GROUP BY session_id ORDER BY cnt DESC LIMIT 10`)
+	runSQLite(db, "== INDEXES ==", `SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' ORDER BY tbl_name, name`)
+}
+
+// runSQLite prints a simple tab-separated table from a sqlx query.
+func runSQLite(db *sqlx.DB, title, query string) {
+	fmt.Printf("\n%s\n", title)
+	rows, err := db.Queryx(query)
+	if err != nil {
+		fmt.Println("  ERROR:", err)
+		return
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		fmt.Println("  ERROR:", err)
+		return
+	}
+	fmt.Println("  | " + strings.Join(cols, " | ") + " |")
+	for rows.Next() {
+		vals, err := rows.SliceScan()
+		if err != nil {
+			fmt.Println("  row error:", err)
+			return
+		}
+		parts := make([]string, len(vals))
+		for i, v := range vals {
+			switch t := v.(type) {
+			case time.Time:
+				parts[i] = t.Format("2006-01-02 15:04:05")
+			case []byte:
+				parts[i] = string(t)
+			case nil:
+				parts[i] = "NULL"
+			default:
+				parts[i] = fmt.Sprintf("%v", t)
+			}
+		}
+		fmt.Println("  | " + strings.Join(parts, " | ") + " |")
+	}
 }
 
 // backupSQLite creates a consistent snapshot of a live SQLite file using

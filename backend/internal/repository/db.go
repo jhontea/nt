@@ -3,6 +3,8 @@ package repository
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -21,7 +23,17 @@ func NewDB(cfg *config.Config) (*sqlx.DB, error) {
 
 	dsn := cfg.DSN()
 	if driver == "sqlite" {
+		// Ensure the parent directory exists — SQLite does not create it and
+		// fails with "unable to open database file" otherwise.
+		if dir := filepath.Dir(cfg.DBPath); dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return nil, fmt.Errorf("create sqlite dir %q: %w", dir, err)
+			}
+		}
 		dsn = sqliteDSN(cfg.DBPath)
+		log.Printf("db: driver=sqlite path=%s", cfg.DBPath)
+	} else {
+		log.Printf("db: driver=pgx dsn_host=%s db=%s", cfg.DBHost, cfg.DBName)
 	}
 
 	db, err := sqlx.Open(driver, dsn)
