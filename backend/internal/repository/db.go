@@ -1,25 +1,54 @@
 package repository
 
 import (
+	"fmt"
 	"log"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/user/nt/internal/config"
+	_ "modernc.org/sqlite"
 )
 
+// NewDB opens the configured database. Default is PostgreSQL (pgx); set
+// DB_DRIVER=sqlite (with DB_PATH pointing to a file) to use a local SQLite
+// database instead.
 func NewDB(cfg *config.Config) (*sqlx.DB, error) {
-	driver := "pgx"
-	db, err := sqlx.Open(driver, cfg.DSN())
+	driver := cfg.DBDriver
+	if driver == "" {
+		driver = "pgx"
+	}
+
+	dsn := cfg.DSN()
+	if driver == "sqlite" {
+		dsn = sqliteDSN(cfg.DBPath)
+	}
+
+	db, err := sqlx.Open(driver, dsn)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(cfg.DBMaxConnections)
-	db.SetMaxIdleConns(cfg.DBMaxIdleConns)
+
+	if driver == "sqlite" {
+		// SQLite is single-writer; keep the pool small and rely on WAL for
+		// concurrent readers.
+		db.SetMaxOpenConns(5)
+		db.SetMaxIdleConns(1)
+	} else {
+		db.SetMaxOpenConns(cfg.DBMaxConnections)
+		db.SetMaxIdleConns(cfg.DBMaxIdleConns)
+	}
+
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 	return db, nil
+}
+
+// sqliteDSN builds a modernc.org/sqlite DSN with WAL mode and a busy timeout so
+// concurrent readers and the single writer work reliably on a local file.
+func sqliteDSN(path string) string {
+	return "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)"
 }
 
 func Migrate(db *sqlx.DB) error {
@@ -64,21 +93,12 @@ func Migrate(db *sqlx.DB) error {
 			log.Printf("migrate: %v", err)
 		}
 	} else {
-		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN initial_balance REAL DEFAULT NULL"); err != nil {
-			log.Printf("migrate: %v", err)
-		}
-		if err := logExec(db, "ALTER TABLE sessions ADD COLUMN notes TEXT DEFAULT ''"); err != nil {
-			log.Printf("migrate: %v", err)
-		}
-		if err := logExec(db, "ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''"); err != nil {
-			log.Printf("migrate: %v", err)
-		}
-		if err := logExec(db, "ALTER TABLE orders ADD COLUMN executed_quote_qty TEXT DEFAULT '0'"); err != nil {
-			log.Printf("migrate: %v", err)
-		}
-		if err := logExec(db, "ALTER TABLE orders ADD COLUMN client_id TEXT DEFAULT ''"); err != nil {
-			log.Printf("migrate: %v", err)
-		}
+		// SQLite cannot express "ADD COLUMN IF NOT EXISTS" — guard manually.
+		migrateSQLiteAddColumn(db, "sessions", "initial_balance", "REAL DEFAULT NULL")
+		migrateSQLiteAddColumn(db, "sessions", "notes", "TEXT DEFAULT ''")
+		migrateSQLiteAddColumn(db, "users", "email", "TEXT NOT NULL DEFAULT ''")
+		migrateSQLiteAddColumn(db, "orders", "executed_quote_qty", "TEXT DEFAULT '0'")
+		migrateSQLiteAddColumn(db, "orders", "client_id", "TEXT DEFAULT ''")
 	}
 	if err := logExec(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id) WHERE client_id <> ''"); err != nil {
 		log.Printf("migrate: %v", err)
@@ -106,6 +126,22 @@ func Migrate(db *sqlx.DB) error {
 func logExec(db *sqlx.DB, query string) error {
 	_, err := db.Exec(query)
 	return err
+}
+
+// migrateSQLiteAddColumn adds a column to a SQLite table only if it does not
+// already exist (SQLite lacks "ADD COLUMN IF NOT EXISTS").
+func migrateSQLiteAddColumn(db *sqlx.DB, table, column, definition string) {
+	var n int
+	if err := db.Get(&n, fmt.Sprintf("SELECT COUNT(*) FROM pragma_table_info(%q) WHERE name = %q", table, column)); err != nil {
+		log.Printf("migrate: check column %s.%s: %v", table, column, err)
+		return
+	}
+	if n > 0 {
+		return
+	}
+	if err := logExec(db, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition)); err != nil {
+		log.Printf("migrate: %v", err)
+	}
 }
 
 const pgSchema = `

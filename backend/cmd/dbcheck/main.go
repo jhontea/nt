@@ -10,6 +10,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jmoiron/sqlx"
+	"github.com/user/nt/internal/config"
+	"github.com/user/nt/internal/repository"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -33,6 +37,46 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "apply" {
 		applyIndexes(ctx, conn)
+		return
+	}
+
+	// migrate: copy all app tables from Neon (source, NEON_DSN) into a local
+	// SQLite file (target, SQLITE_PATH).
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		path := os.Getenv("SQLITE_PATH")
+		if path == "" {
+			fmt.Println("SQLITE_PATH env var is required")
+			os.Exit(1)
+		}
+		if err := migrateNeonToSQLite(ctx, conn, path); err != nil {
+			fmt.Println("MIGRATE ERROR:", err)
+			os.Exit(1)
+		}
+		fmt.Println("MIGRATE OK ->", path)
+		return
+	}
+
+	// smoke: open a SQLite file through the app's real NewDB/Migrate path and
+	// exercise a few repository calls against it.
+	if len(os.Args) > 1 && os.Args[1] == "smoke" {
+		path := os.Getenv("SQLITE_PATH")
+		if path == "" {
+			fmt.Println("SQLITE_PATH env var is required")
+			os.Exit(1)
+		}
+		smokeSQLite(path)
+		return
+	}
+
+	// backup: create a consistent snapshot of a live SQLite DB via VACUUM INTO.
+	if len(os.Args) > 1 && os.Args[1] == "backup" {
+		path := os.Getenv("SQLITE_PATH")
+		out := os.Getenv("BACKUP_PATH")
+		if path == "" || out == "" {
+			fmt.Println("SQLITE_PATH and BACKUP_PATH env vars are required")
+			os.Exit(1)
+		}
+		backupSQLite(path, out)
 		return
 	}
 
@@ -120,6 +164,169 @@ func main() {
 	run(ctx, conn, "== 15. ORDERS BY DAY (all, for peak) ==",
 		`SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, count(*) AS cnt
 		 FROM orders GROUP BY 1 ORDER BY 2 DESC LIMIT 20`)
+}
+
+// backupSQLite creates a consistent snapshot of a live SQLite file using
+// VACUUM INTO (safe while the app is writing; no downtime).
+func backupSQLite(path, out string) {
+	db, err := sqlx.Open("sqlite", "file:"+path)
+	if err != nil {
+		fmt.Println("open ERROR:", err)
+		return
+	}
+	defer db.Close()
+
+	quoted := "'" + strings.ReplaceAll(out, "'", "''") + "'"
+	if _, err := db.Exec("VACUUM INTO " + quoted); err != nil {
+		fmt.Println("VACUUM INTO ERROR:", err)
+		return
+	}
+	fmt.Println("BACKUP OK ->", out)
+}
+
+// smokeSQLite opens a SQLite file using the app's real NewDB (driver selection,
+// WAL pragmas, pool) and Migrate, then exercises repository calls to prove the
+// migrated file is usable by the application.
+func smokeSQLite(path string) {
+	cfg := &config.Config{DBDriver: "sqlite", DBPath: path}
+	db, err := repository.NewDB(cfg)
+	if err != nil {
+		fmt.Println("NewDB ERROR:", err)
+		return
+	}
+	defer db.Close()
+
+	if err := repository.Migrate(db); err != nil {
+		fmt.Println("Migrate ERROR:", err)
+		return
+	}
+
+	sr := repository.NewSessionRepo(db)
+	running, err := sr.ListRunning(context.Background())
+	if err != nil {
+		fmt.Println("ListRunning ERROR:", err)
+		return
+	}
+	fmt.Printf("smoke: %d running sessions (Migrate idempotent OK)\n", len(running))
+	for _, s := range running {
+		fmt.Printf("  session %d %q %s/%s status=%s created=%s\n",
+			s.ID, s.Name, s.Strategy, s.Mode, s.Status, s.CreatedAt.Format(time.RFC3339))
+	}
+
+	var orders, trades int
+	_ = db.Get(&orders, "SELECT COUNT(*) FROM orders")
+	_ = db.Get(&trades, "SELECT COUNT(*) FROM trades")
+	fmt.Printf("smoke: orders=%d trades=%d\n", orders, trades)
+	fmt.Println("SMOKE OK ->", path)
+}
+
+// migrateNeonToSQLite creates the SQLite schema via repository.Migrate and
+// copies every app table from the source Neon connection into the target file.
+func migrateNeonToSQLite(ctx context.Context, src *pgx.Conn, path string) error {
+	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	dst, err := sqlx.Open("sqlite", dsn)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if err := repository.Migrate(dst); err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+
+	tables := []string{"users", "api_keys", "sessions", "orders", "trades", "strategy_signals", "candles"}
+	for _, t := range tables {
+		if err := copyTable(ctx, src, dst, t); err != nil {
+			return err
+		}
+	}
+
+	// Verify round-trip reads, including a timestamp scan.
+	var users, sessions, orders, trades int
+	if err := dst.Get(&users, "SELECT COUNT(*) FROM users"); err != nil {
+		return fmt.Errorf("verify users: %w", err)
+	}
+	_ = dst.Get(&sessions, "SELECT COUNT(*) FROM sessions")
+	_ = dst.Get(&orders, "SELECT COUNT(*) FROM orders")
+	_ = dst.Get(&trades, "SELECT COUNT(*) FROM trades")
+	fmt.Printf("verify -> users=%d sessions=%d orders=%d trades=%d\n", users, sessions, orders, trades)
+
+	var created time.Time
+	if err := dst.Get(&created, "SELECT created_at FROM sessions ORDER BY id LIMIT 1"); err != nil {
+		fmt.Println("WARN: time scan from sessions:", err)
+	} else {
+		fmt.Println("verify time scan OK:", created.Format(time.RFC3339))
+	}
+	return nil
+}
+
+// copyTable copies all rows of a table from the source connection into the
+// target SQLite database using explicit column names (order-independent).
+func copyTable(ctx context.Context, src *pgx.Conn, dst *sqlx.DB, table string) error {
+	rows, err := src.Query(ctx, "SELECT * FROM "+table)
+	if err != nil {
+		return fmt.Errorf("source %s: %w", table, err)
+	}
+	defer rows.Close()
+
+	fields := rows.FieldDescriptions()
+	cols := make([]string, len(fields))
+	for i, f := range fields {
+		cols[i] = string(f.Name)
+	}
+	insert := "INSERT INTO " + table + " (" + strings.Join(cols, ",") + ") VALUES (" +
+		strings.TrimSuffix(strings.Repeat("?,", len(cols)), ",") + ")"
+
+	var batch [][]any
+	for rows.Next() {
+		vals, err := rows.Values()
+		if err != nil {
+			return err
+		}
+		batch = append(batch, vals)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	tx, err := dst.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, vals := range batch {
+		conv := make([]any, len(vals))
+		for i, v := range vals {
+			conv[i] = convertValue(v)
+		}
+		if _, err := tx.Exec(insert, conv...); err != nil {
+			return fmt.Errorf("insert %s: %w", table, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	fmt.Printf("copied %s: %d rows\n", table, len(batch))
+	return nil
+}
+
+// convertValue normalizes pgx value types for the SQLite driver.
+func convertValue(v any) any {
+	switch t := v.(type) {
+	case time.Time:
+		// SQLite's native datetime format (same as CURRENT_TIMESTAMP) —
+		// known to round-trip via the app's own code paths.
+		return t.UTC().Format("2006-01-02 15:04:05")
+	case bool:
+		if t {
+			return 1
+		}
+		return 0
+	case []byte:
+		return string(t)
+	default:
+		return v
+	}
 }
 
 // applyIndexes creates the missing indexes for the hot query paths.

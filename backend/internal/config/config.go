@@ -31,6 +31,8 @@ type Config struct {
 	DBUser           string
 	DBPassword       string
 	DBSSLMode        string
+	DBDriver         string // "pgx" (default) or "sqlite"
+	DBPath           string // sqlite file path, used when DBDriver=sqlite
 	DBMaxConnections int
 	DBMaxIdleConns   int
 }
@@ -67,6 +69,8 @@ func Load() *Config {
 		DBUser:           getEnv("DB_USER", "postgres"),
 		DBPassword:       os.Getenv("DB_PASSWORD"),
 		DBSSLMode:        getEnv("DB_SSLMODE", "disable"),
+		DBDriver:         getEnv("DB_DRIVER", "pgx"),
+		DBPath:           getEnv("DB_PATH", "data/navisha.db"),
 		DBMaxConnections: getEnvInt("DB_MAX_CONNECTIONS", 25),
 		DBMaxIdleConns:   getEnvInt("DB_MAX_IDLE_CONNECTIONS", 5),
 	}
